@@ -165,12 +165,40 @@ export async function myEventStatus(id: string) {
   return (r as any)?.status as string | undefined;
 }
 export const eventParticipants = (id: string) => rpc<any[]>("event_participants_list", { p_event: id });
-export const eventCreate = (a: { title: string; place: string; startsAt: string; capacity: number; kind: string; description?: string; theme?: string; rules?: string }) =>
-  rpc<string>("event_create", { p_title: a.title, p_place_name: a.place, p_starts_at: a.startsAt, p_capacity: a.capacity, p_kind: a.kind, p_description: a.description || null, p_theme: a.theme || null, p_rules: a.rules || null });
+export const eventCreate = (a: {
+  title: string; place: string; startsAt: string; capacity: number; kind: string;
+  description?: string; theme?: string; rules?: string; placeLat?: number | null; placeLng?: number | null; pinId?: string | null;
+}) =>
+  rpc<string>("event_create", {
+    p_title: a.title, p_place_name: a.place, p_starts_at: a.startsAt, p_capacity: a.capacity, p_kind: a.kind,
+    p_description: a.description || null, p_theme: a.theme || null, p_rules: a.rules || null,
+    p_place_lat: a.placeLat ?? null, p_place_lng: a.placeLng ?? null, p_pin: a.pinId ?? null,
+  });
 export const eventJoin = (id: string) => rpc<any>("event_join", { p_event: id });
 export const eventLeave = (id: string) => rpc("event_leave", { p_event: id });
-export const eventCheckin = (id: string, code: string) => rpc("event_checkin", { p_event: id, p_code: code });
-export const eventCheckinCode = (id: string) => rpc<string>("event_checkin_code", { p_event: id });
+export const eventCheckin = (id: string, code: string, lat: number, lng: number) =>
+  rpc("event_checkin", { p_event: id, p_code: code, p_lat: lat, p_lng: lng });
+export const eventRevealCheckinCode = (id: string, lat: number, lng: number) =>
+  rpc<{ code: string; notified: boolean }>("event_reveal_checkin_code", { p_event: id, p_lat: lat, p_lng: lng });
+export const travelAddKm = (km: number) => rpc<number>("travel_add_km", { p_km: km });
+
+export type AttractionCategory = "questions" | "games" | "challenges";
+export async function attractionSuggestions(category?: AttractionCategory) {
+  let q = supabase.from("attraction_suggestions").select("*").eq("is_active", true).order("sort");
+  if (category) q = q.eq("category", category);
+  return must(q);
+}
+export async function eventAttractions(eventId: string) {
+  return must(supabase.from("event_attractions").select("*").eq("event_id", eventId).order("created_at"));
+}
+export async function addEventAttraction(eventId: string, category: AttractionCategory, title: string, body = "") {
+  return must(supabase.from("event_attractions").insert({
+    event_id: eventId, category, title: title.trim(), body: body.trim(), created_by: await uid(),
+  }));
+}
+export async function removeEventAttraction(id: string) {
+  return must(supabase.from("event_attractions").delete().eq("id", id));
+}
 export async function eventConversationId(id: string) {
   const r = await must(supabase.from("conversations").select("id").eq("kind", "event").eq("ref_id", id).maybeSingle());
   return (r as any)?.id as string | undefined;

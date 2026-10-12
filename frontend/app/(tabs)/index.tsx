@@ -43,7 +43,6 @@ export default function Discover() {
     load();
   }, [load]);
 
-  // Debounced pin query — map camera is NOT reset when pins arrive (inject updates).
   const onViewChange = useCallback(
     (v: { lat: number; lng: number; zoom: number }) => {
       view.current = v;
@@ -60,10 +59,22 @@ export default function Discover() {
         lat: p.lat,
         lng: p.lng,
         title: p.title,
+        label: p.title,
         color: p.is_official ? colors.rarityLegendary : colors.brandPrimary,
+        coverUrl: p.cover_url || undefined,
       })),
     [pins, colors],
   );
+
+  const openNewPin = (lat?: number, lng?: number) => {
+    const v = view.current;
+    const q = new URLSearchParams({
+      lat: String(lat ?? v.lat),
+      lng: String(lng ?? v.lng),
+      zoom: String(Math.round(v.zoom)),
+    });
+    router.push(`/pin/new?${q.toString()}`);
+  };
 
   const locate = async () => {
     const cur = await Location.getForegroundPermissionsAsync();
@@ -83,15 +94,17 @@ export default function Discover() {
         zoom={center.zoom}
         markers={markers}
         fitBounds={false}
+        emitClicks
         followCenterToken={followToken}
         onMarkerPress={(id) => router.push(`/pin/${id}`)}
+        onMapPress={(lat, lng) => openNewPin(lat, lng)}
         onViewChange={onViewChange}
       />
       <View style={{ pointerEvents: "box-none", position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm }}>
         <View style={{ marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.md, borderWidth: 1, borderColor: colors.border }}>
           <View style={{ flex: 1 }}>
             <Title size={20}>Odkrywaj</Title>
-            <Body muted testID="discover-pin-count">{error ? error : `${pins.length} miejsc w tym widoku`}</Body>
+            <Body muted testID="discover-pin-count">{error ? error : `${pins.length} miejsc · stuknij mapę = nowy pin`}</Body>
           </View>
           <IconButton testID="discover-locate-button" icon="crosshairs-gps" onPress={locate} />
         </View>
@@ -103,7 +116,7 @@ export default function Discover() {
       </View>
       <View style={{ pointerEvents: "box-none", position: "absolute", left: spacing.lg, right: spacing.lg, bottom: bottomChrome + spacing.lg, flexDirection: "row", gap: spacing.md }}>
         <Button testID="discover-route-button" title="Gastro-Trasa" icon="map-marker-path" style={{ flex: 1 }} onPress={() => router.push("/route")} />
-        <Button testID="discover-add-pin-button" title="Pin" icon="map-marker-plus" variant="secondary" onPress={() => router.push("/pin/new")} />
+        <Button testID="discover-add-pin-button" title="Pin" icon="map-marker-plus" variant="secondary" onPress={() => openNewPin()} />
       </View>
     </View>
   );

@@ -38,14 +38,18 @@ const NOMINATIM_HEADERS = {
   "User-Agent": "Yummeet/1.0 (github.com/lukaslordofficial-cmyk/Yummeet)",
 };
 
-/** Format: kraj — miasto — ulica */
+/** Format: [nazwa POI —] kraj — miasto — ulica */
 export function formatAddressLabel(address: Record<string, string> | undefined, fallback: string, name?: string): string {
   const a = address || {};
   const country = a.country || "";
   const city = a.city || a.town || a.village || a.municipality || a.city_district || a.county || "";
-  const street = [a.road, a.house_number].filter(Boolean).join(" ") || a.pedestrian || a.suburb || a.neighbourhood || name || "";
-  const parts = [country, city, street].filter(Boolean);
-  return parts.length ? parts.join(" — ") : fallback;
+  const street = [a.road, a.house_number].filter(Boolean).join(" ") || a.pedestrian || a.suburb || a.neighbourhood || "";
+  const rest = [country, city, street].filter(Boolean);
+  const poi = (name || "").trim();
+  if (poi && poi !== city && poi !== street && !rest.includes(poi)) {
+    return rest.length ? `${poi} — ${rest.join(" — ")}` : poi;
+  }
+  return rest.length ? rest.join(" — ") : fallback;
 }
 
 async function osrmFetch(base: string, points: LatLng[]): Promise<RouteResult> {
@@ -92,18 +96,19 @@ export const osrmProvider: RoutingProvider = {
 export const ROUTING_PROVIDERS: RoutingProvider[] = [osrmProvider];
 export const routingProvider = (): RoutingProvider => ROUTING_PROVIDERS[0];
 
-/** Forward geocoding via Nominatim (addressdetails → kraj — miasto — ulica). */
+/** Forward geocoding via Nominatim — addresses and named POIs (np. Warszawa Dworzec PKP). */
 export async function geocode(query: string, lang = "pl"): Promise<GeocodeResult[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   const url =
-    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6` +
-    `&accept-language=${encodeURIComponent(lang)}&q=${encodeURIComponent(q)}`;
+    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&namedetails=1&limit=8` +
+    `&countrycodes=pl&accept-language=${encodeURIComponent(lang)}&q=${encodeURIComponent(q)}`;
   const res = await fetch(url, { headers: NOMINATIM_HEADERS });
   if (!res.ok) return [];
   const data = await res.json();
   return (data ?? []).map((r: any) => {
-    const title = formatAddressLabel(r.address, r.display_name as string, r.name);
+    const poiName = r.namedetails?.name || r.name || undefined;
+    const title = formatAddressLabel(r.address, r.display_name as string, poiName);
     return {
       title,
       lat: parseFloat(r.lat),

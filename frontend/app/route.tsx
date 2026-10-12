@@ -8,12 +8,14 @@ import { AppMapView } from "@/src/components/map/AppMapView";
 import { Body, Button, Card, Chip, ChipRow, Field, Header, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { CUISINES } from "@/src/lib/cuisines";
-import { pinsAlongRoute } from "@/src/lib/data";
-import { formatDuration, formatKm, simplify, type LatLng } from "@/src/lib/geo";
-import { getCurrentPosition } from "@/src/lib/location";
+import { pinsAlongRoute, travelAddKm } from "@/src/lib/data";
+import { formatDuration, formatKm, haversineM, simplify, type LatLng } from "@/src/lib/geo";
+import { getCurrentPosition, watchPosition } from "@/src/lib/location";
 import { geocode, reverseGeocode, routingProvider, type GeocodeResult, type TravelMode } from "@/src/lib/routing";
 import { radius, spacing, useTheme } from "@/src/theme";
 import type { PinMarker } from "@/src/types";
+
+const NEAR_PIN_M = 180;
 
 function PointInput({
   label,
@@ -117,7 +119,7 @@ function PointInput({
             label={label}
             value={q}
             onChangeText={onChangeText}
-            placeholder="np. Polska — Warszawa — Marszałkowska"
+            placeholder="np. Warszawa Dworzec PKP"
             onSubmitEditing={() => void search(q)}
             returnKeyType="search"
           />
@@ -132,7 +134,7 @@ function PointInput({
           ✓ {value.title}{`\n`}📍 {value.lat.toFixed(5)}, {value.lng.toFixed(5)}
         </Body>
       ) : null}
-      {busy && !mapOpen ? <Body muted>Szukam adresów…</Body> : null}
+      {busy && !mapOpen ? <Body muted>Szukam adresów i obiektów…</Body> : null}
       {results.map((r, i) => (
         <Card
           key={`${r.lat}-${r.lng}-${i}`}
@@ -153,8 +155,8 @@ function PointInput({
           <Header title="Wybierz na mapie" right={<Button testID={`${testID}-map-close`} title="Zamknij" variant="ghost" onPress={() => setMapOpen(false)} />} />
           <View style={{ flex: 1 }}>
             <AppMapView
-              center={pick ?? { lat: 20, lng: 0 }}
-              zoom={pick ? 14 : 2}
+              center={pick ?? { lat: 52.23, lng: 21.01 }}
+              zoom={pick ? 14 : 6}
               pickMode
               fitBounds={false}
               followCenterToken={mapOpen ? 1 : 0}
@@ -187,6 +189,15 @@ export default function RoutePlanner() {
   const [pins, setPins] = useState<PinMarker[]>([]);
   const [busy, setBusy] = useState(false);
   const [routeFollow, setRouteFollow] = useState(0);
+  const [tracking, setTracking] = useState(false);
+  const [trackedM, setTrackedM] = useState(0);
+  const lastPos = useRef<LatLng | null>(null);
+  const alerted = useRef<Set<string>>(new Set());
+  const stopWatch = useRef<(() => void) | null>(null);
+  const pinsRef = useRef(pins);
+  pinsRef.current = pins;
+
+  useEffect(() => () => { stopWatch.current?.(); }, []);
 
   const run = async () => {
     if (!a || !b) return toast("Wybierz punkt A i B", "error");
@@ -198,6 +209,54 @@ export default function RoutePlanner() {
       setMeta({ d: r.distanceM, t: r.durationS });
       setPins(await pinsAlongRoute(simple.map((p) => [p.lng, p.lat] as [number, number]), buffer, cuisine));
       setRouteFollow(Date.now());
+      alerted.current = new Set();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onTrackPoint = (pos: LatLng) => {
+    if (lastPos.current) {
+      const step = haversineM(lastPos.current, pos);
+      if (step > 2 && step < 800) setTrackedM((m) => m + step);
+    }
+    lastPos.current = pos;
+    for (const p of pinsRef.current) {
+      if (alerted.current.has(p.id)) continue;
+      if (haversineM(pos, { lat: p.lat, lng: p.lng }) <= NEAR_PIN_M) {
+        alerted.current.add(p.id);
+        toast(`W pobliżu: ${p.title}`, "info");
+      }
+    }
+  };
+
+  const startTracking = async () => {
+    if (line.length < 2) return toast("Najpierw wyznacz trasę", "info");
+    const remove = await watchPosition(onTrackPoint, { distanceInterval: 12, timeInterval: 3000 });
+    if (!remove) return toast("Włącz GPS, żeby monitorować trasę.", "info");
+    stopWatch.current?.();
+    stopWatch.current = remove;
+    lastPos.current = null;
+    setTrackedM(0);
+    setTracking(true);
+    toast("Start — monitoruję kilometry i lokale przy trasie.", "success");
+  };
+
+  const stopTracking = async () => {
+    stopWatch.current?.();
+    stopWatch.current = null;
+    setTracking(false);
+    const km = Math.round((trackedM / 1000) * 100) / 100;
+    if (km < 0.05) {
+      toast("Za krótki dystans, nic nie zapisano.", "info");
+      return;
+    }
+    setBusy(true);
+    try {
+      await travelAddKm(km);
+      toast(`Zapisano ${km} km w zakładce Km podróży.`, "success");
     } catch (e) {
       toast(errorMessage(e), "error");
     } finally {
@@ -213,8 +272,10 @@ export default function RoutePlanner() {
         id: p.id,
         lat: p.lat,
         lng: p.lng,
-        label: String(i + 1),
+        title: p.title,
+        label: p.title || String(i + 1),
         color: p.is_official ? colors.rarityLegendary : colors.brandPrimary,
+        coverUrl: p.cover_url || undefined,
       })),
     ],
     [a, b, pins, colors],
@@ -258,6 +319,14 @@ export default function RoutePlanner() {
               <Title size={18} testID="route-summary">
                 {meta ? `${formatKm(meta.d)} · ${formatDuration(meta.t)} · ${pins.length} lokali przy trasie` : ""}
               </Title>
+              {tracking ? (
+                <Body testID="route-tracked-km">Śledzę trasę: {(trackedM / 1000).toFixed(2)} km</Body>
+              ) : null}
+              {!tracking ? (
+                <Button testID="route-start-button" title="Start — monitoruj km" icon="play" onPress={() => void startTracking()} />
+              ) : (
+                <Button testID="route-stop-button" title="Stop i zapisz km" icon="stop" variant="secondary" loading={busy} onPress={() => void stopTracking()} />
+              )}
               {pins.map((p, i) => (
                 <Card key={p.id} testID={`route-pin-${p.id}`} onPress={() => router.push(`/pin/${p.id}`)}>
                   <Title size={16}>{i + 1}. {p.title}</Title>

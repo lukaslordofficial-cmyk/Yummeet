@@ -76,7 +76,6 @@ export default function PinDetail() {
           <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
             {pin.is_official ? <Badge label="OFICJALNY LOKAL" color={colors.rarityLegendary} textColor={colors.onSurface} /> : null}
             {pin.cuisine ? <Badge label={pin.cuisine} color={colors.brandTertiary} textColor={colors.onBrandTertiary} /> : null}
-            {pin.price_level ? <Badge label={"zł".repeat(pin.price_level)} color={colors.surfaceTertiary} textColor={colors.onSurfaceTertiary} /> : null}
             {pin.visited ? <Badge testID="pin-visited-badge" label="Odwiedzone ✓" color={colors.success} textColor={colors.onSuccess} /> : null}
           </View>
           {pin.description ? <Body>{pin.description}</Body> : null}

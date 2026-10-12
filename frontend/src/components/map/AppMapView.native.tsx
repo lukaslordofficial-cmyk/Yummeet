@@ -87,6 +87,9 @@ export function AppMapView({
       style={[styles.web, style]}
       javaScriptEnabled
       domStorageEnabled
+      mixedContentMode="always"
+      allowsInlineMediaPlayback
+      setSupportMultipleWindows={false}
       onMessage={(event) => {
         try {
           const data = JSON.parse(event.nativeEvent.data);

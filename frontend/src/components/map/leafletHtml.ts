@@ -6,6 +6,7 @@ export interface MapMarker {
   color?: string;
   /** Optional short text shown inside the marker (e.g. "A", "B", "3"). */
   label?: string;
+  coverUrl?: string;
 }
 
 export type MapShape =
@@ -81,7 +82,9 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
   <style>
     html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background:#F2E6DD; }
     .pin-dot { background:#E05F36; width:16px; height:16px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 2px rgba(224,95,54,0.35); }
-    .pin-label { min-width:22px; height:22px; padding:0 4px; border-radius:11px; border:2px solid #fff; color:#fff; font:700 11px/18px -apple-system,Segoe UI,Roboto,sans-serif; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.3); box-sizing:border-box; }
+    .pin-stack { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .pin-label { max-width:168px; min-height:20px; padding:3px 8px; border-radius:10px; border:2px solid #fff; color:#fff; font:700 11px/13px -apple-system,Segoe UI,Roboto,sans-serif; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.3); box-sizing:border-box; white-space:normal; overflow:visible; word-break:break-word; }
+    .pin-photo { width:40px; height:40px; border-radius:20px; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.35); object-fit:cover; background:#E05F36; display:block; }
     .user-dot { background:#38A342; width:14px; height:14px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 6px rgba(56,163,66,0.25); }
     .draw-dot { background:#FF9F43; width:12px; height:12px; border-radius:50%; border:2px solid #fff; }
   </style>
@@ -99,11 +102,25 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([C.center.lat, C.center.lng], C.zoom);
     L.tileLayer(C.tileUrl, { maxZoom: C.maxZoom, subdomains: 'abc' }).addTo(map);
 
-    function pinIcon(color, label){
+    function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+    function pinIcon(color, label, coverUrl){
+      var bg = color || '#E05F36';
+      var text = esc(label || '');
+      var head = coverUrl
+        ? '<img class="pin-photo" src="'+esc(coverUrl)+'" alt=""/>'
+        : '<div class="pin-dot" style="background:'+bg+'"></div>';
       if (label) {
-        return L.divIcon({ className:'', html:'<div class="pin-label" style="background:'+(color||'#E05F36')+'">'+label+'</div>', iconSize:[22,22], iconAnchor:[11,11] });
+        return L.divIcon({
+          className: '',
+          html: '<div class="pin-stack">'+head+'<div class="pin-label" style="background:'+bg+'" title="'+text+'">'+text+'</div></div>',
+          iconSize: [168, 64],
+          iconAnchor: [84, 56],
+        });
       }
-      return L.divIcon({ className:'', html:'<div class="pin-dot" style="background:'+(color||'#E05F36')+'"></div>', iconSize:[16,16], iconAnchor:[8,8] });
+      if (coverUrl) {
+        return L.divIcon({ className:'', html: head, iconSize:[40,40], iconAnchor:[20,20] });
+      }
+      return L.divIcon({ className:'', html: head, iconSize:[16,16], iconAnchor:[8,8] });
     }
 
     var markerLayer = L.layerGroup().addTo(map);
@@ -119,8 +136,8 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     function renderMarkers(list){
       clearGroup(markerLayer);
       (list||[]).forEach(function(m){
-        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label) });
-        if (m.title) mk.bindTooltip(m.title);
+        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label, m.coverUrl) });
+        if (m.title) mk.bindTooltip(m.title, { direction: 'top', opacity: 0.95 });
         mk.on('click', function(){ send({ type:'markerPress', id: m.id }); });
         markerLayer.addLayer(mk);
       });

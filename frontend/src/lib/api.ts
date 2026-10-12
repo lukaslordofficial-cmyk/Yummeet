@@ -15,16 +15,21 @@ const MESSAGES: Record<string, string> = {
   confirmer_required: "Wybierz osobę, która potwierdzi wykonanie.",
   duel_already_open: "Masz już otwarty pojedynek z tą osobą.",
   move_already_played: "Ruch już zagrany — czekamy na przeciwnika.",
-  too_far_from_place: "Jesteś za daleko od tego miejsca.",
+  too_far_from_place: "Jesteś za daleko od miejsca wydarzenia (wymagane GPS w lokalu).",
   duel_mode_disabled: "Tryb pojedynków jest wyłączony.",
   cannot_duel_self: "Nie możesz wyzwać samego siebie.",
   invalid_evidence: "Dodaj opis dowodu (min. 3 znaki).",
   starts_in_past: "Termin musi być w przyszłości.",
   organizer_cannot_leave: "Organizator nie może opuścić własnego stołu.",
+  organizer_cannot_checkin: "Organizator nie wpisuje kodu — pokaż go gościom na miejscu.",
   invalid_specialization: "Nieznana specjalizacja.",
   not_allowed: "Brak uprawnień.",
-  too_early: "Za wcześnie na potwierdzenie obecności.",
+  too_early: "Kod / check-in dostępne dopiero w dniu i o godzinie wydarzenia.",
+  event_closed: "Okno obecności minęło (max 4 h od startu) albo dzień się skończył.",
   not_joined: "Najpierw dołącz do wydarzenia.",
+  no_venue_coords: "Brak współrzędnych miejsca — przy tworzeniu stołu wskaż lokalizację.",
+  location_required: "Włącz GPS, żeby potwierdzić obecność.",
+  use_reveal_with_gps: "Kod pojawi się po wykryciu GPS na miejscu w dniu wydarzenia.",
 };
 
 export function errorMessage(e: unknown): string {

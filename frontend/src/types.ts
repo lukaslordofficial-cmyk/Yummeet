@@ -19,7 +19,10 @@ export interface Profile {
 export interface Specialization { code: string; name: string; description: string; color: string; icon: string; sort: number }
 export interface LevelDef { level: number; name: string; min_xp: number }
 
-export interface PinMarker { id: string; title: string; lat: number; lng: number; cuisine: string | null; is_official: boolean; score: number | null; review_count: number; distance_m?: number; along?: number }
+export interface PinMarker {
+  id: string; title: string; lat: number; lng: number; cuisine: string | null; is_official: boolean;
+  score: number | null; review_count: number; distance_m?: number; along?: number; cover_url?: string | null;
+}
 
 export interface CardDef {
   id: string; code: string; name: string; lore: string; category: string; kind: CardKind; rarity: Rarity; art_key: string;
@@ -41,5 +44,5 @@ export type Move = "rock" | "paper" | "scissors";
 export interface EventRow {
   id: string; kind: string; title: string; description: string | null; place_name: string; starts_at: string; capacity: number;
   seats_taken: number; theme: string | null; rules: string | null; status: string; discount_text: string | null; is_official: boolean;
-  organizer_id: string | null; pin_id: string | null;
+  organizer_id: string | null; pin_id: string | null; place_lat?: number | null; place_lng?: number | null;
 }
