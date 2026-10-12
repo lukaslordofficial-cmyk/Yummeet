@@ -9,32 +9,66 @@ export interface MapMarker {
 }
 
 export type MapShape =
-  | { type: 'circle'; lat: number; lng: number; radiusM: number }
-  | { type: 'rect'; south: number; west: number; north: number; east: number };
+  | { type: "circle"; lat: number; lng: number; radiusM: number }
+  | { type: "rect"; south: number; west: number; north: number; east: number };
 
 export interface LeafletOptions {
   center: { lat: number; lng: number };
   zoom?: number;
   markers?: MapMarker[];
   showUser?: boolean;
-  pickMode?: boolean; // shows a single draggable pin the user can move
+  pickMode?: boolean;
   polyline?: { lat: number; lng: number }[];
   shape?: MapShape | null;
-  drawMode?: 'circle' | 'rect' | null; // two taps draw an area -> 'areaDrawn' message
-  emitClicks?: boolean; // send 'mapPress' for every tap
-  fitBounds?: boolean; // default true
+  drawMode?: "circle" | "rect" | null;
+  emitClicks?: boolean;
+  fitBounds?: boolean;
   tileUrl?: string;
   maxZoom?: number;
 }
 
+/** Payload injected into a live map without remounting the WebView. */
+export type MapUpdatePayload = {
+  markers?: MapMarker[];
+  polyline?: { lat: number; lng: number }[];
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  /** When true, fly/setView to center (e.g. "locate me"). Default false. */
+  setView?: boolean;
+  fitBounds?: boolean;
+  pickMode?: boolean;
+  emitClicks?: boolean;
+  showUser?: boolean;
+  shape?: MapShape | null;
+};
+
 export function buildLeafletHtml(opts: LeafletOptions): string {
   const {
-    center, zoom = 12, markers = [], showUser = false, pickMode = false, polyline = [], shape = null,
-    drawMode = null, emitClicks = false, fitBounds = true,
-    tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom = 19,
+    center,
+    zoom = 12,
+    markers = [],
+    showUser = false,
+    pickMode = false,
+    polyline = [],
+    shape = null,
+    drawMode = null,
+    emitClicks = false,
+    fitBounds = true,
+    tileUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    maxZoom = 19,
   } = opts;
   const cfg = JSON.stringify({
-    center, zoom, markers, showUser, pickMode, emitClicks, fitBounds, tileUrl, maxZoom, drawMode, shape,
+    center,
+    zoom,
+    markers,
+    showUser,
+    pickMode,
+    emitClicks,
+    fitBounds,
+    tileUrl,
+    maxZoom,
+    drawMode,
+    shape,
     polyline: polyline.map((p) => [Number(p.lat.toFixed(5)), Number(p.lng.toFixed(5))]),
   });
 
@@ -71,45 +105,80 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
       }
       return L.divIcon({ className:'', html:'<div class="pin-dot" style="background:'+(color||'#E05F36')+'"></div>', iconSize:[16,16], iconAnchor:[8,8] });
     }
-    var bounds = [];
 
-    if (C.showUser) {
-      L.marker([C.center.lat, C.center.lng], { icon: L.divIcon({ className:'', html:'<div class="user-dot"></div>', iconSize:[14,14], iconAnchor:[7,7] }) }).addTo(map);
+    var markerLayer = L.layerGroup().addTo(map);
+    var polyLayer = L.layerGroup().addTo(map);
+    var userLayer = L.layerGroup().addTo(map);
+    var shapeLayerGroup = L.layerGroup().addTo(map);
+    var pickMarker = null;
+    var pickModeOn = !!C.pickMode;
+    var emitClicksOn = !!C.emitClicks;
+
+    function clearGroup(g){ g.clearLayers(); }
+
+    function renderMarkers(list){
+      clearGroup(markerLayer);
+      (list||[]).forEach(function(m){
+        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label) });
+        if (m.title) mk.bindTooltip(m.title);
+        mk.on('click', function(){ send({ type:'markerPress', id: m.id }); });
+        markerLayer.addLayer(mk);
+      });
     }
 
-    if (C.polyline.length > 1) {
-      L.polyline(C.polyline, { color:'#E05F36', weight:5, opacity:0.85 }).addTo(map);
-      bounds = bounds.concat(C.polyline);
+    function renderPolyline(line){
+      clearGroup(polyLayer);
+      if (line && line.length > 1) {
+        polyLayer.addLayer(L.polyline(line, { color:'#E05F36', weight:5, opacity:0.85 }));
+      }
+    }
+
+    function renderUser(show, c){
+      clearGroup(userLayer);
+      if (show && c) {
+        userLayer.addLayer(L.marker([c.lat, c.lng], { icon: L.divIcon({ className:'', html:'<div class="user-dot"></div>', iconSize:[14,14], iconAnchor:[7,7] }) }));
+      }
     }
 
     function drawShape(s, style){
       if (!s) return null;
-      if (s.type === 'circle') return L.circle([s.lat, s.lng], Object.assign({ radius: s.radiusM }, style)).addTo(map);
-      return L.rectangle([[s.south, s.west],[s.north, s.east]], style).addTo(map);
+      if (s.type === 'circle') return L.circle([s.lat, s.lng], Object.assign({ radius: s.radiusM }, style));
+      return L.rectangle([[s.south, s.west],[s.north, s.east]], style);
     }
-    var shapeStyle = { color:'#FF9F43', weight:2, fillColor:'#FF9F43', fillOpacity:0.12 };
-    var shapeLayer = drawShape(C.shape, shapeStyle);
-    if (shapeLayer) { try { var sb = shapeLayer.getBounds(); bounds.push([sb.getSouth(), sb.getWest()]); bounds.push([sb.getNorth(), sb.getEast()]); } catch(e){} }
 
-    if (C.pickMode) {
-      var picked = L.marker([C.center.lat, C.center.lng], { draggable: true, icon: pinIcon('#FF9F43') }).addTo(map);
-      picked.on('dragend', function(e){ var ll = e.target.getLatLng(); send({ type:'mapPress', lat: ll.lat, lng: ll.lng }); });
-      map.on('click', function(e){ picked.setLatLng(e.latlng); send({ type:'mapPress', lat: e.latlng.lat, lng: e.latlng.lng }); });
-    } else {
-      C.markers.forEach(function(m){
-        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label) }).addTo(map);
-        if (m.title) mk.bindTooltip(m.title);
-        mk.on('click', function(){ send({ type:'markerPress', id: m.id }); });
-        if (!C.polyline.length && !C.shape) bounds.push([m.lat, m.lng]);
-      });
-      if (C.emitClicks && !C.drawMode) {
-        map.on('click', function(e){ send({ type:'mapPress', lat: e.latlng.lat, lng: e.latlng.lng }); });
+    function renderShape(s){
+      clearGroup(shapeLayerGroup);
+      var layer = drawShape(s, { color:'#FF9F43', weight:2, fillColor:'#FF9F43', fillOpacity:0.12 });
+      if (layer) shapeLayerGroup.addLayer(layer);
+    }
+
+    function ensurePickMarker(lat, lng){
+      if (!pickModeOn) {
+        if (pickMarker) { map.removeLayer(pickMarker); pickMarker = null; }
+        return;
+      }
+      if (!pickMarker) {
+        pickMarker = L.marker([lat, lng], { draggable: true, icon: pinIcon('#FF9F43') }).addTo(map);
+        pickMarker.on('dragend', function(e){ var ll = e.target.getLatLng(); send({ type:'mapPress', lat: ll.lat, lng: ll.lng }); });
+      } else {
+        pickMarker.setLatLng([lat, lng]);
       }
     }
 
-    // Two-tap area drawing: circle (center, edge) or rectangle (corner, corner)
+    map.on('click', function(e){
+      if (pickModeOn) {
+        ensurePickMarker(e.latlng.lat, e.latlng.lng);
+        send({ type:'mapPress', lat: e.latlng.lat, lng: e.latlng.lng });
+        return;
+      }
+      if (emitClicksOn && !C.drawMode) {
+        send({ type:'mapPress', lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    });
+
     if (C.drawMode) {
       var first = null, firstMk = null, preview = null;
+      var shapeStyle = { color:'#FF9F43', weight:2, fillColor:'#FF9F43', fillOpacity:0.12 };
       map.on('click', function(e){
         if (!first) {
           first = e.latlng;
@@ -124,21 +193,53 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
           s = { type:'rect', south: Math.min(first.lat, e.latlng.lat), north: Math.max(first.lat, e.latlng.lat), west: Math.min(first.lng, e.latlng.lng), east: Math.max(first.lng, e.latlng.lng) };
         }
         if (preview) map.removeLayer(preview);
-        preview = drawShape(s, shapeStyle);
+        preview = drawShape(s, shapeStyle); if (preview) preview.addTo(map);
         map.removeLayer(firstMk); first = null;
         send({ type:'areaDrawn', shape: s });
       });
-      map.on('mousemove', function(e){
-        if (!first) return;
-        if (preview) map.removeLayer(preview);
-        var s = C.drawMode === 'circle'
-          ? { type:'circle', lat: first.lat, lng: first.lng, radiusM: map.distance(first, e.latlng) }
-          : { type:'rect', south: Math.min(first.lat, e.latlng.lat), north: Math.max(first.lat, e.latlng.lat), west: Math.min(first.lng, e.latlng.lng), east: Math.max(first.lng, e.latlng.lng) };
-        preview = drawShape(s, { color:'#FF9F43', weight:2, dashArray:'6 6', fillOpacity:0.06 });
-      });
     }
 
-    if (C.fitBounds && bounds.length > 1) { try { map.fitBounds(bounds, { padding:[30,30], maxZoom: 14 }); } catch(e){} }
+    // Initial paint
+    renderMarkers(C.markers);
+    renderPolyline(C.polyline);
+    renderUser(C.showUser, C.center);
+    renderShape(C.shape);
+    if (C.pickMode) ensurePickMarker(C.center.lat, C.center.lng);
+
+    if (C.fitBounds) {
+      var b = [];
+      if (C.polyline && C.polyline.length > 1) b = b.concat(C.polyline);
+      (C.markers||[]).forEach(function(m){ b.push([m.lat, m.lng]); });
+      if (b.length > 1) { try { map.fitBounds(b, { padding:[30,30], maxZoom: 14 }); } catch(e){} }
+    }
+
+    window.__updateMap = function(U){
+      if (!U) return;
+      if (typeof U.pickMode === 'boolean') pickModeOn = U.pickMode;
+      if (typeof U.emitClicks === 'boolean') emitClicksOn = U.emitClicks;
+      if (U.markers) renderMarkers(U.markers);
+      if (U.polyline) {
+        var line = U.polyline.map(function(p){ return [p.lat, p.lng]; });
+        renderPolyline(line);
+      }
+      if (U.shape !== undefined) renderShape(U.shape);
+      if (U.showUser !== undefined) renderUser(!!U.showUser, U.center || map.getCenter());
+      if (pickModeOn && U.center) ensurePickMarker(U.center.lat, U.center.lng);
+      if (!pickModeOn && pickMarker) { map.removeLayer(pickMarker); pickMarker = null; }
+      if (U.setView && U.center) {
+        map.setView([U.center.lat, U.center.lng], U.zoom != null ? U.zoom : map.getZoom());
+      }
+      if (U.fitBounds && U.markers && U.markers.length > 1) {
+        try {
+          map.fitBounds(U.markers.map(function(m){ return [m.lat, m.lng]; }), { padding:[30,30], maxZoom: 14 });
+        } catch(e){}
+      }
+      if (U.fitBounds && U.polyline && U.polyline.length > 1) {
+        try {
+          map.fitBounds(U.polyline.map(function(p){ return [p.lat, p.lng]; }), { padding:[30,30], maxZoom: 14 });
+        } catch(e){}
+      }
+    };
 
     map.on('moveend', function(){ var c = map.getCenter(); send({ type:'view', lat: c.lat, lng: c.lng, zoom: map.getZoom() }); });
     send({ type:'ready' });

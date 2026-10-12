@@ -35,6 +35,11 @@ export function errorMessage(e: unknown): string {
   if (/invalid api key/i.test(raw)) {
     return "Nieprawidłowy klucz Supabase. W frontend/.env wstaw URL i anon key z tego samego projektu (Settings → API).";
   }
+  if (/pin_already_exists/i.test(raw)) {
+    const parts = raw.split(":");
+    const name = parts.length >= 3 ? parts.slice(2).join(":").trim() : "ta restauracja";
+    return `Nie możesz dodać tego pinu — „${name}” jest już na mapie (współrzędne zajęte). Możesz dodać ocenę przy istniejącym lokalu.`;
+  }
   return raw || "Coś poszło nie tak.";
 }
 

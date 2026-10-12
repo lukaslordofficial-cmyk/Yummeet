@@ -1,9 +1,11 @@
-import { WebView } from 'react-native-webview';
-import { useMemo } from 'react';
-import { StyleSheet } from 'react-native';
-import type { ViewStyle } from 'react-native';
-import { buildLeafletHtml, type LeafletOptions, type MapShape } from './leafletHtml';
-import { MAP_TILES } from '@/src/lib/mapTiles';
+import { useEffect, useMemo, useRef } from "react";
+import { StyleSheet } from "react-native";
+import type { ViewStyle } from "react-native";
+import { WebView } from "react-native-webview";
+
+import { MAP_TILES } from "@/src/lib/mapTiles";
+
+import { buildLeafletHtml, type LeafletOptions, type MapShape, type MapUpdatePayload } from "./leafletHtml";
 
 export interface MapViewProps extends LeafletOptions {
   style?: ViewStyle;
@@ -11,32 +13,112 @@ export interface MapViewProps extends LeafletOptions {
   onMapPress?: (lat: number, lng: number) => void;
   onAreaDrawn?: (shape: MapShape) => void;
   onViewChange?: (v: { lat: number; lng: number; zoom: number }) => void;
+  /** Bump this (e.g. Date.now()) when you want the map to fly to `center`. */
+  followCenterToken?: number | string;
 }
 
-export function AppMapView({ style, onMarkerPress, onMapPress, onAreaDrawn, onViewChange, ...opts }: MapViewProps) {
-  const provider = MAP_TILES;
-  const html = buildLeafletHtml({ tileUrl: provider.tileUrl, maxZoom: provider.maxZoom, ...opts });
-  const source = useMemo(() => ({ html }), [html]);
+export function AppMapView({
+  style,
+  onMarkerPress,
+  onMapPress,
+  onAreaDrawn,
+  onViewChange,
+  followCenterToken,
+  center,
+  zoom = 12,
+  markers = [],
+  polyline = [],
+  showUser = false,
+  pickMode = false,
+  emitClicks = false,
+  fitBounds = false,
+  shape = null,
+  drawMode = null,
+}: MapViewProps) {
+  const webRef = useRef<WebView>(null);
+  const ready = useRef(false);
+  const initial = useRef({ center, zoom, pickMode, emitClicks, drawMode, fitBounds });
+  const lastFollow = useRef(followCenterToken);
+
+  const html = useMemo(
+    () =>
+      buildLeafletHtml({
+        tileUrl: MAP_TILES.tileUrl,
+        maxZoom: MAP_TILES.maxZoom,
+        center: initial.current.center,
+        zoom: initial.current.zoom,
+        markers: [],
+        polyline: [],
+        showUser: false,
+        pickMode: initial.current.pickMode,
+        emitClicks: initial.current.emitClicks,
+        drawMode: initial.current.drawMode,
+        fitBounds: false,
+        shape: null,
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    if (!ready.current) return;
+    const shouldFollow = followCenterToken !== undefined && followCenterToken !== lastFollow.current;
+    if (shouldFollow) lastFollow.current = followCenterToken;
+    const payload: MapUpdatePayload = {
+      markers,
+      polyline,
+      center,
+      zoom,
+      showUser,
+      pickMode,
+      emitClicks,
+      shape,
+      setView: shouldFollow,
+      fitBounds: shouldFollow ? false : fitBounds && !!polyline?.length,
+    };
+    const js = `window.__updateMap && window.__updateMap(${JSON.stringify(payload)}); true;`;
+    webRef.current?.injectJavaScript(js);
+  }, [markers, polyline, center, zoom, showUser, pickMode, emitClicks, shape, fitBounds, followCenterToken]);
+
   return (
     <WebView
-      originWhitelist={['*']}
-      source={source}
+      ref={webRef}
+      originWhitelist={["*"]}
+      source={{ html }}
       style={[styles.web, style]}
       javaScriptEnabled
       domStorageEnabled
       onMessage={(event) => {
         try {
           const data = JSON.parse(event.nativeEvent.data);
-          if (data.type === 'markerPress') onMarkerPress?.(data.id);
-          if (data.type === 'mapPress') onMapPress?.(data.lat, data.lng);
-          if (data.type === 'areaDrawn') onAreaDrawn?.(data.shape);
-          if (data.type === 'view') onViewChange?.({ lat: data.lat, lng: data.lng, zoom: data.zoom });
-        } catch {}
+          if (data.type === "ready") {
+            ready.current = true;
+            const payload: MapUpdatePayload = {
+              markers,
+              polyline,
+              center,
+              zoom,
+              showUser,
+              pickMode,
+              emitClicks,
+              shape,
+              setView: false,
+              fitBounds: fitBounds && ((markers?.length ?? 0) > 1 || (polyline?.length ?? 0) > 1),
+            };
+            webRef.current?.injectJavaScript(`window.__updateMap && window.__updateMap(${JSON.stringify(payload)}); true;`);
+            return;
+          }
+          if (data.type === "markerPress") onMarkerPress?.(data.id);
+          if (data.type === "mapPress") onMapPress?.(data.lat, data.lng);
+          if (data.type === "areaDrawn") onAreaDrawn?.(data.shape);
+          if (data.type === "view") onViewChange?.({ lat: data.lat, lng: data.lng, zoom: data.zoom });
+        } catch {
+          /* ignore */
+        }
       }}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  web: { flex: 1, backgroundColor: '#F2E6DD' },
+  web: { flex: 1, backgroundColor: "#F2E6DD" },
 });

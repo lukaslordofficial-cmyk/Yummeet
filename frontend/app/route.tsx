@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { Modal, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -11,31 +11,37 @@ import { CUISINES } from "@/src/lib/cuisines";
 import { pinsAlongRoute } from "@/src/lib/data";
 import { formatDuration, formatKm, simplify, type LatLng } from "@/src/lib/geo";
 import { getCurrentPosition } from "@/src/lib/location";
-import { geocode, routingProvider, type GeocodeResult, type TravelMode } from "@/src/lib/routing";
+import { geocode, reverseGeocode, routingProvider, type GeocodeResult, type TravelMode } from "@/src/lib/routing";
 import { radius, spacing, useTheme } from "@/src/theme";
 import type { PinMarker } from "@/src/types";
 
-function shortTitle(s: string) {
-  return s.split(",").slice(0, 2).join(",").trim();
-}
-
 function PointInput({
-  label, value, onPick, testID,
+  label,
+  value,
+  onPick,
+  testID,
+  showMyLocation,
 }: {
   label: string;
   value: GeocodeResult | null;
   onPick: (g: GeocodeResult) => void;
   testID: string;
+  showMyLocation?: boolean;
 }) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
-  const [q, setQ] = useState(value?.title ?? "");
+  const [q, setQ] = useState("");
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [busy, setBusy] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [pick, setPick] = useState<{ lat: number; lng: number } | null>(null);
+  const [pickLabel, setPickLabel] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const req = useRef(0);
 
   useEffect(() => {
-    if (value) setQ(shortTitle(value.title));
+    if (value) setQ(value.title);
   }, [value]);
 
   const search = async (query: string) => {
@@ -58,7 +64,7 @@ function PointInput({
       setResults([]);
       return;
     }
-    debounce.current = setTimeout(() => void search(text), 450);
+    debounce.current = setTimeout(() => void search(text), 400);
   };
 
   const useGps = async () => {
@@ -66,11 +72,39 @@ function PointInput({
     try {
       const pos = await getCurrentPosition();
       if (!pos) return toast("Włącz lokalizację GPS w ustawieniach telefonu.", "info");
-      onPick({ title: "Moja lokalizacja", lat: pos.lat, lng: pos.lng });
+      const rev = await reverseGeocode(pos.lat, pos.lng, "pl");
+      const g: GeocodeResult = rev ?? { title: "Moja lokalizacja", lat: pos.lat, lng: pos.lng };
+      onPick({ ...g, title: g.title || "Moja lokalizacja" });
       setResults([]);
-      setQ("Moja lokalizacja");
+      setQ(g.title || "Moja lokalizacja");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const confirmPick = async () => {
+    if (!pick) return;
+    setBusy(true);
+    try {
+      const rev = await reverseGeocode(pick.lat, pick.lng, "pl");
+      const g = rev ?? { title: `${pick.lat.toFixed(5)}, ${pick.lng.toFixed(5)}`, ...pick };
+      onPick(g);
+      setQ(g.title);
+      setResults([]);
+      setMapOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onMapPress = async (lat: number, lng: number) => {
+    setPick({ lat, lng });
+    setPickLabel("…");
+    try {
+      const rev = await reverseGeocode(lat, lng, "pl");
+      setPickLabel(rev?.title ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+    } catch {
+      setPickLabel(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
     }
   };
 
@@ -83,28 +117,57 @@ function PointInput({
             label={label}
             value={q}
             onChangeText={onChangeText}
-            placeholder="np. Warszawa Centralna"
+            placeholder="np. Polska — Warszawa — Marszałkowska"
             onSubmitEditing={() => void search(q)}
             returnKeyType="search"
           />
         </View>
-        <Button testID={`${testID}-search`} title={busy ? "…" : "Szukaj"} variant="ghost" onPress={() => void search(q)} />
+        <Button testID={`${testID}-map`} title="Mapa" variant="ghost" onPress={() => { setPick(value ? { lat: value.lat, lng: value.lng } : { lat: 52.23, lng: 21.01 }); setPickLabel(value?.title ?? null); setMapOpen(true); }} />
       </View>
-      <Button testID={`${testID}-gps`} title="Użyj GPS" icon="crosshairs-gps" variant="ghost" onPress={() => void useGps()} />
-      {value ? <Body muted numberOfLines={1} testID={`${testID}-selected`}>✓ {shortTitle(value.title)}</Body> : null}
+      {showMyLocation ? (
+        <Button testID={`${testID}-gps`} title="Moja lokalizacja" icon="crosshairs-gps" variant="ghost" loading={busy} onPress={() => void useGps()} />
+      ) : null}
+      {value ? (
+        <Body muted numberOfLines={2} testID={`${testID}-selected`}>
+          ✓ {value.title}{`\n`}📍 {value.lat.toFixed(5)}, {value.lng.toFixed(5)}
+        </Body>
+      ) : null}
+      {busy && !mapOpen ? <Body muted>Szukam adresów…</Body> : null}
       {results.map((r, i) => (
         <Card
           key={`${r.lat}-${r.lng}-${i}`}
           testID={`${testID}-result-${i}`}
           onPress={() => {
-            onPick({ ...r, title: shortTitle(r.title) });
+            onPick(r);
             setResults([]);
-            setQ(shortTitle(r.title));
+            setQ(r.title);
           }}
         >
-          <Body numberOfLines={2}>{r.title}</Body>
+          <Body numberOfLines={3}>{r.title}</Body>
+          <Body muted>{r.lat.toFixed(5)}, {r.lng.toFixed(5)}</Body>
         </Card>
       ))}
+
+      <Modal visible={mapOpen} animationType="slide" onRequestClose={() => setMapOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.surface, paddingTop: insets.top }}>
+          <Header title="Wybierz na mapie" right={<Button testID={`${testID}-map-close`} title="Zamknij" variant="ghost" onPress={() => setMapOpen(false)} />} />
+          <View style={{ flex: 1 }}>
+            <AppMapView
+              center={pick ?? { lat: 20, lng: 0 }}
+              zoom={pick ? 14 : 2}
+              pickMode
+              fitBounds={false}
+              followCenterToken={mapOpen ? 1 : 0}
+              onMapPress={(lat, lng) => void onMapPress(lat, lng)}
+            />
+          </View>
+          <View style={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
+            <Body numberOfLines={3}>{pickLabel ?? "Stuknij mapę, żeby wybrać punkt"}</Body>
+            {pick ? <Body muted>📍 {pick.lat.toFixed(5)}, {pick.lng.toFixed(5)}</Body> : null}
+            <Button testID={`${testID}-map-confirm`} title="Potwierdź to miejsce" disabled={!pick} loading={busy} onPress={() => void confirmPick()} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -123,6 +186,7 @@ export default function RoutePlanner() {
   const [meta, setMeta] = useState<{ d: number; t: number } | null>(null);
   const [pins, setPins] = useState<PinMarker[]>([]);
   const [busy, setBusy] = useState(false);
+  const [routeFollow, setRouteFollow] = useState(0);
 
   const run = async () => {
     if (!a || !b) return toast("Wybierz punkt A i B", "error");
@@ -133,6 +197,7 @@ export default function RoutePlanner() {
       setLine(simple);
       setMeta({ d: r.distanceM, t: r.durationS });
       setPins(await pinsAlongRoute(simple.map((p) => [p.lng, p.lat] as [number, number]), buffer, cuisine));
+      setRouteFollow(Date.now());
     } catch (e) {
       toast(errorMessage(e), "error");
     } finally {
@@ -160,7 +225,7 @@ export default function RoutePlanner() {
       <Header title="Gastro-Trasa" />
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
         <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
-          <PointInput testID="route-a" label="Punkt A (start)" value={a} onPick={setA} />
+          <PointInput testID="route-a" label="Punkt A (start)" value={a} onPick={setA} showMyLocation />
           <PointInput testID="route-b" label="Punkt B (cel)" value={b} onPick={setB} />
         </View>
         <ChipRow>
@@ -180,7 +245,14 @@ export default function RoutePlanner() {
         {line.length > 1 ? (
           <>
             <View style={{ height: 300, marginHorizontal: spacing.lg, borderRadius: radius.lg, overflow: "hidden" }}>
-              <AppMapView center={line[0]} polyline={line} markers={markers} onMarkerPress={(id) => id.length > 2 && router.push(`/pin/${id}`)} />
+              <AppMapView
+                center={line[0]}
+                polyline={line}
+                markers={markers}
+                fitBounds
+                followCenterToken={routeFollow}
+                onMarkerPress={(id) => id.length > 2 && router.push(`/pin/${id}`)}
+              />
             </View>
             <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
               <Title size={18} testID="route-summary">
@@ -193,6 +265,7 @@ export default function RoutePlanner() {
                     {CUISINES.find((c) => c.key === p.cuisine)?.label ?? p.cuisine ?? "lokal"} · {formatKm(p.distance_m ?? 0)} od trasy
                     {p.score ? ` · Score ${p.score} (${p.review_count})` : ""}
                   </Body>
+                  <Body muted>📍 {p.lat.toFixed(5)}, {p.lng.toFixed(5)}</Body>
                 </Card>
               ))}
             </View>

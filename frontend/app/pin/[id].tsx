@@ -80,7 +80,10 @@ export default function PinDetail() {
             {pin.visited ? <Badge testID="pin-visited-badge" label="Odwiedzone ✓" color={colors.success} textColor={colors.onSuccess} /> : null}
           </View>
           {pin.description ? <Body>{pin.description}</Body> : null}
-          <Body muted>{pin.city ?? ""}</Body>
+          <Body muted>{pin.address || pin.city || ""}</Body>
+          {pin.lat != null && pin.lng != null ? (
+            <Body muted testID="pin-coords-locked">📍 Współrzędne (stałe): {Number(pin.lat).toFixed(5)}, {Number(pin.lng).toFixed(5)}</Body>
+          ) : null}
         </Card>
         <Card testID="pin-score-card">
           <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.sm }}>

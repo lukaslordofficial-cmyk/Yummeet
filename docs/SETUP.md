@@ -28,7 +28,9 @@ Auth (e-mail/hasło oraz Google OAuth) działa bezpośrednio przez Supabase Auth
 
 ## Migracje
 1. Supabase → SQL Editor → wklej `supabase/yummeet_all.sql` → Run (skrypt jest idempotentny – można uruchomić ponownie).
-2. Następnie uruchom `supabase/migrations/004_pin_photos_and_route_cuisine.sql` (zdjęcia pinów, filtr kuchni na trasie, Realtime).
+2. Następnie uruchom kolejno:
+   - `supabase/migrations/004_pin_photos_and_route_cuisine.sql` (zdjęcia pinów, filtr kuchni na trasie, Realtime)
+   - `supabase/migrations/005_pin_duplicate_guard.sql` (blokada duplikatów pinów w tym samym miejscu)
 3. Authentication → Providers → Email → wyłącz „Confirm email” (na czas testów lokalnych).
 4. (Opcjonalnie) Authentication → Providers → Google — włącz i dodaj Client ID/Secret z Google Cloud; w Redirect URLs dodaj redirect Expo (`exp://…` / scheme aplikacji).
 5. Nowe treści (misje, karty, specjalizacje, poziomy, odznaki, pytania, gry) dodajesz INSERT-ami – bez zmian w kodzie.

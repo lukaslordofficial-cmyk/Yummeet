@@ -8,13 +8,11 @@ import { AppMapView } from "@/src/components/map/AppMapView";
 import { Body, Button, Chip, ChipRow, IconButton, Title, useToast } from "@/src/components/ui";
 import { viewToBBox } from "@/src/domain/rules";
 import { errorMessage } from "@/src/lib/api";
+import { CUISINES } from "@/src/lib/cuisines";
 import { pinsInBBox } from "@/src/lib/data";
 import { usesNativeTabs } from "@/src/navigation";
 import { radius, spacing, useTheme } from "@/src/theme";
 import type { PinMarker } from "@/src/types";
-import { CUISINES } from "@/src/lib/cuisines";
-
-
 
 export default function Discover() {
   const { colors } = useTheme();
@@ -27,6 +25,7 @@ export default function Discover() {
   const [error, setError] = useState<string | null>(null);
   const view = useRef({ lat: 52.2297, lng: 21.0122, zoom: 13 });
   const [center, setCenter] = useState(view.current);
+  const [followToken, setFollowToken] = useState(0);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -40,16 +39,31 @@ export default function Discover() {
     }
   }, [cuisine]);
 
-  useEffect(() => { load(); }, [load]);
-
-  // Debounced: query only after the map stops moving (saves requests).
-  const onViewChange = useCallback((v: { lat: number; lng: number; zoom: number }) => {
-    view.current = v;
-    if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(load, 700);
+  useEffect(() => {
+    load();
   }, [load]);
 
-  const markers = useMemo(() => pins.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, title: p.title, color: p.is_official ? colors.rarityLegendary : colors.brandPrimary })), [pins, colors]);
+  // Debounced pin query — map camera is NOT reset when pins arrive (inject updates).
+  const onViewChange = useCallback(
+    (v: { lat: number; lng: number; zoom: number }) => {
+      view.current = v;
+      if (debounce.current) clearTimeout(debounce.current);
+      debounce.current = setTimeout(load, 700);
+    },
+    [load],
+  );
+
+  const markers = useMemo(
+    () =>
+      pins.map((p) => ({
+        id: p.id,
+        lat: p.lat,
+        lng: p.lng,
+        title: p.title,
+        color: p.is_official ? colors.rarityLegendary : colors.brandPrimary,
+      })),
+    [pins, colors],
+  );
 
   const locate = async () => {
     const cur = await Location.getForegroundPermissionsAsync();
@@ -58,13 +72,21 @@ export default function Discover() {
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     view.current = { lat: pos.coords.latitude, lng: pos.coords.longitude, zoom: 14 };
     setCenter(view.current);
+    setFollowToken(Date.now());
     load();
   };
 
   return (
     <View testID="discover-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <AppMapView center={center} zoom={center.zoom} markers={markers} fitBounds={false}
-        onMarkerPress={(id) => router.push(`/pin/${id}`)} onViewChange={onViewChange} />
+      <AppMapView
+        center={center}
+        zoom={center.zoom}
+        markers={markers}
+        fitBounds={false}
+        followCenterToken={followToken}
+        onMarkerPress={(id) => router.push(`/pin/${id}`)}
+        onViewChange={onViewChange}
+      />
       <View style={{ pointerEvents: "box-none", position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm }}>
         <View style={{ marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.md, borderWidth: 1, borderColor: colors.border }}>
           <View style={{ flex: 1 }}>
@@ -74,7 +96,9 @@ export default function Discover() {
           <IconButton testID="discover-locate-button" icon="crosshairs-gps" onPress={locate} />
         </View>
         <ChipRow testID="discover-cuisine-chips">
-          {CUISINES.map((c) => <Chip key={c.label} testID={`cuisine-chip-${c.key ?? "all"}`} label={c.label} selected={cuisine === c.key} onPress={() => setCuisine(c.key)} />)}
+          {CUISINES.map((c) => (
+            <Chip key={c.label} testID={`cuisine-chip-${c.key ?? "all"}`} label={c.label} selected={cuisine === c.key} onPress={() => setCuisine(c.key)} />
+          ))}
         </ChipRow>
       </View>
       <View style={{ pointerEvents: "box-none", position: "absolute", left: spacing.lg, right: spacing.lg, bottom: bottomChrome + spacing.lg, flexDirection: "row", gap: spacing.md }}>
