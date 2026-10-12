@@ -1,0 +1,181 @@
+{
+  "app_name": "Yummeet",
+  "personality": "4 Tactile / Playful LIGHT",
+  "personality_one_liner": "A vibrant, energetic social-gastronomy game where food discovery feels like a tactile, rewarding adventure.",
+  "color": {
+    "surface": "#FFF8F0",
+    "onSurface": "#2C2520",
+    "surfaceSecondary": "#FFFFFF",
+    "onSurfaceSecondary": "#2C2520",
+    "surfaceTertiary": "#F2E6DD",
+    "onSurfaceTertiary": "#4A3C31",
+    "surfaceInverse": "#3D312A",
+    "onSurfaceInverse": "#FFF8F0",
+    "brand": "#E05F36",
+    "onBrand": "#FFFFFF",
+    "brandPrimary": "#E05F36",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#38A342",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#F7C5A8",
+    "onBrandTertiary": "#9A3816",
+    "success": "#38A342",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#D9381E",
+    "onError": "#FFFFFF",
+    "info": "#14B8A6",
+    "onInfo": "#FFFFFF",
+    "border": "#E8DCD0",
+    "borderStrong": "#D1BAA5",
+    "divider": "#F2E6DD",
+    "muted": "#8C7D70",
+    "rarityCommon": "#8C827A",
+    "rarityRare": "#2E8B57",
+    "rarityEpic": "#A0153E",
+    "rarityLegendary": "#D4AF37",
+    "classFoodie": "#E05F36",
+    "classCritic": "#2C2520",
+    "classSommelier": "#722F37",
+    "classHunter": "#38A342",
+    "classSocialite": "#F4A261",
+    "classChef": "#A27E5D"
+  },
+  "typography": {
+    "displayFontFamily": "Fredoka",
+    "textFontFamily": "Nunito",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous spacing. Cards must have breathing room, layout uses modular rounded shapes with clear grouping.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "pill": 999
+  },
+  "shadow_tier": "2",
+  "navigation": "bottom_tabs",
+  "icon_set": "MaterialCommunityIcons",
+  "glassmorphism": {
+    "enabled": "true",
+    "do's": [
+      "Use blur on bottom tab bar",
+      "Use blur on floating search/filter chips over the map",
+      "Use blur on bottom-sheet drag handles/headers"
+    ],
+    "dont's": [
+      "Do not use blur on standard list items or cards",
+      "Do not use blur for form fields"
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Odkrywaj (Discover / Map)",
+      "purpose": "Interactive map showing restaurants and Gastro-Routes with game-like pins.",
+      "states": {
+        "loading": "Map skeleton or centered branded spinner",
+        "empty": "No places found in this area - search elsewhere prompt",
+        "error": "Failed to load map data - retry button"
+      },
+      "layout": "Full-bleed Leaflet WebView map. Floating highly rounded search bar/chips (glassmorphic) at the top safe area. A bottom sheet (using @gorhom/bottom-sheet) displaying recommended 'Gastro-Routes' (A->B) and nearby places. Pins should be tactile and pop."
+    },
+    {
+      "name": "Stoły (Open Tables / Events)",
+      "purpose": "Feed of available tables and official restaurant events.",
+      "states": {
+        "loading": "Skeleton cards with bouncing animation",
+        "empty": "Illustration of an empty dining table - 'No open tables nearby, maybe start one!'",
+        "error": "Failed to load events - retry button"
+      },
+      "layout": "Vertical scroll of chunky, highly rounded cards (radius lg). 'OFICJALNE WYDARZENIE' (Official Event) cards are visually distinct: framed with a gold/green accent (`rarityLegendary` or `brandSecondary`), prominent discount badges, and a clear seats counter (e.g., 4/10). Hero images use top-to-bottom gradient scrims to ensure readable text over food photos."
+    },
+    {
+      "name": "Wyzwania (Challenges & Cards)",
+      "purpose": "Mission board, Duels, and the Collectible Card Book.",
+      "states": {
+        "loading": "Centered spinner",
+        "empty": "Illustration of a closed book - 'No challenges available right now'",
+        "error": "Failed to load game data"
+      },
+      "layout": "Segmented control at the top (Misje, Pojedynki, Księga Kart). 'Misje' uses a quest-board layout (stacked cards with XP rewards). 'Pojedynki' shows active duels (symmetrical opponent layout) with a tactile Rock-Paper-Scissors input and a deadline countdown. 'Księga Kart' displays collectible cards in a grid; cards have colored borders based on rarity tokens and class icons."
+    },
+    {
+      "name": "Czaty (Chats)",
+      "purpose": "Social messaging and duel negotiations.",
+      "states": {
+        "loading": "List skeletons",
+        "empty": "Illustration of a silent chat bubble - 'Start a conversation with a Yummiteer'",
+        "error": "Failed to connect to chat"
+      },
+      "layout": "Standard message list with generous padding. Avatars are wrapped in colored rings corresponding to the user's specialization (Class) to reinforce RPG elements. Unread messages have a `brandPrimary` dot."
+    },
+    {
+      "name": "Profil (Character Profile)",
+      "purpose": "RPG-style character sheet showing stats, XP, class, and badges.",
+      "states": {
+        "loading": "Centered spinner",
+        "empty": "N/A - Profile always has base stats",
+        "error": "Failed to load profile"
+      },
+      "layout": "Top hero section featuring a class-themed colored banner (e.g., `classFoodie` background) and the user's avatar. Prominent level indicator (thick circular progress) and XP bar. Below, a grid of earned badges (like game achievements). A modular card for privacy settings and account management at the bottom."
+    }
+  ],
+  "haptics": {
+    "card_flip": "impactMedium",
+    "duel_move_selected": "impactHeavy",
+    "level_up": "notificationSuccess",
+    "mission_complete": "notificationSuccess",
+    "tab_change": "selection"
+  },
+  "images": {
+    "hero_event": {
+      "url": "https://images.unsplash.com/photo-1551883709-2516220df0bc",
+      "alt": "Desert Lane Food Festival with bunting and crowds"
+    },
+    "discover_card": {
+      "url": "https://images.unsplash.com/photo-1765582870011-ff3cfdb06700",
+      "alt": "Group of friends gathered around a table eating and sharing food"
+    },
+    "collectible_card_demo": {
+      "url": "https://images.unsplash.com/photo-1708856034151-5de6269965bf",
+      "alt": "Stack of collectible game cards on a table"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the 'Tactile / Playful' personality. Cards must have `lg` (24px) border radius and chunky tap targets (min 44x44pt).",
+    "Implement the custom RPG color palette carefully: use rarity colors (Common, Rare, Epic, Legendary) for collectible card borders/accents, and class colors for character avatars and profile themes.",
+    "For Official Events (OFICJALNE WYDARZENIE), use the `rarityLegendary` or `brandSecondary` (Fresh Green) color as a prominent border or badge to make them stand out in the feed.",
+    "Use 'Fredoka' for all headings and large numbers (like XP, levels, and seat counters), and 'Nunito' for body text. Cap font weights at 500.",
+    "Any image used as a background (e.g., on event cards or profile banners) MUST have a gradient-to-dark scrim (top-to-bottom) applied before text is placed over it to guarantee WCAG contrast.",
+    "Map functionality is critical: ensure the Leaflet WebView is full-bleed and underlying map interactions do not conflict with floating UI elements (like search chips) or the Gorhom bottom sheet.",
+    "Implement haptic feedback exactly as mapped in the JSON for gamification actions (card flips, dueling, leveling up)."
+  ]
+}

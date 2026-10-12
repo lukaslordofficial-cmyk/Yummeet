@@ -1,0 +1,73 @@
+# Yummeet — konfiguracja, migracje, uruchomienie
+
+## Architektura
+```
+frontend/ (Expo SDK 57, expo-router, TypeScript)
+  app/(tabs)/        5 zakładek: index=Odkrywaj, tables=Stoły, challenges=Wyzwania, chats=Czaty, profile=Profil
+  app/*              ekrany stosu: pin/[id], pin/new, route (Gastro-Trasa), mission/[id], duel/[id], duel/new,
+                     cards (Księga kart), specializations, event/[id], event/new, chat/[id], settings, games, user/[id], login
+  src/lib/           supabase.ts (klient), api.ts (rpc + mapowanie błędów), data.ts (warstwa dostępu do danych),
+                     geo.ts + routing.ts + mapTiles.ts (z pinonmap), cuisines.ts
+  src/domain/        rules.ts – czysta logika (KPN, stany misji/pojedynków, poziomy) – testowana jednostkowo
+  src/components/    ui.tsx, GameCard, RpsPicker, EventCard, Icon, map/* (z pinonmap)
+  src/hooks/         useDuelPresence (pojedynki z bliskości – tylko foreground)
+backend/server.py    FastAPI: /api/auth/google (Emergent Google -> sesja Supabase) + dispatcher push (Expo Push API)
+supabase/migrations  001_schema.sql, 002_functions.sql, 003_seed.sql   (yummeet_all.sql = wszystkie trzy)
+supabase/tests       local_shim.sql (emulacja auth/ról), flows_test.sql (testy integracyjne przepływów)
+tests/frontend       domain.test.ts
+```
+Cała logika nagród/XP/kart/pojedynków/rezerwacji działa po stronie bazy (funkcje `SECURITY DEFINER` z `set search_path`),
+klient ma tylko klucz `anon` i nie może pisać do tabel nagród (RLS + odebrane uprawnienia).
+
+## Zmienne środowiskowe
+Wszystkie klucze muszą pochodzić z **tego samego** projektu Supabase (Settings → API).
+- `frontend/.env`: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_BACKEND_URL`
+- `backend/.env`: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (**tylko serwer, nigdy w aplikacji**)
+
+Auth (e-mail/hasło oraz Google OAuth) działa bezpośrednio przez Supabase Auth w aplikacji — bez Emergent.
+
+## Migracje
+1. Supabase → SQL Editor → wklej `supabase/yummeet_all.sql` → Run (skrypt jest idempotentny – można uruchomić ponownie).
+2. Następnie uruchom `supabase/migrations/004_pin_photos_and_route_cuisine.sql` (zdjęcia pinów, filtr kuchni na trasie, Realtime).
+3. Authentication → Providers → Email → wyłącz „Confirm email” (na czas testów lokalnych).
+4. (Opcjonalnie) Authentication → Providers → Google — włącz i dodaj Client ID/Secret z Google Cloud; w Redirect URLs dodaj redirect Expo (`exp://…` / scheme aplikacji).
+5. Nowe treści (misje, karty, specjalizacje, poziomy, odznaki, pytania, gry) dodajesz INSERT-ami – bez zmian w kodzie.
+
+### Gastro-Trasa
+Punkt A/B: GPS, podpowiedzi adresów (Nominatim) przy pisaniu, trasa OSRM, piny w buforze trasy (PostGIS), filtr kuchni.
+
+## Testy
+```
+# testy domenowe (TS)
+node --test tests/frontend/domain.test.ts
+# testy integracyjne SQL na lokalnym Postgres+PostGIS (emulacja Supabase)
+createdb ytest && for f in supabase/tests/local_shim.sql supabase/yummeet_all.sql supabase/tests/flows_test.sql; do psql -d ytest -v ON_ERROR_STOP=1 -f $f; done
+```
+`flows_test.sql` sprawdza: talię startową, przejścia misji, odporność na podwójne naliczenie nagrody, limity powtórzeń,
+RLS (brak możliwości dopisania kart/XP), PostGIS (bbox, trasa, walidacja geometrii), pełny pojedynek (remis, atak, obrona,
+wyzwanie, dowód, potwierdzenie), rezygnację z utratą karty, ranking, limit miejsc stołu, czaty.
+
+## Stany
+- Misja: available → accepted → in_progress → (pending_confirmation) → completed | rejected | cancelled | expired
+- Pojedynek: pending_acceptance → round1 (atak, remis = kolejne rozdanie) → awaiting_response (runda obrony)
+  → awaiting_card (obrońca wygrał i ma karty) → active_challenge → awaiting_confirmation → finished;
+  także cancelled / rejected / expired. Timeouty (`duel_tick`): brak ruchu 30 min = walkower/wygaśnięcie,
+  brak dowodu do terminu = utrata losowej karty, brak przeglądu przez atakującego 48 h = auto-akceptacja,
+  odrzucenie dowodu = spór do moderacji (bez automatycznej kary).
+- Pojedynek z bliskości: tylko przy włączonym trybie, ping co 30 s w foreground, promień 100 m, brak historii pozycji,
+  limit 1 pojedynek/para/12 h, odrzucanie skoków > 250 km/h i mock-location (Android).
+
+## Co jest atrapą / do zrobienia
+- Grafiki kart: placeholder (jedno zdjęcie); `art_key` gotowy na podmianę.
+- Powiadomienia push: tabela `notifications` + dispatcher działają; rejestracja tokenu w aplikacji wymaga buildu
+  (Expo Go nie obsługuje zdalnych push na Androidzie).
+- Wymiana potraw/wolontariat/randki: schemat + RPC (`food_exchange_draw`, `match_request_level`, `match_end`), bez pełnego UI.
+- Panel restauratora: tabele `business_profiles`, `promotions`, oficjalne wydarzenia (`event_create` z `p_business`) – bez UI.
+- Kilometry podróży: 0 do czasu wdrożenia zweryfikowanej metody pomiaru.
+- Zdjęcia jako dowody: obecnie opis/link; upload do Object Storage w kolejnym etapie.
+
+## Koszty (zweryfikowane założenia)
+OSRM `routing.openstreetmap.de` i Nominatim – darmowe, z polityką fair-use (Nominatim max ~1 req/s; zapytania tylko
+po akcji użytkownika). Kafelki: OpenStreetMap (fair-use, wymagana atrybucja; dla ruchu produkcyjnego potrzebny płatny/własny serwer).
+Mapa pobiera tylko id/tytuł/współrzędne (max 200, debounce 700 ms, cache siatki ~2 km). Realtime: jeden kanał na
+aktywny ekran (lista stołów, pojedynczy stół, czat), zamykany przy wyjściu.

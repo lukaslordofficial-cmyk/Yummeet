@@ -1,0 +1,34 @@
+{
+  "summary": "Frontend end-to-end testing of Yummeet (Polish UI) Expo web app at 390x844. Login works for both ala@yummeet.test and bartek@yummeet.test. All 5 tabs render (tab-index/tables/challenges/chats/profile). Verified: Odkrywaj map + pin count (9 miejsc) + cuisine filter (Polska -> 2), Gastro-Trasa A→B (Warszawa→Łódź, 136 km, 4 lokali, pins open with pin-yummeet-score), /pin/new creates pin with redirect to detail, Wyzwania missions (critic_best_dish accept→start→evidence→submit=>Ukończona, XP went up to 105 and card count 8), Specializations save (toast 'Klasa postaci zapisana!'), Cards book (/cards 8 kart in Ofensywne/Defensywne/Specjalne tabs), Tables official event badge+join (12→11 seats, 'Jesteś na liście') and event chat (chat-input/chat-send-button working), Settings privacy toggles (settings-vis-*), Profile logout (profile-logout-button) returns to Login screen, Duel invite A→B accepted and Bartek played rps-rock-button, duel-status transitions to 'Runda ataku'. Map tiles show overlapping 'API KEY REQUIRED' watermarks because CARTO basemap is used without an API key — pins and route lines render on top but this is unsightly. One missed testID expectation: tasks mentioned reviewing via review-food-5/service-5/ambience-5/value-5 which are present but review-submit-button toast was not captured consistently (likely timing — Zapisz ocenę button is present and screen state suggests submit works, but needs confirmation). All toasts use testID 'toast-text' as expected.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Discover/Pin map (Leaflet)", "issue": "Base map tiles show 'API KEY REQUIRED - carto.com/basemaps/apikey' watermark everywhere (visible on /, /route, /pin/new). Pins and route lines render but background is unusable. Likely needs a MapTiler/MapTilerCloud/CARTO API key or switch to free OSM tiles.", "testID": "discover-pin-count", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Settings", "issues": ["No logout button on /settings — logout lives only on Profile tab (profile-logout-button). Consider adding settings-logout for discoverability. User instructions assumed logout from Settings."]}
+    ],
+    "react_native_issues": [
+      {"component": "React Native Web", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Harmless but should be migrated. Likely in a shared Button/Icon component."}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_1.json"],
+  "action_items": [
+    "Fix Leaflet basemap: provide EXPO_PUBLIC_MAPTILER_KEY (or similar) or switch to {s}.tile.openstreetmap.org (free) in the map iframe/webview — currently 'API KEY REQUIRED' watermark covers every tile on Odkrywaj, Gastro-Trasa map and /pin/new.",
+    "Optionally add a settings-logout Button on /settings for parity with user expectations; logout is currently only on Profile tab.",
+    "Migrate pointerEvents prop usage to style.pointerEvents (React Native deprecation warning in console).",
+    "Verify review submission on pin detail — the review-food-5/service-5/ambience-5/value-5 and review-submit-button are wired but a toast was not consistently captured; a short regression over this flow is suggested."
+  ],
+  "critical_code_review_comments": [
+    "Map basemap is broken in production preview due to missing CARTO/MapTiler API key — route and pin discovery UX looks unprofessional.",
+    "Logout is only on profile tab; settings screen has settings-delete-account but not settings-logout — minor UX inconsistency."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not tested per request)", "frontend": "~95%"},
+  "seed_data_creation": "Created one TEST pin ('TEST Pin Yummeet' in Warszawa, polish cuisine) under Ala; sent one chat message in official event chat ('TEST wiadomość z testu'); accepted mission critic_best_dish (now Ukończona for Ala); set Ala primary spec to critic; sent duel invite Ala→Bartek which Bartek accepted and played Rock. These are left in DB intentionally — test accounts not deleted.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Both ala@yummeet.test and bartek@yummeet.test exist and work. Public URL https://yummeet-preview.preview.emergentagent.com. Use 390x844 viewport. Toasts use testID 'toast-text'. All critical testIDs verified: login-email-input, login-password-input, login-submit-button, tab-index/tables/challenges/chats/profile, discover-pin-count, discover-route-button, route-a-input/route-a-search/route-a-result-0, route-b-input/route-b-search/route-b-result-0, route-run-button, route-summary, route-pin-*, pin-yummeet-score, new-pin-title-input, new-pin-cuisine-polish, new-pin-save-button, mission-card-*, mission-accept-button, mission-start-button, mission-evidence-input, mission-submit-button, spec-primary-*, spec-save-button, card-*, event-card-*, event-join-button, event-chat-button, chat-input, chat-send-button, duel-new-button, duel-search-input, duel-invite-*, duel-accept-button, duel-reject-button, duel-status, rps-rock-button, settings-vis-profile/stats/cards, settings-duel-mode, settings-notif-*, settings-delete-account, profile-logout-button. There is NO settings-logout testID. For duels, Ala already has an unresolved duel with Bartek awaiting her move in round 1 (she needs to play RPS). Map 'API KEY REQUIRED' watermark is NOT a test flake — real missing CARTO API key.",
+  "rca_of_issue": "Map 'API KEY REQUIRED' watermark RCA: The web preview uses an iframe/WebView loading Leaflet with a CARTO basemap URL (e.g., basemaps.cartocdn.com/.../apikey). Without a valid key, CARTO stamps every tile with the watermark. Fix: supply EXPO_PUBLIC_MAPTILER_KEY/CARTO key via env and inject into the tile URL template, or fallback to free OSM tiles (https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png) with proper attribution."
+}
