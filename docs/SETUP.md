@@ -26,14 +26,20 @@ Wszystkie klucze muszą pochodzić z **tego samego** projektu Supabase (Settings
 
 Auth (e-mail/hasło oraz Google OAuth) działa bezpośrednio przez Supabase Auth w aplikacji — bez Emergent.
 
-## Migracje
-1. Supabase → SQL Editor → wklej `supabase/yummeet_all.sql` → Run (skrypt jest idempotentny – można uruchomić ponownie).
-2. Następnie uruchom kolejno:
-   - `supabase/migrations/004_pin_photos_and_route_cuisine.sql` (zdjęcia pinów, filtr kuchni na trasie, Realtime)
-   - `supabase/migrations/005_pin_duplicate_guard.sql` (blokada duplikatów pinów w tym samym miejscu)
-3. Authentication → Providers → Email → wyłącz „Confirm email” (na czas testów lokalnych).
-4. (Opcjonalnie) Authentication → Providers → Google — włącz i dodaj Client ID/Secret z Google Cloud; w Redirect URLs dodaj redirect Expo (`exp://…` / scheme aplikacji).
-5. Nowe treści (misje, karty, specjalizacje, poziomy, odznaki, pytania, gry) dodajesz INSERT-ami – bez zmian w kodzie.
+## Migracje (kolejność obowiązkowa)
+W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
+
+1. `supabase/yummeet_all.sql` — schemat + funkcje + seed (tworzy m.in. `public.events`). Idempotentny.
+2. `supabase/migrations/004_pin_photos_and_route_cuisine.sql`
+3. `supabase/migrations/005_pin_duplicate_guard.sql`
+4. `supabase/migrations/006_checkin_attractions_travel.sql` — check-in GPS, atrakcje, `travel_km`
+5. `supabase/migrations/007_fix_pins_bbox_return.sql` — `cover_url` w mapie pinów
+
+Jeśli zobaczysz `relation "public.events" does not exist` — **nie uruchomiłeś kroku 1**.  
+Jeśli `cannot change return type` przy `pins_in_bbox` — uruchom tylko `007`.
+
+Potem: Authentication → Providers → Email → wyłącz „Confirm email” (testy).  
+Opcjonalnie Google OAuth + Redirect URLs Expo.
 
 ### Gastro-Trasa
 Punkt A/B: GPS, podpowiedzi adresów (Nominatim) przy pisaniu, trasa OSRM, piny w buforze trasy (PostGIS), filtr kuchni.

@@ -36,7 +36,9 @@ export function errorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as any).message) : String(e);
   const key = Object.keys(MESSAGES).find((k) => raw.includes(k));
   if (key) return MESSAGES[key];
-  if (raw.includes("schema cache") || raw.includes("does not exist")) return "Baza danych nie jest jeszcze skonfigurowana (uruchom migracje).";
+  if (raw.includes("schema cache") || raw.includes("does not exist") || raw.includes("public.events")) {
+    return "Baza niegotowa: w SQL Editor uruchom kolejno yummeet_all.sql → 004 → 005 → 006 → 007 (patrz docs/SETUP.md).";
+  }
   if (/invalid api key/i.test(raw)) {
     return "Nieprawidłowy klucz Supabase. W frontend/.env wstaw URL i anon key z tego samego projektu (Settings → API).";
   }

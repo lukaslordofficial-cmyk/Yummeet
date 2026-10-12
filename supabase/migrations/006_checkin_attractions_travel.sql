@@ -1,14 +1,19 @@
--- Event GPS check-in, attractions, travel_km, pin cover in bbox, event place coords.
+-- GPS check-in, atrakcje, travel_km, współrzędne miejsca wydarzenia.
+-- WYMAGA: najpierw yummeet_all.sql (lub 001→002→003), potem 004 i 005.
+-- Potem uruchom 007_fix_pins_bbox_return.sql (cover_url w pins_in_bbox).
 
-alter table public.profiles add column if not exists travel_km numeric not null default 0 check (travel_km >= 0);
+do $$ begin
+  if to_regclass('public.events') is null then
+    raise exception 'Brak tabeli public.events. Najpierw uruchom supabase/yummeet_all.sql, potem 004, 005, dopiero 006 i 007.';
+  end if;
+end $$;
 
+alter table public.profiles add column if not exists travel_km numeric not null default 0;
 alter table public.events add column if not exists place_lat float8;
 alter table public.events add column if not exists place_lng float8;
-
 alter table public.event_secrets add column if not exists code_revealed_at timestamptz;
 alter table public.event_secrets add column if not exists code_notified_at timestamptz;
 
--- Catalog of reusable suggestion tiles (organizer can copy into event).
 create table if not exists public.attraction_suggestions (
   id uuid primary key default gen_random_uuid(),
   category text not null check (category in ('questions','games','challenges')),
@@ -34,18 +39,12 @@ alter table public.event_attractions enable row level security;
 
 drop policy if exists attraction_suggestions_read on public.attraction_suggestions;
 create policy attraction_suggestions_read on public.attraction_suggestions for select to authenticated using (is_active = true);
-
 drop policy if exists event_attractions_read on public.event_attractions;
 create policy event_attractions_read on public.event_attractions for select to authenticated
   using (public.is_event_member(event_id) or exists (select 1 from public.events e where e.id = event_id and e.organizer_id = auth.uid()));
-
 drop policy if exists event_attractions_insert on public.event_attractions;
 create policy event_attractions_insert on public.event_attractions for insert to authenticated
-  with check (
-    created_by = auth.uid()
-    and exists (select 1 from public.events e where e.id = event_id and e.organizer_id = auth.uid())
-  );
-
+  with check (created_by = auth.uid() and exists (select 1 from public.events e where e.id = event_id and e.organizer_id = auth.uid()));
 drop policy if exists event_attractions_delete on public.event_attractions;
 create policy event_attractions_delete on public.event_attractions for delete to authenticated
   using (exists (select 1 from public.events e where e.id = event_id and e.organizer_id = auth.uid()));
@@ -58,6 +57,7 @@ select * from (values
   ('questions', 'Ulubione danie z dzieciństwa?', 'Co gotowano u Ciebie w domu najczęściej?', 1),
   ('questions', 'Gdybyś otworzył restaurację…', 'Jaki byłby motyw przewodni i danie specjalności?', 2),
   ('questions', 'Podróż smaków', 'Jakie miasto zaskoczyło Cię kulinarne najbardziej?', 3),
+  ('questions', 'Najdziwniejsze danie', 'Co zamówiłeś „na odwagę” i jak wyszło?', 4),
   ('games', 'Szachy', 'Klasyczna partia przy stole — 15–20 min na rundę.', 1),
   ('games', 'Makao', 'Karcianka dla 3–6 osób.', 2),
   ('games', 'Twister', 'Wymaga miejsca na podłodze / na zewnątrz.', 3),
@@ -68,14 +68,11 @@ select * from (values
 ) as v(category, title, body, sort)
 where not exists (select 1 from public.attraction_suggestions s where s.category = v.category and s.title = v.title);
 
--- Helper: venue point from event (explicit coords or linked pin).
 create or replace function public._event_venue(p_event uuid)
 returns table (lat float8, lng float8)
 language sql stable security definer set search_path = public, extensions as $$
   select coalesce(e.place_lat, st_y(p.coords::geometry)), coalesce(e.place_lng, st_x(p.coords::geometry))
-  from public.events e
-  left join public.pins p on p.id = e.pin_id
-  where e.id = p_event;
+  from public.events e left join public.pins p on p.id = e.pin_id where e.id = p_event;
 $$;
 
 create or replace function public.event_create(
@@ -103,7 +100,6 @@ begin
   return v_id;
 end $$;
 
--- Organizer reveals code only on event day, at venue (GPS). Notifies once.
 create or replace function public.event_reveal_checkin_code(p_event uuid, p_lat float8, p_lng float8)
 returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare v uuid := public._uid(); e record; v_lat float8; v_lng float8; v_code text; v_notified timestamptz;
@@ -111,8 +107,7 @@ begin
   select * into e from public.events where id = p_event;
   if e.id is null then raise exception 'not_found'; end if;
   if e.organizer_id <> v then raise exception 'not_allowed'; end if;
-  if (e.starts_at at time zone 'UTC')::date > (now() at time zone 'UTC')::date then raise exception 'too_early'; end if;
-  if (e.starts_at at time zone 'UTC')::date < (now() at time zone 'UTC')::date then raise exception 'event_closed'; end if;
+  if (e.starts_at at time zone 'UTC')::date <> (now() at time zone 'UTC')::date then raise exception 'too_early'; end if;
   if now() < e.starts_at - interval '30 minutes' then raise exception 'too_early'; end if;
   if now() > e.starts_at + interval '4 hours' then raise exception 'event_closed'; end if;
   select lat, lng into v_lat, v_lng from public._event_venue(p_event);
@@ -131,7 +126,6 @@ begin
   return jsonb_build_object('code', v_code, 'notified', v_notified is null);
 end $$;
 
--- Guest check-in: at venue, within [start, start+4h], not organizer, valid code. Organizer gets no attendance XP here.
 create or replace function public.event_checkin(p_event uuid, p_code text, p_lat float8 default null, p_lng float8 default null)
 returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare v uuid := public._uid(); e record; v_lat float8; v_lng float8;
@@ -153,74 +147,15 @@ begin
   end if;
   update public.event_participants set status = 'attended', attended_at = coalesce(attended_at, now())
     where event_id = p_event and user_id = v and status = 'joined';
-  if not found then
-    return jsonb_build_object('attended', true, 'already', true);
-  end if;
+  if not found then return jsonb_build_object('attended', true, 'already', true); end if;
   perform public._award_xp(v, 25, 'event_attendance', p_event, e.title);
   perform public._evaluate_badges(v);
   return jsonb_build_object('attended', true);
 end $$;
 
--- Old signature without GPS must not leak the code early.
 create or replace function public.event_checkin_code(p_event uuid) returns text
 language plpgsql security definer set search_path = public as $$
-begin
-  raise exception 'use_reveal_with_gps';
-end $$;
-
--- Return type changed (added cover_url) — must DROP first.
-drop function if exists public.pins_in_bbox(double precision, double precision, double precision, double precision, text, integer);
-drop function if exists public.pins_in_bbox(float8, float8, float8, float8, text, int);
-
-create function public.pins_in_bbox(p_south float8, p_west float8, p_north float8, p_east float8, p_cuisine text default null, p_limit int default 200)
-returns table (id uuid, title text, lat float8, lng float8, cuisine text, is_official boolean, score numeric, review_count int, cover_url text)
-language plpgsql stable security invoker set search_path = public, extensions as $$
-begin
-  if p_south < -90 or p_north > 90 or p_south >= p_north or p_west < -180 or p_east > 180 or p_west >= p_east then
-    raise exception 'invalid_bbox';
-  end if;
-  return query
-  select p.id, p.title, st_y(p.coords::geometry), st_x(p.coords::geometry), p.cuisine, p.is_official, s.yummeet_score, coalesce(s.review_count, 0), p.cover_url
-  from public.pins p left join public.restaurant_rating_summaries s on s.pin_id = p.id
-  where p.status = 'published'
-    and p.coords && st_makeenvelope(p_west, p_south, p_east, p_north, 4326)::geography
-    and (p_cuisine is null or p.cuisine = p_cuisine)
-  order by s.yummeet_score desc nulls last, p.created_at desc
-  limit least(greatest(coalesce(p_limit, 200), 1), 300);
-end $$;
-
-drop function if exists public.pins_along_route(jsonb, integer, integer, text);
-drop function if exists public.pins_along_route(jsonb, int, int, text);
-drop function if exists public.pins_along_route(jsonb, integer, integer);
-drop function if exists public.pins_along_route(jsonb, int, int);
-
-create function public.pins_along_route(
-  p_path jsonb, p_buffer_m int default 1000, p_limit int default 100, p_cuisine text default null
-)
-returns table (id uuid, title text, lat float8, lng float8, cuisine text, is_official boolean, score numeric, review_count int, distance_m float8, along float8, cover_url text)
-language plpgsql stable security invoker set search_path = public, extensions as $$
-declare v_line geometry; n int;
-begin
-  if jsonb_typeof(p_path) <> 'array' then raise exception 'invalid_path'; end if;
-  n := jsonb_array_length(p_path);
-  if n < 2 or n > 2000 then raise exception 'invalid_path_length'; end if;
-  if p_buffer_m < 50 or p_buffer_m > 10000 then raise exception 'invalid_buffer'; end if;
-  select st_setsrid(st_makeline(array_agg(st_makepoint((e->>0)::float8, (e->>1)::float8) order by o)), 4326)
-    into v_line from jsonb_array_elements(p_path) with ordinality as t(e, o);
-  if v_line is null or not st_isvalid(v_line) or st_npoints(v_line) < 2 then raise exception 'invalid_geometry'; end if;
-  if st_xmin(v_line) < -180 or st_xmax(v_line) > 180 or st_ymin(v_line) < -90 or st_ymax(v_line) > 90 then raise exception 'invalid_coordinates'; end if;
-  return query
-  select p.id, p.title, st_y(p.coords::geometry), st_x(p.coords::geometry), p.cuisine, p.is_official, s.yummeet_score, coalesce(s.review_count, 0),
-         st_distance(p.coords, v_line::geography), st_linelocatepoint(v_line, p.coords::geometry), p.cover_url
-  from public.pins p left join public.restaurant_rating_summaries s on s.pin_id = p.id
-  where p.status = 'published' and st_dwithin(p.coords, v_line::geography, p_buffer_m)
-    and (p_cuisine is null or p.cuisine = p_cuisine)
-  order by st_linelocatepoint(v_line, p.coords::geometry)
-  limit least(greatest(coalesce(p_limit, 100), 1), 200);
-end $$;
-
-grant execute on function public.pins_in_bbox(float8, float8, float8, float8, text, int) to authenticated;
-grant execute on function public.pins_along_route(jsonb, int, int, text) to authenticated;
+begin raise exception 'use_reveal_with_gps'; end $$;
 
 create or replace function public.travel_add_km(p_km numeric) returns numeric
 language plpgsql security definer set search_path = public as $$

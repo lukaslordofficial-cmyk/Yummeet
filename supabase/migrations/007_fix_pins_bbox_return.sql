@@ -1,5 +1,10 @@
--- Safe re-apply if 006 failed on "cannot change return type".
--- DROP then recreate pins_in_bbox / pins_along_route with cover_url.
+-- cover_url w pins_in_bbox / pins_along_route.
+-- WYMAGA: yummeet_all.sql (+ 004/005). Uruchom PO 006 (albo sam, jeśli 006 już był).
+do $$ begin
+  if to_regclass('public.pins') is null then
+    raise exception 'Brak tabeli public.pins. Najpierw yummeet_all.sql, potem 004/005, 006, 007.';
+  end if;
+end $$;
 
 drop function if exists public.pins_in_bbox(double precision, double precision, double precision, double precision, text, integer);
 drop function if exists public.pins_in_bbox(float8, float8, float8, float8, text, int);

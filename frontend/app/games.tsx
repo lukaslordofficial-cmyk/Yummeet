@@ -1,16 +1,13 @@
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Body, Button, Card, Chip, ChipRow, Field, Header, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
+import { ATTR_CATEGORY_HINTS, type AttractionCategory } from "@/src/lib/attractionsCatalog";
 import {
-  addEventAttraction,
-  attractionSuggestions,
-  eventAttractions,
-  removeEventAttraction,
-  type AttractionCategory,
+  addEventAttraction, attractionSuggestions, eventAttractions, removeEventAttraction,
 } from "@/src/lib/data";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { spacing, useTheme } from "@/src/theme";
@@ -41,21 +38,18 @@ export default function Attractions() {
         attractionSuggestions(tab),
         event ? eventAttractions(event) : Promise.resolve([]),
       ]);
-      setSuggestions(sug as any[]);
+      setSuggestions((sug as any[]) || []);
       setMine(((rows as any[]) || []).filter((r) => r.category === tab));
       if (event) {
         const { getEvent } = await import("@/src/lib/data");
-        const e = await getEvent(event);
-        setOrganizerId(e?.organizer_id ?? null);
+        setOrganizerId((await getEvent(event))?.organizer_id ?? null);
       }
     } catch (e) {
       toast(errorMessage(e), "error");
     }
   }, [tab, event, toast]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const isOrganizer = !!event && organizerId === session?.user.id;
 
@@ -65,36 +59,20 @@ export default function Attractions() {
     setBusy(true);
     try {
       await addEventAttraction(event, tab, title, body);
-      setTitle("");
-      setBody("");
-      toast("Dodano!", "success");
-      load();
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    } finally {
-      setBusy(false);
-    }
+      setTitle(""); setBody(""); toast("Dodano!", "success"); load();
+    } catch (e) { toast(errorMessage(e), "error"); }
+    finally { setBusy(false); }
   };
 
   const addFromSuggestion = async (s: any) => {
-    if (!event || !isOrganizer) return toast("Otwórz Atrakcje ze stołu jako organizator, żeby dodać kafelki.", "info");
+    if (!event || !isOrganizer) return toast("Otwórz Atrakcje ze stołu jako organizator.", "info");
     setBusy(true);
     try {
       await addEventAttraction(event, tab, s.title, s.body);
-      toast("Dodano propozycję do stołu", "success");
-      load();
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    } finally {
-      setBusy(false);
-    }
+      toast("Dodano propozycję do stołu", "success"); load();
+    } catch (e) { toast(errorMessage(e), "error"); }
+    finally { setBusy(false); }
   };
-
-  const hint = useMemo(() => {
-    if (tab === "questions") return "Pytania, które chcesz zadać gościom przy stole.";
-    if (tab === "games") return "Gry i zabawy: szachy, makao, Twister, LoL…";
-    return "Warunki wstępu / wyzwania (np. 20 pompek).";
-  }, [tab]);
 
   return (
     <View testID="games-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
@@ -105,7 +83,7 @@ export default function Attractions() {
             <Chip key={t.key} testID={`attractions-tab-${t.key}`} label={t.label} selected={tab === t.key} onPress={() => setTab(t.key)} />
           ))}
         </ChipRow>
-        <Body muted style={{ paddingHorizontal: spacing.lg }}>{hint}</Body>
+        <Body muted style={{ paddingHorizontal: spacing.lg }} testID="attractions-hint">{ATTR_CATEGORY_HINTS[tab]}</Body>
 
         {event && isOrganizer ? (
           <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
@@ -137,6 +115,7 @@ export default function Attractions() {
 
         <Title size={18} style={{ paddingHorizontal: spacing.lg }}>Propozycje pomocnicze</Title>
         <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
+          {suggestions.length === 0 ? <Body muted>Brak propozycji.</Body> : null}
           {suggestions.map((s) => (
             <Card key={s.id} testID={`attraction-sug-${s.id}`}>
               <Title size={16}>{s.title}</Title>

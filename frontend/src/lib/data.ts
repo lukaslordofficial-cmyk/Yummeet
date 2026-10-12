@@ -1,5 +1,6 @@
 // Data-access layer: every Supabase call used by screens lives here (UI never builds queries itself).
 import { must, rpc } from "./api";
+import type { AttractionCategory } from "./attractionsCatalog";
 import { supabase } from "./supabase";
 import type { BoardMission, CardDef, EventRow, LevelDef, PinMarker, Profile, Specialization, UserCard } from "@/src/types";
 
@@ -182,11 +183,18 @@ export const eventRevealCheckinCode = (id: string, lat: number, lng: number) =>
   rpc<{ code: string; notified: boolean }>("event_reveal_checkin_code", { p_event: id, p_lat: lat, p_lng: lng });
 export const travelAddKm = (km: number) => rpc<number>("travel_add_km", { p_km: km });
 
-export type AttractionCategory = "questions" | "games" | "challenges";
-export async function attractionSuggestions(category?: AttractionCategory) {
-  let q = supabase.from("attraction_suggestions").select("*").eq("is_active", true).order("sort");
-  if (category) q = q.eq("category", category);
-  return must(q);
+export type { AttractionCategory } from "./attractionsCatalog";
+export async function attractionSuggestions(category?: import("./attractionsCatalog").AttractionCategory) {
+  const { fallbackAttractions, FALLBACK_ATTRACTIONS } = await import("./attractionsCatalog");
+  try {
+    let q = supabase.from("attraction_suggestions").select("*").eq("is_active", true).order("sort");
+    if (category) q = q.eq("category", category);
+    const rows = (await must(q)) as any[];
+    if (rows?.length) return rows;
+  } catch {
+    /* tabela jeszcze nie istnieje — lokalne propozycje */
+  }
+  return category ? fallbackAttractions(category) : FALLBACK_ATTRACTIONS;
 }
 export async function eventAttractions(eventId: string) {
   return must(supabase.from("event_attractions").select("*").eq("event_id", eventId).order("created_at"));
