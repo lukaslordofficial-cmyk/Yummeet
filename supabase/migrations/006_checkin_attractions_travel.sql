@@ -168,7 +168,11 @@ begin
   raise exception 'use_reveal_with_gps';
 end $$;
 
-create or replace function public.pins_in_bbox(p_south float8, p_west float8, p_north float8, p_east float8, p_cuisine text default null, p_limit int default 200)
+-- Return type changed (added cover_url) — must DROP first.
+drop function if exists public.pins_in_bbox(double precision, double precision, double precision, double precision, text, integer);
+drop function if exists public.pins_in_bbox(float8, float8, float8, float8, text, int);
+
+create function public.pins_in_bbox(p_south float8, p_west float8, p_north float8, p_east float8, p_cuisine text default null, p_limit int default 200)
 returns table (id uuid, title text, lat float8, lng float8, cuisine text, is_official boolean, score numeric, review_count int, cover_url text)
 language plpgsql stable security invoker set search_path = public, extensions as $$
 begin
@@ -185,7 +189,12 @@ begin
   limit least(greatest(coalesce(p_limit, 200), 1), 300);
 end $$;
 
-create or replace function public.pins_along_route(
+drop function if exists public.pins_along_route(jsonb, integer, integer, text);
+drop function if exists public.pins_along_route(jsonb, int, int, text);
+drop function if exists public.pins_along_route(jsonb, integer, integer);
+drop function if exists public.pins_along_route(jsonb, int, int);
+
+create function public.pins_along_route(
   p_path jsonb, p_buffer_m int default 1000, p_limit int default 100, p_cuisine text default null
 )
 returns table (id uuid, title text, lat float8, lng float8, cuisine text, is_official boolean, score numeric, review_count int, distance_m float8, along float8, cover_url text)
@@ -209,6 +218,9 @@ begin
   order by st_linelocatepoint(v_line, p.coords::geometry)
   limit least(greatest(coalesce(p_limit, 100), 1), 200);
 end $$;
+
+grant execute on function public.pins_in_bbox(float8, float8, float8, float8, text, int) to authenticated;
+grant execute on function public.pins_along_route(jsonb, int, int, text) to authenticated;
 
 create or replace function public.travel_add_km(p_km numeric) returns numeric
 language plpgsql security definer set search_path = public as $$

@@ -10,15 +10,17 @@ export interface MapViewProps extends LeafletOptions {
   style?: ViewStyle;
   onMarkerPress?: (id: string) => void;
   onMapPress?: (lat: number, lng: number) => void;
+  onMapDblClick?: (lat: number, lng: number) => void;
   onAreaDrawn?: (shape: MapShape) => void;
   onViewChange?: (v: { lat: number; lng: number; zoom: number }) => void;
   followCenterToken?: number | string;
 }
 
-export function handleMapMessage(data: any, h: Pick<MapViewProps, "onMarkerPress" | "onMapPress" | "onAreaDrawn" | "onViewChange">) {
+export function handleMapMessage(data: any, h: Pick<MapViewProps, "onMarkerPress" | "onMapPress" | "onMapDblClick" | "onAreaDrawn" | "onViewChange">) {
   if (!data || !data.type) return;
   if (data.type === "markerPress") h.onMarkerPress?.(data.id);
   if (data.type === "mapPress") h.onMapPress?.(data.lat, data.lng);
+  if (data.type === "mapDblClick") h.onMapDblClick?.(data.lat, data.lng);
   if (data.type === "areaDrawn") h.onAreaDrawn?.(data.shape);
   if (data.type === "view") h.onViewChange?.({ lat: data.lat, lng: data.lng, zoom: data.zoom });
 }
@@ -27,6 +29,7 @@ export function AppMapView({
   style,
   onMarkerPress,
   onMapPress,
+  onMapDblClick,
   onAreaDrawn,
   onViewChange,
   followCenterToken,
@@ -43,8 +46,8 @@ export function AppMapView({
 }: MapViewProps) {
   const frameRef = useRef<any>(null);
   const ready = useRef(false);
-  const handlerRef = useRef({ onMarkerPress, onMapPress, onAreaDrawn, onViewChange });
-  handlerRef.current = { onMarkerPress, onMapPress, onAreaDrawn, onViewChange };
+  const handlerRef = useRef({ onMarkerPress, onMapPress, onMapDblClick, onAreaDrawn, onViewChange });
+  handlerRef.current = { onMarkerPress, onMapPress, onMapDblClick, onAreaDrawn, onViewChange };
   const initial = useRef({ center, zoom, pickMode, emitClicks, drawMode });
   const lastFollow = useRef(followCenterToken);
 

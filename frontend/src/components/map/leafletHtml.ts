@@ -99,17 +99,18 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
       else if (window.parent) { window.parent.postMessage(s, '*'); }
     }
     var C = ${cfg};
-    var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([C.center.lat, C.center.lng], C.zoom);
+    var LABEL_ZOOM = 17;
+    var map = L.map('map', { zoomControl: true, attributionControl: false, doubleClickZoom: !C.emitClicks }).setView([C.center.lat, C.center.lng], C.zoom);
     L.tileLayer(C.tileUrl, { maxZoom: C.maxZoom, subdomains: 'abc' }).addTo(map);
 
     function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-    function pinIcon(color, label, coverUrl){
+    function pinIcon(color, label, coverUrl, showLabel){
       var bg = color || '#E05F36';
       var text = esc(label || '');
       var head = coverUrl
         ? '<img class="pin-photo" src="'+esc(coverUrl)+'" alt=""/>'
         : '<div class="pin-dot" style="background:'+bg+'"></div>';
-      if (label) {
+      if (showLabel && label) {
         return L.divIcon({
           className: '',
           html: '<div class="pin-stack">'+head+'<div class="pin-label" style="background:'+bg+'" title="'+text+'">'+text+'</div></div>',
@@ -130,13 +131,16 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     var pickMarker = null;
     var pickModeOn = !!C.pickMode;
     var emitClicksOn = !!C.emitClicks;
+    var lastMarkers = C.markers || [];
 
     function clearGroup(g){ g.clearLayers(); }
 
     function renderMarkers(list){
+      if (list) lastMarkers = list;
+      var showLabel = map.getZoom() >= LABEL_ZOOM;
       clearGroup(markerLayer);
-      (list||[]).forEach(function(m){
-        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label, m.coverUrl) });
+      (lastMarkers||[]).forEach(function(m){
+        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label, m.coverUrl, showLabel) });
         if (m.title) mk.bindTooltip(m.title, { direction: 'top', opacity: 0.95 });
         mk.on('click', function(){ send({ type:'markerPress', id: m.id }); });
         markerLayer.addLayer(mk);
@@ -186,12 +190,16 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
       if (pickModeOn) {
         ensurePickMarker(e.latlng.lat, e.latlng.lng);
         send({ type:'mapPress', lat: e.latlng.lat, lng: e.latlng.lng });
-        return;
-      }
-      if (emitClicksOn && !C.drawMode) {
-        send({ type:'mapPress', lat: e.latlng.lat, lng: e.latlng.lng });
       }
     });
+    map.on('dblclick', function(e){
+      if (pickModeOn || C.drawMode) return;
+      if (emitClicksOn) {
+        L.DomEvent.stopPropagation(e);
+        send({ type:'mapDblClick', lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    });
+    map.on('zoomend', function(){ renderMarkers(null); });
 
     if (C.drawMode) {
       var first = null, firstMk = null, preview = null;
@@ -233,7 +241,11 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     window.__updateMap = function(U){
       if (!U) return;
       if (typeof U.pickMode === 'boolean') pickModeOn = U.pickMode;
-      if (typeof U.emitClicks === 'boolean') emitClicksOn = U.emitClicks;
+      if (typeof U.emitClicks === 'boolean') {
+        emitClicksOn = U.emitClicks;
+        if (U.emitClicks) map.doubleClickZoom.disable();
+        else map.doubleClickZoom.enable();
+      }
       if (U.markers) renderMarkers(U.markers);
       if (U.polyline) {
         var line = U.polyline.map(function(p){ return [p.lat, p.lng]; });

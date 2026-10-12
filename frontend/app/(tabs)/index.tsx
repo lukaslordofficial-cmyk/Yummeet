@@ -97,14 +97,14 @@ export default function Discover() {
         emitClicks
         followCenterToken={followToken}
         onMarkerPress={(id) => router.push(`/pin/${id}`)}
-        onMapPress={(lat, lng) => openNewPin(lat, lng)}
+        onMapDblClick={(lat, lng) => openNewPin(lat, lng)}
         onViewChange={onViewChange}
       />
       <View style={{ pointerEvents: "box-none", position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm }}>
         <View style={{ marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.md, borderWidth: 1, borderColor: colors.border }}>
           <View style={{ flex: 1 }}>
             <Title size={20}>Odkrywaj</Title>
-            <Body muted testID="discover-pin-count">{error ? error : `${pins.length} miejsc · stuknij mapę = nowy pin`}</Body>
+            <Body muted testID="discover-pin-count">{error ? error : `${pins.length} miejsc · podwójne stuknięcie = nowy pin`}</Body>
           </View>
           <IconButton testID="discover-locate-button" icon="crosshairs-gps" onPress={locate} />
         </View>

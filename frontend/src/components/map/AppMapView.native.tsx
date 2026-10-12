@@ -11,6 +11,8 @@ export interface MapViewProps extends LeafletOptions {
   style?: ViewStyle;
   onMarkerPress?: (id: string) => void;
   onMapPress?: (lat: number, lng: number) => void;
+  /** Double-tap / double-click on empty map (e.g. add pin). */
+  onMapDblClick?: (lat: number, lng: number) => void;
   onAreaDrawn?: (shape: MapShape) => void;
   onViewChange?: (v: { lat: number; lng: number; zoom: number }) => void;
   /** Bump this (e.g. Date.now()) when you want the map to fly to `center`. */
@@ -21,6 +23,7 @@ export function AppMapView({
   style,
   onMarkerPress,
   onMapPress,
+  onMapDblClick,
   onAreaDrawn,
   onViewChange,
   followCenterToken,
@@ -112,6 +115,7 @@ export function AppMapView({
           }
           if (data.type === "markerPress") onMarkerPress?.(data.id);
           if (data.type === "mapPress") onMapPress?.(data.lat, data.lng);
+          if (data.type === "mapDblClick") onMapDblClick?.(data.lat, data.lng);
           if (data.type === "areaDrawn") onAreaDrawn?.(data.shape);
           if (data.type === "view") onViewChange?.({ lat: data.lat, lng: data.lng, zoom: data.zoom });
         } catch {

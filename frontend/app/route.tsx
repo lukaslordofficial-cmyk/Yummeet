@@ -119,7 +119,7 @@ function PointInput({
             label={label}
             value={q}
             onChangeText={onChangeText}
-            placeholder="np. Warszawa Dworzec PKP"
+            placeholder="np. War… / Jag… / Dworzec PKP"
             onSubmitEditing={() => void search(q)}
             returnKeyType="search"
           />
