@@ -1051,15 +1051,17 @@ select pin_id,
 from public.restaurant_reviews group by pin_id;
 grant select on public.restaurant_rating_summaries to authenticated;
 
+drop function if exists public.pins_in_bbox(double precision, double precision, double precision, double precision, text, integer);
+drop function if exists public.pins_in_bbox(float8, float8, float8, float8, text, int);
 create or replace function public.pins_in_bbox(p_south float8, p_west float8, p_north float8, p_east float8, p_cuisine text default null, p_limit int default 200)
-returns table (id uuid, title text, lat float8, lng float8, cuisine text, is_official boolean, score numeric, review_count int)
+returns table (id uuid, title text, lat float8, lng float8, cuisine text, is_official boolean, score numeric, review_count int, cover_url text)
 language plpgsql stable security invoker set search_path = public, extensions as $$
 begin
   if p_south < -90 or p_north > 90 or p_south >= p_north or p_west < -180 or p_east > 180 or p_west >= p_east then
     raise exception 'invalid_bbox';
   end if;
   return query
-  select p.id, p.title, st_y(p.coords::geometry), st_x(p.coords::geometry), p.cuisine, p.is_official, s.yummeet_score, coalesce(s.review_count, 0)
+  select p.id, p.title, st_y(p.coords::geometry), st_x(p.coords::geometry), p.cuisine, p.is_official, s.yummeet_score, coalesce(s.review_count, 0), p.cover_url
   from public.pins p left join public.restaurant_rating_summaries s on s.pin_id = p.id
   where p.status = 'published'
     and p.coords && st_makeenvelope(p_west, p_south, p_east, p_north, 4326)::geography

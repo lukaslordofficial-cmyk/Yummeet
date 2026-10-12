@@ -36,7 +36,10 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 5. `supabase/migrations/007_fix_pins_bbox_return.sql` — `cover_url` w mapie pinów
 
 Jeśli zobaczysz `relation "public.events" does not exist` — **nie uruchomiłeś kroku 1**.  
-Jeśli `cannot change return type` przy `pins_in_bbox` — uruchom tylko `007`.
+Jeśli `cannot change return type` przy `pins_in_bbox`:
+1. Uruchom **tylko** `000_fix_pins_bbox_drop.sql` (DROP funkcji).
+2. Potem `006`, potem `007`.
+3. **Nie uruchamiaj ponownie całego `yummeet_all.sql`**, jeśli baza już działa — to właśnie powoduje konflikt typu zwracanego.
 
 Potem: Authentication → Providers → Email → wyłącz „Confirm email” (testy).  
 Opcjonalnie Google OAuth + Redirect URLs Expo.
