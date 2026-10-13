@@ -1,6 +1,7 @@
 // Data-access layer: every Supabase call used by screens lives here (UI never builds queries itself).
 import { must, rpc } from "./api";
 import type { AttractionCategory } from "./attractionsCatalog";
+import type { TravelRouteRow } from "./routeTypes";
 import { supabase } from "./supabase";
 import type { BoardMission, CardDef, EventRow, LevelDef, PinMarker, Profile, Specialization, UserCard } from "@/src/types";
 
@@ -182,6 +183,29 @@ export const eventCheckin = (id: string, code: string, lat: number, lng: number)
 export const eventRevealCheckinCode = (id: string, lat: number, lng: number) =>
   rpc<{ code: string; notified: boolean }>("event_reveal_checkin_code", { p_event: id, p_lat: lat, p_lng: lng });
 export const travelAddKm = (km: number) => rpc<number>("travel_add_km", { p_km: km });
+
+export const travelRouteFinish = (a: {
+  title: string; placeA: string; placeB: string;
+  aLat: number; aLng: number; bLat: number; bLng: number;
+  mode: string; distanceM: number; kmTracked: number; startedAt: string; pinIds: string[];
+}) =>
+  rpc<string>("travel_route_finish", {
+    p_title: a.title, p_place_a: a.placeA, p_place_b: a.placeB,
+    p_a_lat: a.aLat, p_a_lng: a.aLng, p_b_lat: a.bLat, p_b_lng: a.bLng,
+    p_mode: a.mode, p_distance_m: a.distanceM, p_km_tracked: a.kmTracked,
+    p_started_at: a.startedAt, p_pin_ids: a.pinIds,
+  });
+
+export async function myTravelRoutes(): Promise<TravelRouteRow[]> {
+  try {
+    return (await must(
+      supabase.from("travel_routes").select("id,title,place_a,place_b,mode,distance_m,km_tracked,started_at,ended_at,reviewed")
+        .order("ended_at", { ascending: false }).limit(30),
+    )) as TravelRouteRow[];
+  } catch {
+    return [];
+  }
+}
 
 export type { AttractionCategory } from "./attractionsCatalog";
 export async function attractionSuggestions(category?: import("./attractionsCatalog").AttractionCategory) {

@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/src/components/error-boundary";
 import { Loading, ToastProvider } from "@/src/components/ui";
+import "@/src/lib/routeBg";
 import { AuthProvider, useAuth } from "@/src/providers/AuthProvider";
 import { queryClient } from "@/src/query-client";
 import { useTheme } from "@/src/theme";

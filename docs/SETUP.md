@@ -34,6 +34,10 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 3. `supabase/migrations/005_pin_duplicate_guard.sql`
 4. `supabase/migrations/006_checkin_attractions_travel.sql` — check-in GPS, atrakcje, `travel_km`
 5. `supabase/migrations/007_fix_pins_bbox_return.sql` — `cover_url` w mapie pinów
+6. `supabase/migrations/008_travel_routes.sql` — historia Gastro-Tras + knajpy z recenzją
+
+Powiadomienia na trasie (dźwięk) + śledzenie w tle: włącz przełącznik na aktywnej trasie.
+Pełne tło (apka zamknięta) wymaga buildu z uprawnieniem „Always” lokalizacji; w Expo Go działa foreground + lokalne powiadomienia.
 
 Jeśli zobaczysz `relation "public.events" does not exist` — **nie uruchomiłeś kroku 1**.  
 Jeśli `cannot change return type` przy `pins_in_bbox`:

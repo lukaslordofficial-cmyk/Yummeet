@@ -12,13 +12,16 @@ const STATUS_LABEL: Record<PinWithStatus["status"], string> = {
   ahead: "przed Tobą",
 };
 
-/** Lista lokali wzdłuż trasy ze statusem postępu (bez toastów). */
+/** Lista lokali wzdłuż trasy ze statusem postępu + dystans „stąd”. */
 export function RoutePinProgress({
   pins,
   onOpen,
+  fromHereM,
 }: {
   pins: PinWithStatus[];
   onOpen: (id: string) => void;
+  /** pinId → metry od aktualnej lokalizacji użytkownika */
+  fromHereM?: Record<string, number>;
 }) {
   const { colors } = useTheme();
   const next = pins.find((p) => p.status === "next");
@@ -74,6 +77,7 @@ export function RoutePinProgress({
           </Title>
           <Body muted>
             {STATUS_LABEL[p.status]} · {CUISINES.find((c) => c.key === p.cuisine)?.label ?? p.cuisine ?? "lokal"}
+            {fromHereM?.[p.id] != null ? ` · ${formatKm(fromHereM[p.id])} stąd` : ""}
             {p.distance_m != null ? ` · ${formatKm(p.distance_m)} od trasy` : ""}
           </Body>
         </Card>

@@ -11,7 +11,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.emergent.yummeetpreview.td2o84",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Pokaż lokale w pobliżu i pojedynki z bliskości"
+        "NSLocationWhenInUseUsageDescription": "Pokaż lokale w pobliżu, Gastro-Trasę i pojedynki",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Śledź Gastro-Trasę i powiadamiaj o knajpach także gdy aplikacja jest w tle",
+        "UIBackgroundModes": ["location"]
       }
     },
     "android": {
@@ -22,7 +24,11 @@
       "package": "com.emergent.yummeetpreview.td2o84",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -50,7 +56,16 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Pokaż lokale w pobliżu i pojedynki z bliskości"
+          "locationWhenInUsePermission": "Pokaż lokale w pobliżu, trasy i pojedynki",
+          "locationAlwaysAndWhenInUsePermission": "Śledź Gastro-Trasę i powiadamiaj o knajpach także w tle",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": []
         }
       ],
       [
