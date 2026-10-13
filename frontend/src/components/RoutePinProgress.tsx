@@ -1,7 +1,7 @@
 import { View } from "react-native";
 
 import { Body, Card, Title } from "@/src/components/ui";
-import { CUISINES } from "@/src/lib/cuisines";
+import { cuisineLabel } from "@/src/lib/cuisines";
 import { formatKm } from "@/src/lib/geo";
 import type { PinWithStatus } from "@/src/lib/routeProgress";
 import { spacing, useTheme } from "@/src/theme";
@@ -76,9 +76,8 @@ export function RoutePinProgress({
             {p.index + 1}. {p.title}
           </Title>
           <Body muted>
-            {STATUS_LABEL[p.status]} · {CUISINES.find((c) => c.key === p.cuisine)?.label ?? p.cuisine ?? "lokal"}
-            {fromHereM?.[p.id] != null ? ` · ${formatKm(fromHereM[p.id])} stąd` : ""}
-            {p.distance_m != null ? ` · ${formatKm(p.distance_m)} od trasy` : ""}
+            {fromHereM?.[p.id] != null ? `${formatKm(fromHereM[p.id])} stąd · ` : ""}
+            {STATUS_LABEL[p.status]} · {cuisineLabel(p.cuisine)}
           </Body>
         </Card>
       ))}

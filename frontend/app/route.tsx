@@ -15,6 +15,7 @@ import { CUISINES } from "@/src/lib/cuisines";
 import { myTravelRoutes, pinsAlongRoute, travelAddKm, travelRouteFinish } from "@/src/lib/data";
 import { formatDuration, formatKm, simplify } from "@/src/lib/geo";
 import { stopRouteBackground } from "@/src/lib/routeBg";
+import { filterPinsNearUser } from "@/src/lib/routePinsFilter";
 import { classifyRoutePins, userAlongRoute } from "@/src/lib/routeProgress";
 import type { ActiveRoute, TravelRouteRow } from "@/src/lib/routeTypes";
 import { routingProvider, type GeocodeResult, type TravelMode } from "@/src/lib/routing";
@@ -64,9 +65,16 @@ export default function RoutePlanner() {
     if (rerouteTick > 0) setRouteFollow(Date.now());
   }, [rerouteTick]);
 
+  /** Korytarz API ≥ bufor „stąd”, potem filtr po dystansie od GPS. */
+  const fetchPins = async (path: typeof line, buf: number, cui: string | null) => {
+    const corridor = Math.max(buf, 2500);
+    const raw = await pinsAlongRoute(path.map((p) => [p.lng, p.lat] as [number, number]), corridor, cui);
+    return filterPinsNearUser(raw, userPos, buf);
+  };
+
   const refreshPins = async (path: typeof line, buf: number, cui: string | null) => {
     if (path.length < 2 || !active) return;
-    const nextPins = await pinsAlongRoute(path.map((p) => [p.lng, p.lat] as [number, number]), buf, cui);
+    const nextPins = await fetchPins(path, buf, cui);
     await setActive({ ...active, pins: nextPins, buffer: buf, cuisine: cui });
   };
 
@@ -76,7 +84,7 @@ export default function RoutePlanner() {
     try {
       const r = await routingProvider().route([{ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng }], mode);
       const simple = simplify(r.geometry, 400);
-      const nextPins = await pinsAlongRoute(simple.map((p) => [p.lng, p.lat] as [number, number]), buffer, cuisine);
+      const nextPins = await fetchPins(simple, buffer, cuisine);
       const draft: ActiveRoute = {
         id: `local-${Date.now()}`, a, b, mode, buffer, cuisine, line: simple,
         meta: { d: r.distanceM, t: r.durationS }, pins: nextPins,
@@ -122,9 +130,10 @@ export default function RoutePlanner() {
     }
   };
 
+  const visiblePins = useMemo(() => filterPinsNearUser(pins, userPos, buffer), [pins, userPos, buffer]);
   const along = userAlongRoute(userPos, line);
-  const pinsStatus = useMemo(() => classifyRoutePins(pins, along), [pins, along]);
-  const distMap = fromHereM(pins);
+  const pinsStatus = useMemo(() => classifyRoutePins(visiblePins, along), [visiblePins, along]);
+  const distMap = fromHereM(visiblePins);
 
   const markers = useMemo(() => {
     const pinMarks = pinsStatus.map((p) => ({
@@ -171,9 +180,10 @@ export default function RoutePlanner() {
             <Chip key={k} testID={`route-mode-${k}`} label={l} selected={mode === k} onPress={() => setMode(k)} />
           ))}
           {[500, 1000, 3000].map((m) => (
-            <Chip key={m} testID={`route-buffer-${m}`} label={`±${formatKm(m)}`} selected={buffer === m} onPress={() => { setBuffer(m); if (active) void refreshPins(line, m, cuisine); }} color={colors.brandSecondary} />
+            <Chip key={m} testID={`route-buffer-${m}`} label={`≤${formatKm(m)} stąd`} selected={buffer === m} onPress={() => { setBuffer(m); if (active) void refreshPins(line, m, cuisine); }} color={colors.brandSecondary} />
           ))}
         </ChipRow>
+        <Body muted style={{ paddingHorizontal: spacing.lg }}>Promień liczony od Twojej lokalizacji GPS (nie od linii trasy).</Body>
         <ChipRow testID="route-cuisine-chips">
           {CUISINES.map((c) => (
             <Chip key={c.label} testID={`route-cuisine-${c.key ?? "all"}`} label={c.label} selected={cuisine === c.key} onPress={() => { setCuisine(c.key); if (active) void refreshPins(line, buffer, c.key); }} />
@@ -190,7 +200,7 @@ export default function RoutePlanner() {
               <AppMapView center={userPos ?? line[0]} polyline={line} markers={markers} fitBounds={!tracking} followCenterToken={tracking ? liveFollow : routeFollow} onMarkerPress={(id) => id.length > 2 && id !== "me" && router.push(`/pin/${id}`)} />
             </View>
             <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
-              <Title size={18} testID="route-summary">{active?.meta ? `${formatKm(active.meta.d)} · ${formatDuration(active.meta.t)} · ${pins.length} lokali` : ""}</Title>
+              <Title size={18} testID="route-summary">{active?.meta ? `${formatKm(active.meta.d)} · ${formatDuration(active.meta.t)} · ${visiblePins.length} lokali ≤${formatKm(buffer)} stąd` : ""}</Title>
               {tracking ? <Body testID="route-tracked-km">Przejechano: {(active!.trackedM / 1000).toFixed(2)} km</Body> : null}
               {!tracking ? <Button testID="route-start-button" title="Start — śledź trasę" icon="play" onPress={() => void onStart()} /> : null}
               <Button testID="route-end-button" title="Zamknij trasę i zapisz" icon="flag-checkered" variant="secondary" loading={busy} onPress={() => void endTrip()} />

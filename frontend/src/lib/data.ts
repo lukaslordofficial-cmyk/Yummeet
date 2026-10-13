@@ -62,10 +62,12 @@ export async function findNearbyPin(lat: number, lng: number, radiusM = 40): Pro
 export const createPin = (a: {
   title: string; lat: number; lng: number; description?: string; cuisine?: string | null; city?: string;
   price?: number | null; coverUrl?: string | null; address?: string | null;
+  priceMin?: number | null; priceMax?: number | null;
 }) =>
   rpc<string>("create_pin", {
     p_title: a.title, p_lat: a.lat, p_lng: a.lng, p_description: a.description || null, p_cuisine: a.cuisine || null,
     p_city: a.city || null, p_price_level: a.price ?? null, p_cover_url: a.coverUrl || null, p_address: a.address || null,
+    p_price_min: a.priceMin ?? null, p_price_max: a.priceMax ?? null,
   });
 export const markVisited = (pin: string, lat: number, lng: number) => rpc("mark_visited", { p_pin: pin, p_lat: lat, p_lng: lng });
 export async function saveReview(pinId: string, r: { food: number; atmosphere: number; service: number; price_value: number; purposes: string[]; best_dish?: string; tip?: string; body?: string }) {

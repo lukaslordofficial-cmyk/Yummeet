@@ -81,11 +81,11 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background:#F2E6DD; }
-    .pin-dot { background:#E05F36; width:16px; height:16px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 2px rgba(224,95,54,0.35); }
-    .pin-stack { display:flex; flex-direction:column; align-items:center; gap:3px; }
-    .pin-label { max-width:168px; min-height:20px; padding:3px 8px; border-radius:10px; border:2px solid #fff; color:#fff; font:700 11px/13px -apple-system,Segoe UI,Roboto,sans-serif; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.3); box-sizing:border-box; white-space:normal; overflow:visible; word-break:break-word; }
-    .pin-photo { width:40px; height:40px; border-radius:20px; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.35); object-fit:cover; background:#E05F36; display:block; }
-    .user-dot { background:#38A342; width:14px; height:14px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 6px rgba(56,163,66,0.25); }
+    .pin-dot { background:#E05F36; width:10px; height:10px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px rgba(224,95,54,0.35); }
+    .pin-stack { display:flex; flex-direction:column; align-items:center; gap:2px; }
+    .pin-label { max-width:100px; min-height:14px; padding:1px 5px; border-radius:7px; border:1px solid #fff; color:#fff; font:700 9px/11px -apple-system,Segoe UI,Roboto,sans-serif; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.25); box-sizing:border-box; white-space:normal; overflow:hidden; word-break:break-word; max-height:28px; }
+    .pin-photo { width:22px; height:22px; border-radius:11px; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.3); object-fit:cover; background:#E05F36; display:block; }
+    .user-dot { background:#38A342; width:10px; height:10px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 4px rgba(56,163,66,0.25); }
     .draw-dot { background:#FF9F43; width:12px; height:12px; border-radius:50%; border:2px solid #fff; }
   </style>
 </head>
@@ -114,14 +114,14 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
         return L.divIcon({
           className: '',
           html: '<div class="pin-stack">'+head+'<div class="pin-label" style="background:'+bg+'" title="'+text+'">'+text+'</div></div>',
-          iconSize: [168, 64],
-          iconAnchor: [84, 56],
+          iconSize: [100, 40],
+          iconAnchor: [50, 36],
         });
       }
       if (coverUrl) {
-        return L.divIcon({ className:'', html: head, iconSize:[40,40], iconAnchor:[20,20] });
+        return L.divIcon({ className:'', html: head, iconSize:[22,22], iconAnchor:[11,11] });
       }
-      return L.divIcon({ className:'', html: head, iconSize:[16,16], iconAnchor:[8,8] });
+      return L.divIcon({ className:'', html: head, iconSize:[10,10], iconAnchor:[5,5] });
     }
 
     var markerLayer = L.layerGroup().addTo(map);
