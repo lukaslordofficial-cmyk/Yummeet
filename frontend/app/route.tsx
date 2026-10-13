@@ -25,7 +25,10 @@ export default function RoutePlanner() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const toast = useToast();
-  const { active, setActive, userPos, liveFollow, startTracking, setNotify, fromHereM } = useActiveRoute();
+  const {
+    active, setActive, userPos, liveFollow, rerouteTick, startTracking, setNotify, fromHereM,
+    setAlertHandler, setRerouteHandler,
+  } = useActiveRoute();
 
   const [a, setA] = useState<GeocodeResult | null>(null);
   const [b, setB] = useState<GeocodeResult | null>(null);
@@ -50,6 +53,16 @@ export default function RoutePlanner() {
     myTravelRoutes().then(setHistory).catch(() => setHistory([]));
   }, []);
   useFocusEffect(useCallback(() => { loadHistory(); }, [loadHistory]));
+
+  useEffect(() => {
+    setAlertHandler((title) => toast(`W pobliżu: ${title}`, "info"));
+    setRerouteHandler(() => toast("Zjazd z trasy — przeliczam optymalną drogę do celu…", "info"));
+    return () => { setAlertHandler(null); setRerouteHandler(null); };
+  }, [setAlertHandler, setRerouteHandler, toast]);
+
+  useEffect(() => {
+    if (rerouteTick > 0) setRouteFollow(Date.now());
+  }, [rerouteTick]);
 
   const refreshPins = async (path: typeof line, buf: number, cui: string | null) => {
     if (path.length < 2 || !active) return;
@@ -134,10 +147,15 @@ export default function RoutePlanner() {
         {active ? (
           <View style={{ marginHorizontal: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, gap: spacing.sm }}>
             <Title size={16} testID="route-active-banner">Aktywna trasa: {active.a.title.split("—")[0].trim()} → {active.b.title.split("—")[0].trim()}</Title>
-            <Body muted>Trwa, dopóki jej nie zamkniesz — możesz wyjść z zakładki.</Body>
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <Button testID="route-notify-toggle" title={active.notifyEnabled ? "Powiadomienia: ON" : "Powiadomienia: OFF"} variant={active.notifyEnabled ? "secondary" : "ghost"} style={{ flex: 1 }} onPress={() => void setNotify(!active.notifyEnabled)} />
-            </View>
+            <Body muted>Tryb GPS: przy zjeździe z trasy przelicza drogę do celu i odświeża piny. Trwa, aż zamkniesz.</Body>
+            <Button
+              testID="route-notify-toggle"
+              title={active.notifyEnabled ? "Powiadomienia: ON" : "Powiadomienia: OFF"}
+              variant={active.notifyEnabled ? "secondary" : "ghost"}
+              onPress={() => {
+                void setNotify(!active.notifyEnabled).then((r) => toast(r.message, r.enabled ? "success" : "info"));
+              }}
+            />
           </View>
         ) : null}
 

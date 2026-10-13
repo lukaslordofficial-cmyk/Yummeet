@@ -4,17 +4,57 @@ import { haversineM, type LatLng } from "@/src/lib/geo";
 import { getCurrentPosition, watchPosition } from "@/src/lib/location";
 import { startRouteBackground, stopRouteBackground } from "@/src/lib/routeBg";
 import { checkNearPins, ensureNotifyPermission } from "@/src/lib/routeNotify";
+import { maybeRerouteFrom } from "@/src/lib/routeReroute";
 import { clearActiveRoute, loadActiveRoute, saveActiveRoute } from "@/src/lib/routeStore";
 import type { ActiveRoute } from "@/src/lib/routeTypes";
 
+export type NotifyToggleResult = { enabled: boolean; message: string };
+
 export function useActiveRoute() {
-  const [active, setActive] = useState<ActiveRoute | null>(null);
+  const [active, setActiveState] = useState<ActiveRoute | null>(null);
   const [userPos, setUserPos] = useState<LatLng | null>(null);
   const [liveFollow, setLiveFollow] = useState(0);
+  const [rerouteTick, setRerouteTick] = useState(0);
   const lastPos = useRef<LatLng | null>(null);
   const stopWatch = useRef<(() => void) | null>(null);
-  const activeRef = useRef(active);
-  activeRef.current = active;
+  const activeRef = useRef<ActiveRoute | null>(null);
+  const onAlertRef = useRef<((title: string) => void) | null>(null);
+  const onRerouteRef = useRef<(() => void) | null>(null);
+
+  const persist = useCallback(async (next: ActiveRoute | null) => {
+    activeRef.current = next;
+    setActiveState(next);
+    if (next) await saveActiveRoute(next);
+    else await clearActiveRoute();
+  }, []);
+
+  const onTrack = useCallback(async (pos: LatLng) => {
+    let cur = activeRef.current;
+    if (!cur) return;
+    let trackedM = cur.trackedM;
+    if (lastPos.current) {
+      const step = haversineM(lastPos.current, pos);
+      if (step > 2 && step < 800) trackedM += step;
+    }
+    lastPos.current = pos;
+    setUserPos(pos);
+    setLiveFollow(Date.now());
+
+    const rerouted = await maybeRerouteFrom(pos, { ...cur, trackedM });
+    if (rerouted) {
+      cur = rerouted;
+      setRerouteTick((t) => t + 1);
+      onRerouteRef.current?.();
+    }
+
+    const { alerted, newly } = await checkNearPins(pos, cur.pins, cur.alertedPinIds, cur.notifyEnabled);
+    for (const p of newly) onAlertRef.current?.(p.title);
+
+    const next = { ...cur, trackedM, alertedPinIds: alerted };
+    activeRef.current = next;
+    setActiveState(next);
+    await saveActiveRoute(next);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -22,7 +62,8 @@ export function useActiveRoute() {
       const r = await loadActiveRoute();
       if (!alive) return;
       if (r) {
-        setActive(r);
+        activeRef.current = r;
+        setActiveState(r);
         if (r.tracking) {
           const remove = await watchPosition((p) => void onTrack(p), { distanceInterval: 12, timeInterval: 3000 });
           if (remove) {
@@ -37,37 +78,10 @@ export function useActiveRoute() {
     })();
     return () => {
       alive = false;
-      // Zatrzymaj tylko foreground watch — tło (routeBg) zostaje, jeśli włączone.
       stopWatch.current?.();
       stopWatch.current = null;
     };
-    // onTrack stabilne przez refy
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const persist = useCallback(async (next: ActiveRoute | null) => {
-    setActive(next);
-    if (next) await saveActiveRoute(next);
-    else await clearActiveRoute();
-  }, []);
-
-  const onTrack = useCallback(async (pos: LatLng) => {
-    const cur = activeRef.current;
-    if (!cur) return;
-    let trackedM = cur.trackedM;
-    if (lastPos.current) {
-      const step = haversineM(lastPos.current, pos);
-      if (step > 2 && step < 800) trackedM += step;
-    }
-    lastPos.current = pos;
-    setUserPos(pos);
-    setLiveFollow(Date.now());
-    const alerted = await checkNearPins(pos, cur.pins, cur.alertedPinIds, cur.notifyEnabled);
-    const next = { ...cur, trackedM, alertedPinIds: alerted };
-    activeRef.current = next;
-    setActive(next);
-    await saveActiveRoute(next);
-  }, []);
+  }, [onTrack]);
 
   const startTracking = useCallback(async () => {
     const cur = activeRef.current;
@@ -77,26 +91,36 @@ export function useActiveRoute() {
     stopWatch.current?.();
     stopWatch.current = remove;
     lastPos.current = null;
-    const next = { ...cur, tracking: true, trackedM: 0, alertedPinIds: [] };
-    await persist(next);
-    if (next.notifyEnabled) {
+    await persist({ ...cur, tracking: true, trackedM: 0, alertedPinIds: [] });
+    if (cur.notifyEnabled) {
       await ensureNotifyPermission();
       await startRouteBackground();
     }
     return true;
   }, [onTrack, persist]);
 
-  const setNotify = useCallback(async (enabled: boolean) => {
+  const setNotify = useCallback(async (enabled: boolean): Promise<NotifyToggleResult> => {
     const cur = activeRef.current;
-    if (!cur) return;
-    if (enabled) {
-      const ok = await ensureNotifyPermission();
-      if (!ok) return;
+    if (!cur) return { enabled: false, message: "Brak aktywnej trasy." };
+
+    // Zawsze przełącz flagę w stanie (nie blokuj UI na uprawnieniach).
+    await persist({ ...cur, notifyEnabled: enabled });
+
+    if (!enabled) {
+      await stopRouteBackground();
+      return { enabled: false, message: "Powiadomienia wyłączone." };
     }
-    const next = { ...cur, notifyEnabled: enabled };
-    await persist(next);
-    if (enabled && cur.tracking) await startRouteBackground();
-    else if (!enabled) await stopRouteBackground();
+
+    const granted = await ensureNotifyPermission();
+    if (cur.tracking || activeRef.current?.tracking) await startRouteBackground();
+
+    if (granted) {
+      return { enabled: true, message: "Powiadomienia włączone (z dźwiękiem)." };
+    }
+    return {
+      enabled: true,
+      message: "Włączone w trasie. Jeśli nie ma dźwięku systemowego — zezwól na powiadomienia w ustawieniach telefonu. Alerty w aplikacji działają przy śledzeniu.",
+    };
   }, [persist]);
 
   const fromHereM = useCallback((pins: { id: string; lat: number; lng: number }[]) => {
@@ -106,8 +130,23 @@ export function useActiveRoute() {
     return out;
   }, [userPos]);
 
+  const setAlertHandler = useCallback((fn: ((title: string) => void) | null) => {
+    onAlertRef.current = fn;
+  }, []);
+  const setRerouteHandler = useCallback((fn: (() => void) | null) => {
+    onRerouteRef.current = fn;
+  }, []);
+
   return {
-    active, setActive: persist, userPos, liveFollow,
-    startTracking, setNotify, fromHereM, stopWatch, lastPos,
+    active,
+    setActive: persist,
+    userPos,
+    liveFollow,
+    rerouteTick,
+    startTracking,
+    setNotify,
+    fromHereM,
+    setAlertHandler,
+    setRerouteHandler,
   };
 }

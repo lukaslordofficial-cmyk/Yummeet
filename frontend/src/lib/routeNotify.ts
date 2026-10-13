@@ -1,8 +1,7 @@
 import { Platform } from "react-native";
 
-import type { Coords } from "@/src/lib/location";
 import { haversineM } from "@/src/lib/geo";
-import type { ActiveRoute } from "@/src/lib/routeTypes";
+import type { Coords } from "@/src/lib/location";
 import type { PinMarker } from "@/src/types";
 
 const NEAR_M = 200;
@@ -29,43 +28,50 @@ async function mod() {
   return Notifications;
 }
 
+/** Nie blokuje przełącznika — true jeśli system dał zgodę (opcjonalnie). */
 export async function ensureNotifyPermission(): Promise<boolean> {
   const N = await mod();
   if (!N) return false;
-  const cur = await N.getPermissionsAsync();
-  if (cur.granted) return true;
-  const req = await N.requestPermissionsAsync();
-  return !!req.granted;
+  try {
+    const cur = await N.getPermissionsAsync();
+    if (cur.granted) return true;
+    const req = await N.requestPermissionsAsync();
+    return !!req.granted;
+  } catch {
+    return false;
+  }
 }
 
-export async function notifyNearPin(title: string, body: string): Promise<void> {
+export async function notifyNearPin(title: string, body: string): Promise<boolean> {
   const N = await mod();
-  if (!N) return;
-  await N.scheduleNotificationAsync({
-    content: { title, body, sound: true },
-    trigger: null,
-  });
+  if (!N) return false;
+  try {
+    await N.scheduleNotificationAsync({
+      content: { title, body, sound: true },
+      trigger: null,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-/** Sprawdź piny w pobliżu; zwróć nowe alertowane id (do zapisu w ActiveRoute). */
 export async function checkNearPins(
   pos: Coords,
   pins: PinMarker[],
   alerted: string[],
   enabled: boolean,
-): Promise<string[]> {
-  if (!enabled) return alerted;
+): Promise<{ alerted: string[]; newly: PinMarker[] }> {
+  if (!enabled) return { alerted, newly: [] };
   const next = [...alerted];
+  const newly: PinMarker[] = [];
   for (const p of pins) {
     if (next.includes(p.id)) continue;
     if (haversineM(pos, { lat: p.lat, lng: p.lng }) <= NEAR_M) {
       next.push(p.id);
+      newly.push(p);
       await notifyNearPin("Knajpa na trasie", `${p.title} — jesteś w pobliżu`);
     }
   }
-  return next;
-}
-
-export function patchAlerted(route: ActiveRoute, alertedPinIds: string[]): ActiveRoute {
-  return { ...route, alertedPinIds };
+  return { alerted: next, newly };
 }
