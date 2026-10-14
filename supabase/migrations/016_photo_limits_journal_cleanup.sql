@@ -309,13 +309,4 @@ begin
 end $$;
 grant execute on function public.cleanup_expired_food_photos(int) to service_role;
 
--- Opcjonalny cron (jeśli rozszerzenie pg_cron dostępne w projekcie)
-do $$ begin
-  perform cron.schedule(
-    'yummeet-food-photo-cleanup',
-    '0 3 * * *',
-    $$select public.cleanup_expired_food_photos(30)$$
-  );
-exception when others then
-  raise notice 'pg_cron niedostępny — uruchamiaj cleanup_expired_food_photos(30) ręcznie lub z Edge Function';
-end $$;
+-- Cron przeniesiony do 017 (tu zagnieżdżone $$ psuły parser). Patrz cleanup_photo_slots().

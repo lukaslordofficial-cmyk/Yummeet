@@ -52,7 +52,7 @@ export default function MissionDetail() {
     if (!uid) return toast("Zaloguj się ponownie", "error");
     setPhotoBusy(true);
     try {
-      const url = await pickPinPhoto(uid, source);
+      const url = await pickPinPhoto(uid, source, { enforceSlots: true });
       if (url) setPhotoUrl(url);
     } catch (e) {
       toast(errorMessage(e), "error");

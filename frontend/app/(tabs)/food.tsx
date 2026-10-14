@@ -14,7 +14,7 @@ import {
   type CookingTip, type FoodOffer, type FoodOfferKind,
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
-import { FREE_PHOTO_QUOTA, photoQuotaStatus, pickPinPhoto, type PhotoQuota } from "@/src/lib/storage";
+import { FREE_PHOTO_SLOTS, photoQuotaStatus, pickPinPhoto, type PhotoQuota } from "@/src/lib/storage";
 import { usesNativeTabs } from "@/src/navigation";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
@@ -66,7 +66,7 @@ export default function FoodTab() {
   const [detailBusy, setDetailBusy] = useState(false);
 
   const loadQuota = useCallback(async () => {
-    try { setQuota(await photoQuotaStatus(FREE_PHOTO_QUOTA)); } catch { /* migracja 016 */ }
+    try { setQuota(await photoQuotaStatus(FREE_PHOTO_SLOTS)); } catch { /* migracja 017 */ }
   }, []);
 
   const load = useCallback(async () => {
@@ -101,7 +101,7 @@ export default function FoodTab() {
     const uid = session?.user.id;
     if (!uid) return;
     try {
-      const url = await pickPinPhoto(uid, source, { enforceQuota: true, quotaLimit: FREE_PHOTO_QUOTA });
+      const url = await pickPinPhoto(uid, source, { enforceSlots: true, quotaLimit: FREE_PHOTO_SLOTS });
       if (url) {
         setPhoto(url);
         await loadQuota();
@@ -226,7 +226,7 @@ export default function FoodTab() {
           ) : null}
           {photo ? <Image source={{ uri: photo }} style={{ width: "100%", height: 180, borderRadius: radius.lg }} contentFit="cover" /> : null}
           {quota ? (
-            <Body muted>Zdjęcia (potrawy / inspiracje / stoły): {quota.used}/{quota.limit} w tym miesiącu</Body>
+            <Body muted>Aktywne sloty zdjęć: {quota.used}/{quota.limit} (zwolnienie 48 h po końcu oferty/misji)</Body>
           ) : null}
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
             <Button testID="food-photo-camera" title="Zrób zdjęcie" variant="secondary" onPress={() => void addPhoto("camera")} style={{ flex: 1 }} />

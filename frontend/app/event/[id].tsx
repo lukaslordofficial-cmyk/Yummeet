@@ -14,7 +14,7 @@ import {
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
 import { subscribePostgres } from "@/src/lib/realtime";
-import { FREE_PHOTO_QUOTA, pickPinPhoto } from "@/src/lib/storage";
+import { FREE_PHOTO_SLOTS, pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 import type { EventRow } from "@/src/types";
@@ -193,7 +193,7 @@ export default function EventDetail() {
         {(joined || isOrganizer) ? (
           <Card testID="event-photos">
             <Title size={16}>Zdjęcia ze stołu</Title>
-            <Body muted>Wchodzą w limit {FREE_PHOTO_QUOTA} zdjęć/miesiąc (konto free).</Body>
+            <Body muted>Zużywają sloty zdjęć ({FREE_PHOTO_SLOTS} max). Po ~7 dniach slot się zwalnia.</Body>
             {photos.length ? (
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 {photos.map((p) => (
