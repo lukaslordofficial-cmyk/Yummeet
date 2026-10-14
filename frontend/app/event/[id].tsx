@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -8,13 +9,14 @@ import { KIND_LABEL, formatDate } from "@/src/components/EventCard";
 import { Badge, Body, Button, Card, ErrorState, Field, Header, Loading, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
-  eventCheckin, eventConversationId, eventJoin, eventLeave, eventParticipants,
-  eventRevealCheckinCode, getEvent, myEventStatus, report,
+  addEventPhoto, eventCheckin, eventConversationId, eventJoin, eventLeave, eventParticipants,
+  eventRevealCheckinCode, getEvent, listEventPhotos, myEventStatus, report,
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
 import { subscribePostgres } from "@/src/lib/realtime";
+import { FREE_PHOTO_QUOTA, pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
-import { fonts, spacing, useTheme } from "@/src/theme";
+import { fonts, radius, spacing, useTheme } from "@/src/theme";
 import type { EventRow } from "@/src/types";
 
 function isEventDay(startsAt: string) {
@@ -43,15 +45,39 @@ export default function EventDetail() {
   const [orgCode, setOrgCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState<Array<{ id: string; photo_url: string }>>([]);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const isOrganizer = e?.organizer_id === session?.user.id;
 
   const load = useCallback(async () => {
     try {
       const [ev, st, ps] = await Promise.all([getEvent(id), myEventStatus(id), eventParticipants(id)]);
       setE(ev); setStatus(st); setPeople(ps ?? []); setError(null);
+      try {
+        const ph = await listEventPhotos(id);
+        setPhotos(ph ?? []);
+      } catch { setPhotos([]); }
     } catch (err) { setError(errorMessage(err)); }
   }, [id]);
   useEffect(() => { load(); }, [load]);
+
+  const uploadEventPhoto = async (source: "gallery" | "camera") => {
+    const uid = session?.user.id;
+    if (!uid) return;
+    setPhotoBusy(true);
+    try {
+      // Upload bez claim w storage — claim robi RPC add_event_photo
+      const url = await pickPinPhoto(uid, source);
+      if (!url) return;
+      await addEventPhoto(id, url);
+      toast("Zdjęcie dodane", "success");
+      await load();
+    } catch (err) {
+      toast(errorMessage(err), "error");
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
 
   useEffect(() => {
     return subscribePostgres<EventRow>(`event-${id}`, { event: "UPDATE", table: "events", filter: `id=eq.${id}` }, (p) => {
@@ -161,6 +187,24 @@ export default function EventDetail() {
             {!windowOk ? <Body muted>Check-in niedostępny poza oknem czasowym wydarzenia.</Body> : null}
             <Field testID="event-checkin-input" label="Kod obecności od organizatora" value={code} onChangeText={setCode} autoCapitalize="characters" />
             <Button testID="event-checkin-button" title="Potwierdź obecność (GPS)" variant="secondary" loading={busy} disabled={!windowOk} onPress={() => void guestCheckin()} />
+          </Card>
+        ) : null}
+
+        {(joined || isOrganizer) ? (
+          <Card testID="event-photos">
+            <Title size={16}>Zdjęcia ze stołu</Title>
+            <Body muted>Wchodzą w limit {FREE_PHOTO_QUOTA} zdjęć/miesiąc (konto free).</Body>
+            {photos.length ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                {photos.map((p) => (
+                  <Image key={p.id} source={{ uri: p.photo_url }} style={{ width: 96, height: 96, borderRadius: radius.md }} contentFit="cover" />
+                ))}
+              </View>
+            ) : <Body muted>Brak zdjęć.</Body>}
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              <Button testID="event-photo-camera" title="Zrób zdjęcie" variant="secondary" loading={photoBusy} style={{ flex: 1 }} onPress={() => void uploadEventPhoto("camera")} />
+              <Button testID="event-photo-gallery" title="Galeria" variant="ghost" loading={photoBusy} style={{ flex: 1 }} onPress={() => void uploadEventPhoto("gallery")} />
+            </View>
           </Card>
         ) : null}
 

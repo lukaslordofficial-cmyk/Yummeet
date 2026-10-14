@@ -1,8 +1,12 @@
+import * as DocumentPicker from "expo-document-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
 import { rpc } from "./api";
 import { supabase } from "./supabase";
+
+/** Limit free: potrawy / inspiracje / zdjęcia stołów (nie pin lokalu ani menu). */
+export const FREE_PHOTO_QUOTA = 10;
 
 function randomId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -18,13 +22,12 @@ async function compressForUpload(uri: string): Promise<{ uri: string; mime: stri
   return { uri: out.uri, mime: "image/jpeg" };
 }
 
-async function uploadLocalUri(bucket: string, userId: string, uri: string, mime: string): Promise<string> {
-  const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+async function uploadBytes(bucket: string, userId: string, uri: string, mime: string, ext: string): Promise<string> {
   const path = `${userId}/${randomId()}.${ext}`;
   const res = await fetch(uri);
   const buf = await res.arrayBuffer();
   const { data, error } = await supabase.storage.from(bucket).upload(path, buf, {
-    contentType: mime.startsWith("image/") ? mime : "image/jpeg",
+    contentType: mime,
     cacheControl: "31536000",
     upsert: false,
   });
@@ -34,13 +37,14 @@ async function uploadLocalUri(bucket: string, userId: string, uri: string, mime:
 
 export type PhotoQuota = { used: number; limit: number; remaining: number; year_month: string };
 
-export async function photoQuotaStatus(limit = 5): Promise<PhotoQuota> {
+export async function photoQuotaStatus(limit = FREE_PHOTO_QUOTA): Promise<PhotoQuota> {
   return rpc<PhotoQuota>("photo_quota_status", { p_limit: limit });
 }
 
 /**
  * Gallery or camera → compressed JPEG in `pin-photos`.
- * `enforceQuota: true` = limit free (5/miesiąc) — używaj przy Jedzeniu.
+ * `enforceQuota: true` = limit free (potrawy / inspiracje / stoły).
+ * Pin lokalu i menu: bez limitu miesięcznego.
  */
 export async function pickPinPhoto(
   userId: string,
@@ -60,11 +64,22 @@ export async function pickPinPhoto(
       : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.9, allowsEditing: true, aspect: [4, 3] });
   if (result.canceled) return null;
 
-  // Quota przed uploadem (żeby nie marnować Storage); przy błędzie uploadu slot i tak zużyty — rzadkie.
   if (opts?.enforceQuota) {
-    await rpc("claim_photo_upload", { p_limit: opts.quotaLimit ?? 5 });
+    await rpc("claim_photo_upload", { p_limit: opts.quotaLimit ?? FREE_PHOTO_QUOTA });
   }
 
   const compressed = await compressForUpload(result.assets[0].uri);
-  return uploadLocalUri("pin-photos", userId, compressed.uri, compressed.mime);
+  return uploadBytes("pin-photos", userId, compressed.uri, compressed.mime, "jpg");
+}
+
+/** PDF menu lokalu — bez limitu miesięcznego (1 PDF na pin, blokada w update_pin). */
+export async function pickMenuPdf(userId: string): Promise<string | null> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: "application/pdf",
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
+  if (result.canceled || !result.assets?.[0]) return null;
+  const asset = result.assets[0];
+  return uploadBytes("pin-photos", userId, asset.uri, "application/pdf", "pdf");
 }

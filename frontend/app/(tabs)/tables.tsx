@@ -31,7 +31,6 @@ export default function Tables() {
     try { setRows(await listEvents(filter)); setError(null); } catch (e) { setError(errorMessage(e)); }
   }, [filter]);
 
-  // Realtime only while focused; soft-fails if publication is missing.
   useFocusEffect(useCallback(() => {
     load();
     return subscribePostgres("events-list", { event: "*", table: "events" }, () => { void load(); });
@@ -39,9 +38,10 @@ export default function Tables() {
 
   return (
     <View testID="tables-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Title size={28}>Stoły</Title>
-        <Button testID="tables-create-button" title="Nowy stół" icon="plus" onPress={() => router.push("/event/new")} />
+      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, alignItems: "center", gap: spacing.sm }}>
+        <Title size={28} testID="tables-title">Stoły</Title>
+        <Button testID="tables-create-button" title="Nowy stół" icon="plus" onPress={() => router.push("/event/new")} style={{ alignSelf: "stretch" }} />
+        <Button testID="tables-journal-button" title="Dziennik Spotkań" icon="notebook-outline" variant="secondary" onPress={() => router.push("/meetings")} style={{ alignSelf: "stretch" }} />
       </View>
       <ChipRow testID="tables-filter-chips">
         {FILTERS.map((f) => <Chip key={f.label} testID={`tables-filter-${f.key ?? "all"}`} label={f.label} selected={filter === f.key} onPress={() => setFilter(f.key)} />)}

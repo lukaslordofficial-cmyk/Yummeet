@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -88,12 +88,15 @@ export default function PinDetail() {
             <Body muted testID="pin-coords-locked">📍 Współrzędne (stałe): {Number(pin.lat).toFixed(5)}, {Number(pin.lng).toFixed(5)}</Body>
           ) : null}
         </Card>
-        {(pin.menu_text || pin.menu_photo_url) ? (
+        {(pin.menu_text || pin.menu_photo_url || pin.menu_pdf_url) ? (
           <Card testID="pin-menu-card">
             <Title size={18}>Menu</Title>
             {pin.menu_text ? <Body>{pin.menu_text}</Body> : null}
             {pin.menu_photo_url ? (
               <Image source={{ uri: pin.menu_photo_url }} style={{ width: "100%", height: 180, borderRadius: radius.lg }} contentFit="cover" />
+            ) : null}
+            {pin.menu_pdf_url ? (
+              <Button testID="pin-menu-pdf" title="Otwórz PDF menu" variant="secondary" onPress={() => void Linking.openURL(pin.menu_pdf_url)} />
             ) : null}
           </Card>
         ) : null}

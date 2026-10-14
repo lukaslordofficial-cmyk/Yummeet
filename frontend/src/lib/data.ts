@@ -87,7 +87,8 @@ export const createPin = (a: {
 export const updatePin = (a: {
   pinId: string; title?: string | null; description?: string | null; cuisine?: string | null;
   city?: string | null; address?: string | null; priceMin?: number | null; priceMax?: number | null;
-  menuText?: string | null; menuPhotoUrl?: string | null; tags?: string[] | null; coverUrl?: string | null;
+  menuText?: string | null; menuPhotoUrl?: string | null; menuPdfUrl?: string | null;
+  tags?: string[] | null; coverUrl?: string | null;
 }) =>
   rpc<any>("update_pin", {
     p_pin: a.pinId,
@@ -102,6 +103,7 @@ export const updatePin = (a: {
     p_menu_photo_url: a.menuPhotoUrl ?? null,
     p_tags: a.tags ?? null,
     p_cover_url: a.coverUrl ?? null,
+    p_menu_pdf_url: a.menuPdfUrl ?? null,
   });
 export const markVisited = (pin: string, lat: number, lng: number) => rpc("mark_visited", { p_pin: pin, p_lat: lat, p_lng: lng });
 export async function saveReview(pinId: string, r: { food: number; atmosphere: number; service: number; price_value: number; purposes: string[]; best_dish?: string; tip?: string; body?: string }) {
@@ -338,6 +340,23 @@ export async function createCookingTip(title: string, body: string, photoUrl: st
     p_lat: lat,
     p_lng: lng,
   });
+}
+
+// ---------- Dziennik spotkań / zdjęcia stołów ----------
+export type MeetingJournalEntry = {
+  id: string; title: string; description: string | null; theme: string | null; rules: string | null;
+  kind: string; place_name: string; starts_at: string; status: string; my_status: string | null;
+  capacity: number; seats_taken: number;
+  attractions: Array<{ id: string; category: string; title: string; body: string }>;
+  photos: Array<{ id: string; photo_url: string; created_at: string }>;
+};
+export const myMeetingJournal = () => rpc<MeetingJournalEntry[]>("my_meeting_journal", { p_limit: 50 });
+export const addEventPhoto = (eventId: string, photoUrl: string) =>
+  rpc<string>("add_event_photo", { p_event: eventId, p_photo_url: photoUrl });
+export async function listEventPhotos(eventId: string) {
+  return must(
+    supabase.from("event_photos").select("id,photo_url,uploader_id,created_at").eq("event_id", eventId).order("created_at", { ascending: false }),
+  ) as Promise<Array<{ id: string; photo_url: string; uploader_id: string; created_at: string }>>;
 }
 
 // ---------- chat ----------

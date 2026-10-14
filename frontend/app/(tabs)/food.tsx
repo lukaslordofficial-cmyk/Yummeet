@@ -5,6 +5,7 @@ import { FlatList, Modal, Pressable, RefreshControl, ScrollView, View } from "re
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Icon } from "@/src/components/Icon";
 import { Body, Button, Chip, ChipRow, EmptyState, ErrorState, Field, Loading, Title, useToast } from "@/src/components/ui";
 import { allergenLabel, FOOD_ALLERGENS, toggleAllergen } from "@/src/lib/allergens";
 import { errorMessage } from "@/src/lib/api";
@@ -13,10 +14,22 @@ import {
   type CookingTip, type FoodOffer, type FoodOfferKind,
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
-import { photoQuotaStatus, pickPinPhoto, type PhotoQuota } from "@/src/lib/storage";
+import { FREE_PHOTO_QUOTA, photoQuotaStatus, pickPinPhoto, type PhotoQuota } from "@/src/lib/storage";
 import { usesNativeTabs } from "@/src/navigation";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
+
+function DishThumb({ uri, size = 44 }: { uri?: string | null; size?: number }) {
+  const { colors } = useTheme();
+  if (uri) {
+    return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: radius.sm }} contentFit="cover" />;
+  }
+  return (
+    <View style={{ width: size, height: size, borderRadius: radius.sm, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center" }}>
+      <Icon name="food" size={Math.round(size * 0.5)} color={colors.muted} />
+    </View>
+  );
+}
 
 type Seg = "exchange" | "giveaway" | "signature" | "tips";
 
@@ -53,7 +66,7 @@ export default function FoodTab() {
   const [detailBusy, setDetailBusy] = useState(false);
 
   const loadQuota = useCallback(async () => {
-    try { setQuota(await photoQuotaStatus(5)); } catch { /* migracja 015 jeszcze nieodpalona */ }
+    try { setQuota(await photoQuotaStatus(FREE_PHOTO_QUOTA)); } catch { /* migracja 016 */ }
   }, []);
 
   const load = useCallback(async () => {
@@ -88,7 +101,7 @@ export default function FoodTab() {
     const uid = session?.user.id;
     if (!uid) return;
     try {
-      const url = await pickPinPhoto(uid, source, { enforceQuota: true, quotaLimit: 5 });
+      const url = await pickPinPhoto(uid, source, { enforceQuota: true, quotaLimit: FREE_PHOTO_QUOTA });
       if (url) {
         setPhoto(url);
         await loadQuota();
@@ -163,9 +176,9 @@ export default function FoodTab() {
 
   return (
     <View testID="food-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Title size={28}>Jedzenie</Title>
-        <Button testID="food-compose-toggle" title={compose ? "Anuluj" : composeLabel} variant={compose ? "ghost" : "primary"} onPress={() => { setCompose((v) => !v); if (compose) resetCompose(); }} />
+      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, alignItems: "center", gap: spacing.sm }}>
+        <Title size={28} testID="food-title">Jedzenie</Title>
+        <Button testID="food-compose-toggle" title={compose ? "Anuluj" : composeLabel} variant={compose ? "ghost" : "primary"} onPress={() => { setCompose((v) => !v); if (compose) resetCompose(); }} style={{ alignSelf: "stretch" }} />
       </View>
       <ChipRow testID="food-segments">
         {SEGMENTS.map((s) => (
@@ -213,7 +226,7 @@ export default function FoodTab() {
           ) : null}
           {photo ? <Image source={{ uri: photo }} style={{ width: "100%", height: 180, borderRadius: radius.lg }} contentFit="cover" /> : null}
           {quota ? (
-            <Body muted>Zdjęcia w tym miesiącu: {quota.used}/{quota.limit} (konto free)</Body>
+            <Body muted>Zdjęcia (potrawy / inspiracje / stoły): {quota.used}/{quota.limit} w tym miesiącu</Body>
           ) : null}
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
             <Button testID="food-photo-camera" title="Zrób zdjęcie" variant="secondary" onPress={() => void addPhoto("camera")} style={{ flex: 1 }} />
@@ -241,11 +254,7 @@ export default function FoodTab() {
                   borderBottomWidth: 1, borderBottomColor: colors.border,
                 }}
               >
-                {item.photo_url ? (
-                  <Image source={{ uri: item.photo_url }} style={{ width: 44, height: 44, borderRadius: radius.sm }} contentFit="cover" />
-                ) : (
-                  <View style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.surfaceSecondary }} />
-                )}
+                <DishThumb uri={item.photo_url} />
                 <Title size={15} style={{ flex: 1 }} numberOfLines={1}>{item.title}</Title>
               </Pressable>
             )}
@@ -275,11 +284,7 @@ export default function FoodTab() {
                 borderBottomWidth: 1, borderBottomColor: colors.border,
               }}
             >
-              {item.photo_url ? (
-                <Image source={{ uri: item.photo_url }} style={{ width: 44, height: 44, borderRadius: radius.sm }} contentFit="cover" />
-              ) : (
-                <View style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.surfaceSecondary }} />
-              )}
+              <DishThumb uri={item.photo_url} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Title size={15} numberOfLines={1}>{item.title}</Title>
               </View>
@@ -299,7 +304,12 @@ export default function FoodTab() {
             <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: insets.bottom + spacing.xl }}>
               {detail?.photo_url ? (
                 <Image source={{ uri: detail.photo_url }} style={{ width: "100%", height: 220, borderRadius: radius.lg }} contentFit="cover" />
-              ) : null}
+              ) : (
+                <View style={{ width: "100%", height: 160, borderRadius: radius.lg, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center" }}>
+                  <Icon name="food-variant" size={56} color={colors.muted} />
+                  <Body muted>Brak zdjęcia dania</Body>
+                </View>
+              )}
               <Title size={22}>{detail?.title}</Title>
               {isOfferDetail ? (
                 <>

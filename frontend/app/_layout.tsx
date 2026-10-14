@@ -36,6 +36,7 @@ function Gate() {
         <Stack.Screen name="profile/culinary" />
         <Stack.Screen name="event/[id]" />
         <Stack.Screen name="event/new" />
+        <Stack.Screen name="meetings" />
         <Stack.Screen name="chat/[id]" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="games" />
