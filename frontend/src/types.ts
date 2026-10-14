@@ -9,11 +9,21 @@ export interface Profile {
   bio: string | null;
   account_type: "user" | "business" | "admin";
   primary_specialization: string | null;
+  preferred_specialization?: string | null;
   xp: number;
   level: number;
   duel_mode_enabled: boolean;
   visibility: Record<string, string>;
   notification_prefs: Record<string, boolean>;
+  signature_dish?: string | null;
+  favorite_cuisine?: string | null;
+  culinary_skill_level?: number | null;
+  diet_style?: string | null;
+  spice_tolerance_label?: string | null;
+  superpowers?: string[];
+  collab_forms?: string[];
+  cooking_paid_enabled?: boolean;
+  cooking_legal_consents?: Record<string, boolean>;
 }
 
 export interface Specialization { code: string; name: string; description: string; color: string; icon: string; sort: number }

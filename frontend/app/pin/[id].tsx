@@ -76,14 +76,28 @@ export default function PinDetail() {
           <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
             {pin.is_official ? <Badge label="OFICJALNY LOKAL" color={colors.rarityLegendary} textColor={colors.onSurface} /> : null}
             {pin.cuisine ? <Badge label={pin.cuisine} color={colors.brandTertiary} textColor={colors.onBrandTertiary} /> : null}
+            {(pin.tags ?? []).map((t: string) => <Badge key={t} label={t} color={colors.surfaceTertiary} textColor={colors.onSurfaceTertiary} />)}
             {pin.visited ? <Badge testID="pin-visited-badge" label="Odwiedzone ✓" color={colors.success} textColor={colors.onSuccess} /> : null}
           </View>
           {pin.description ? <Body>{pin.description}</Body> : null}
+          {pin.price_min != null || pin.price_max != null ? (
+            <Body testID="pin-price-range">Ceny dań: {pin.price_min ?? "?"}–{pin.price_max ?? "?"} zł</Body>
+          ) : null}
           <Body muted>{pin.address || pin.city || ""}</Body>
           {pin.lat != null && pin.lng != null ? (
             <Body muted testID="pin-coords-locked">📍 Współrzędne (stałe): {Number(pin.lat).toFixed(5)}, {Number(pin.lng).toFixed(5)}</Body>
           ) : null}
         </Card>
+        {(pin.menu_text || pin.menu_photo_url) ? (
+          <Card testID="pin-menu-card">
+            <Title size={18}>Menu</Title>
+            {pin.menu_text ? <Body>{pin.menu_text}</Body> : null}
+            {pin.menu_photo_url ? (
+              <Image source={{ uri: pin.menu_photo_url }} style={{ width: "100%", height: 180, borderRadius: radius.lg }} contentFit="cover" />
+            ) : null}
+          </Card>
+        ) : null}
+        <Button testID="pin-edit-button" title="Edytuj lokal" icon="pencil" variant="secondary" onPress={() => router.push(`/pin/edit/${id}`)} />
         <Card testID="pin-score-card">
           <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.sm }}>
             <Text testID="pin-yummeet-score" style={{ fontFamily: fonts.display, fontSize: 44, color: colors.brandPrimary }}>{s?.yummeet_score ?? "–"}</Text>
@@ -115,6 +129,20 @@ export default function PinDetail() {
             <Field testID="review-tip-input" label="Wskazówka dla społeczności" value={r.tip} onChangeText={(t) => setR({ ...r, tip: t })} placeholder="np. duże porcje w rozsądnej cenie" />
             <Button testID="review-submit-button" title="Zapisz ocenę" loading={busy} onPress={submitReview} />
           </Card>
+        ) : null}
+        {(pin.edit_history ?? []).length > 0 ? (
+          <>
+            <Title size={20}>Historia edycji</Title>
+            {(pin.edit_history as any[]).map((e) => (
+              <Card key={e.id} testID={`pin-edit-${e.id}`}>
+                <Pressable onPress={() => e.editor_id && router.push(`/user/${e.editor_id}`)}>
+                  <Title size={15}>{e.editor_name ?? "Yummiter"}</Title>
+                </Pressable>
+                <Body muted>{e.created_at ? new Date(e.created_at).toLocaleString("pl-PL") : ""}</Body>
+                <Body muted>{Object.keys(e.changes ?? {}).join(", ") || "aktualizacja"}</Body>
+              </Card>
+            ))}
+          </>
         ) : null}
         <Title size={20}>Recenzje</Title>
         {pin.reviews.length === 0 ? <Body muted testID="pin-no-reviews">Brak recenzji — bądź pierwszy!</Body> : pin.reviews.map((rv: any) => (

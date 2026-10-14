@@ -18,11 +18,26 @@ export async function getLevels(): Promise<LevelDef[]> {
   if (!levelCache) levelCache = await must(supabase.from("level_definitions").select("*").order("min_xp"));
   return levelCache;
 }
-export const chooseSpecialization = (primary: string, interests: string[]) => rpc("choose_specialization", { p_primary: primary, p_interests: interests });
+export const chooseSpecialization = (primary: string, interests: string[] = []) =>
+  rpc("choose_specialization", { p_primary: primary, p_interests: interests });
+export const setPreferredSpecialization = (code: string | null) =>
+  rpc("set_preferred_specialization", { p_code: code });
 export async function myInterests(): Promise<string[]> {
   const rows = await must(supabase.from("user_specializations").select("code,is_primary").eq("user_id", await uid()));
   return (rows as { code: string; is_primary: boolean }[]).filter((r) => !r.is_primary).map((r) => r.code);
 }
+export type SpecHub = {
+  preferred: string | null;
+  main: string | null;
+  main_label: string;
+  specializations: Array<{
+    code: string; name: string; description: string; color: string; icon: string; sort: number;
+    pd: number; level: number; missions_completed: number;
+    skills: Array<{ code: string; name: string; description: string; unlock_level: number; status: "locked" | "available" | "unlocked" }>;
+  }>;
+};
+export const getSpecializationHub = () => rpc<SpecHub>("get_specialization_hub");
+export function invalidateSpecCache() { specCache = null; }
 
 // ---------- pins / map ----------
 const bboxCache = new Map<string, PinMarker[]>();
@@ -68,6 +83,25 @@ export const createPin = (a: {
     p_title: a.title, p_lat: a.lat, p_lng: a.lng, p_description: a.description || null, p_cuisine: a.cuisine || null,
     p_city: a.city || null, p_price_level: a.price ?? null, p_cover_url: a.coverUrl || null, p_address: a.address || null,
     p_price_min: a.priceMin ?? null, p_price_max: a.priceMax ?? null,
+  });
+export const updatePin = (a: {
+  pinId: string; title?: string | null; description?: string | null; cuisine?: string | null;
+  city?: string | null; address?: string | null; priceMin?: number | null; priceMax?: number | null;
+  menuText?: string | null; menuPhotoUrl?: string | null; tags?: string[] | null; coverUrl?: string | null;
+}) =>
+  rpc<any>("update_pin", {
+    p_pin: a.pinId,
+    p_title: a.title ?? null,
+    p_description: a.description ?? null,
+    p_cuisine: a.cuisine ?? null,
+    p_city: a.city ?? null,
+    p_address: a.address ?? null,
+    p_price_min: a.priceMin ?? null,
+    p_price_max: a.priceMax ?? null,
+    p_menu_text: a.menuText ?? null,
+    p_menu_photo_url: a.menuPhotoUrl ?? null,
+    p_tags: a.tags ?? null,
+    p_cover_url: a.coverUrl ?? null,
   });
 export const markVisited = (pin: string, lat: number, lng: number) => rpc("mark_visited", { p_pin: pin, p_lat: lat, p_lng: lng });
 export async function saveReview(pinId: string, r: { food: number; atmosphere: number; service: number; price_value: number; purposes: string[]; best_dish?: string; tip?: string; body?: string }) {
@@ -146,7 +180,7 @@ export async function myBlocks() {
 export async function report(targetType: string, targetId: string, reason: string, details?: string) {
   return must(supabase.from("reports").insert({ reporter_id: await uid(), target_type: targetType, target_id: targetId, reason, details: details || null }));
 }
-export async function updateMyProfile(patch: Partial<Pick<Profile, "display_name" | "bio" | "visibility" | "notification_prefs">>) {
+export async function updateMyProfile(patch: Partial<Profile>) {
   return must(supabase.from("profiles").update(patch).eq("id", await uid()));
 }
 export async function myPreferences() { return must(supabase.from("user_preferences").select("*").eq("user_id", await uid()).maybeSingle()); }

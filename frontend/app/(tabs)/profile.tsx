@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/src/components/Icon";
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { levelProgress } from "@/src/domain/rules";
-import { getLevels, getSpecializations, myBadges, profileStats } from "@/src/lib/data";
+import { CULINARY_LEVELS } from "@/src/lib/culinaryProfile";
+import { getLevels, getSpecializationHub, getSpecializations, myBadges, profileStats, type SpecHub } from "@/src/lib/data";
 import { usesNativeTabs } from "@/src/navigation";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
@@ -25,18 +26,22 @@ export default function ProfileTab() {
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
   const [levels, setLevels] = useState<LevelDef[]>([]);
   const [specs, setSpecs] = useState<Specialization[]>([]);
+  const [hub, setHub] = useState<SpecHub | null>(null);
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [badges, setBadges] = useState<any[]>([]);
 
   useFocusEffect(useCallback(() => {
     refreshProfile();
-    Promise.all([getLevels(), getSpecializations(), session ? profileStats(session.user.id) : null, myBadges()])
-      .then(([l, s, st, b]) => { setLevels(l); setSpecs(s); setStats(st); setBadges(b); }).catch(() => {});
+    Promise.all([getLevels(), getSpecializations(), getSpecializationHub(), session ? profileStats(session.user.id) : null, myBadges()])
+      .then(([l, s, h, st, b]) => { setLevels(l); setSpecs(s); setHub(h); setStats(st); setBadges(b); }).catch(() => {});
   }, [refreshProfile, session]));
 
-  const spec = specs.find((s) => s.code === profile?.primary_specialization);
+  const mainCode = hub?.main && hub.main !== "__versatile__" ? hub.main : profile?.primary_specialization;
+  const spec = specs.find((s) => s.code === mainCode) ?? specs.find((s) => s.code === hub?.preferred);
   const banner = spec?.color ?? colors.brandPrimary;
   const lp = levelProgress(profile?.xp ?? 0, levels);
+  const culinary = CULINARY_LEVELS.find((l) => l.level === profile?.culinary_skill_level);
+  const unlockedSkills = (hub?.specializations ?? []).flatMap((s) => s.skills.filter((sk) => sk.status === "unlocked").map((sk) => ({ ...sk, spec: s.name })));
 
   return (
     <ScrollView testID="profile-screen" style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ paddingBottom: bottomChrome + spacing.xl }}>
@@ -47,7 +52,14 @@ export default function ProfileTab() {
           </View>
           <View style={{ flex: 1 }}>
             <Text testID="profile-name" style={{ fontFamily: fonts.display, fontSize: 26, color: colors.onBrand }}>{profile?.display_name ?? "Yummiteer"}</Text>
-            <Text testID="profile-spec" style={{ fontFamily: fonts.text, fontSize: 14, color: colors.onBrand }}>{spec ? spec.name : "Brak specjalizacji"}</Text>
+            <Text testID="profile-spec" style={{ fontFamily: fonts.text, fontSize: 14, color: colors.onBrand }}>
+              {hub?.main_label ?? (spec ? spec.name : "Nowicjusz")}
+            </Text>
+            {hub?.preferred ? (
+              <Text style={{ fontFamily: fonts.text, fontSize: 12, color: colors.onBrand }}>
+                Preferowana: {specs.find((s) => s.code === hub.preferred)?.name ?? hub.preferred}
+              </Text>
+            ) : null}
           </View>
           <View style={{ alignItems: "center" }}>
             <Text testID="profile-level" style={{ fontFamily: fonts.display, fontSize: 32, color: colors.onBrand }}>{profile?.level ?? 1}</Text>
@@ -68,8 +80,35 @@ export default function ProfileTab() {
       <View style={{ padding: spacing.lg, gap: spacing.lg }}>
         <View style={{ flexDirection: "row", gap: spacing.md }}>
           <Button testID="profile-cards-button" title="Księga kart" icon="book-open-variant" style={{ flex: 1 }} onPress={() => router.push("/cards")} />
-          <Button testID="profile-spec-button" title="Klasa" icon="shield-star" variant="secondary" onPress={() => router.push("/specializations")} />
+          <Button testID="profile-spec-button" title="Specjalizacje" icon="shield-star" variant="secondary" onPress={() => router.push("/specializations")} />
         </View>
+        <Button testID="profile-culinary-button" title="Profil kulinarny" icon="chef-hat" variant="ghost" onPress={() => router.push("/profile/culinary")} />
+
+        {hub ? (
+          <>
+            <Title size={20}>Postęp specjalizacji</Title>
+            {hub.specializations.map((s) => (
+              <Card key={s.code} testID={`profile-spec-progress-${s.code}`} onPress={() => router.push(`/specialization/${s.code}`)}>
+                <Title size={16}>{s.name}</Title>
+                <Body muted>PD {s.pd} · poziom {s.level} · misje {s.missions_completed}</Body>
+              </Card>
+            ))}
+            <Title size={20}>Odblokowane skille</Title>
+            {unlockedSkills.length === 0 ? <Body muted>Skille odblokują się od poziomu 2 danej specjalizacji.</Body> : unlockedSkills.map((sk) => (
+              <Body key={sk.code}>• {sk.name} ({sk.spec})</Body>
+            ))}
+          </>
+        ) : null}
+
+        {culinary || profile?.signature_dish ? (
+          <Card testID="profile-culinary-summary">
+            <Title size={16}>Kuchnia Yummitera</Title>
+            {culinary ? <Body>{culinary.emoji} {culinary.title}</Body> : null}
+            {profile?.signature_dish ? <Body muted>Popisowe: {profile.signature_dish}</Body> : null}
+            {profile?.diet_style ? <Body muted>Dieta: {profile.diet_style}</Body> : null}
+          </Card>
+        ) : null}
+
         <Title size={20}>Statystyki</Title>
         <View testID="profile-stats" style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
           {STAT_LABELS.map(([k, label]) => (

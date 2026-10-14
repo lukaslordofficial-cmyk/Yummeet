@@ -9,7 +9,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-00000000000a'
 do $$ declare n int; um uuid; r jsonb; begin
   select count(*) into n from user_cards where user_id = auth.uid() and status='owned';
   assert n = 5, 'starter deck should have 5 cards, got ' || n;
-  perform choose_specialization('critic', array['explorer']);
+  perform set_preferred_specialization('detective');
   select count(*) into n from get_mission_board(); assert n >= 3, 'board empty';
   um := mission_accept((select id from mission_definitions where code='starter_hello'));
   begin perform mission_submit(um,'text','x'); assert false, 'submit before start should fail';
@@ -21,6 +21,8 @@ do $$ declare n int; um uuid; r jsonb; begin
   assert (r->>'already_completed')::boolean, 'double reward! ' || r;
   select count(*) into n from xp_ledger where user_id = auth.uid(); assert n = 1, 'xp ledger dup';
   select xp into n from profiles where id = auth.uid(); assert n = 40, 'xp=' || n;
+  -- starter_hello has no specialization → no PD; preferred must not gate board
+  select count(*) into n from get_mission_board(); assert n >= 3, 'all-spec board';
   select count(*) into n from user_cards where user_id = auth.uid() and status='owned'; assert n = 7, 'cards after mission ' || n;
   begin perform mission_accept((select id from mission_definitions where code='starter_hello')); assert false, 'repeat limit';
   exception when others then if sqlerrm not like '%repeat_limit%' then raise; end if; end;

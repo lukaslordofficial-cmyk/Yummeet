@@ -81,10 +81,10 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background:#F2E6DD; }
-    .pin-dot { background:#E05F36; width:10px; height:10px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px rgba(224,95,54,0.35); }
+    .pin-dot { background:#E05F36; border-radius:50%; border:1.5px solid #fff; box-shadow:0 0 0 1px rgba(224,95,54,0.3); box-sizing:border-box; }
     .pin-stack { display:flex; flex-direction:column; align-items:center; gap:2px; }
     .pin-label { max-width:100px; min-height:14px; padding:1px 5px; border-radius:7px; border:1px solid #fff; color:#fff; font:700 9px/11px -apple-system,Segoe UI,Roboto,sans-serif; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.25); box-sizing:border-box; white-space:normal; overflow:hidden; word-break:break-word; max-height:28px; }
-    .pin-photo { width:22px; height:22px; border-radius:11px; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.3); object-fit:cover; background:#E05F36; display:block; }
+    .pin-photo { border-radius:50%; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.3); object-fit:cover; background:#E05F36; display:block; box-sizing:border-box; }
     .user-dot { background:#38A342; width:10px; height:10px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 4px rgba(56,163,66,0.25); }
     .draw-dot { background:#FF9F43; width:12px; height:12px; border-radius:50%; border:2px solid #fff; }
   </style>
@@ -104,13 +104,27 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     L.tileLayer(C.tileUrl, { maxZoom: C.maxZoom, subdomains: 'abc' }).addTo(map);
 
     function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-    function pinIcon(color, label, coverUrl, showLabel){
+    /** Im dalej zoom, tym mniejsza kropka — przy Polsce nie zasłaniają powiatów. */
+    function pinScale(z){
+      if (z <= 5) return { dot: 3, photo: 0, label: false };
+      if (z <= 7) return { dot: 4, photo: 0, label: false };
+      if (z <= 9) return { dot: 5, photo: 0, label: false };
+      if (z <= 11) return { dot: 6, photo: 8, label: false };
+      if (z <= 13) return { dot: 7, photo: 12, label: false };
+      if (z <= 15) return { dot: 8, photo: 16, label: false };
+      if (z < LABEL_ZOOM) return { dot: 9, photo: 18, label: false };
+      return { dot: 10, photo: 22, label: true };
+    }
+    function pinIcon(color, label, coverUrl, showLabel, scale){
       var bg = color || '#E05F36';
       var text = esc(label || '');
-      var head = coverUrl
-        ? '<img class="pin-photo" src="'+esc(coverUrl)+'" alt=""/>'
-        : '<div class="pin-dot" style="background:'+bg+'"></div>';
-      if (showLabel && label) {
+      var d = scale.dot;
+      var ph = scale.photo;
+      var usePhoto = !!(coverUrl && ph > 0);
+      var head = usePhoto
+        ? '<img class="pin-photo" src="'+esc(coverUrl)+'" alt="" style="width:'+ph+'px;height:'+ph+'px;border-radius:'+(ph/2)+'px"/>'
+        : '<div class="pin-dot" style="background:'+bg+';width:'+d+'px;height:'+d+'px"></div>';
+      if (showLabel && label && scale.label) {
         return L.divIcon({
           className: '',
           html: '<div class="pin-stack">'+head+'<div class="pin-label" style="background:'+bg+'" title="'+text+'">'+text+'</div></div>',
@@ -118,10 +132,8 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
           iconAnchor: [50, 36],
         });
       }
-      if (coverUrl) {
-        return L.divIcon({ className:'', html: head, iconSize:[22,22], iconAnchor:[11,11] });
-      }
-      return L.divIcon({ className:'', html: head, iconSize:[10,10], iconAnchor:[5,5] });
+      var s = usePhoto ? ph : d;
+      return L.divIcon({ className:'', html: head, iconSize:[s,s], iconAnchor:[s/2,s/2] });
     }
 
     var markerLayer = L.layerGroup().addTo(map);
@@ -137,10 +149,12 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
 
     function renderMarkers(list){
       if (list) lastMarkers = list;
-      var showLabel = map.getZoom() >= LABEL_ZOOM;
+      var z = map.getZoom();
+      var scale = pinScale(z);
+      var showLabel = z >= LABEL_ZOOM;
       clearGroup(markerLayer);
       (lastMarkers||[]).forEach(function(m){
-        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label, m.coverUrl, showLabel) });
+        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label, m.coverUrl, showLabel, scale) });
         if (m.title) mk.bindTooltip(m.title, { direction: 'top', opacity: 0.95 });
         mk.on('click', function(){ send({ type:'markerPress', id: m.id }); });
         markerLayer.addLayer(mk);
@@ -271,6 +285,7 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     };
 
     map.on('moveend', function(){ var c = map.getCenter(); send({ type:'view', lat: c.lat, lng: c.lng, zoom: map.getZoom() }); });
+    map.on('zoomend', function(){ renderMarkers(null); });
     send({ type:'ready' });
   </script>
 </body>

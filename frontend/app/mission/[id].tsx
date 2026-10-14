@@ -1,4 +1,5 @@
 import * as Location from "expo-location";
+import { Image } from "expo-image";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
@@ -9,6 +10,7 @@ import { Badge, Body, Button, Card, Chip, ChipRow, ErrorState, Field, Header, Lo
 import { MISSION_STATUS_LABEL, missionActions } from "@/src/domain/rules";
 import { errorMessage } from "@/src/lib/api";
 import { missionAccept, missionBoard, missionCancel, missionStart, missionSubmit, searchPeople } from "@/src/lib/data";
+import { pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { spacing, useTheme } from "@/src/theme";
 import type { BoardMission } from "@/src/types";
@@ -23,13 +25,15 @@ export default function MissionDetail() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, session } = useAuth();
   const [m, setM] = useState<BoardMission | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [evidence, setEvidence] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [people, setPeople] = useState<any[]>([]);
   const [confirmer, setConfirmer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const load = useCallback(async () => {
     try { const b = await missionBoard(); setM(b.find((x) => x.mission_id === id) ?? null); setError(null); } catch (e) { setError(errorMessage(e)); }
@@ -43,22 +47,44 @@ export default function MissionDetail() {
     try { await fn(); toast(ok, "success"); await load(); } catch (e) { toast(errorMessage(e), "error"); } finally { setBusy(false); }
   };
 
+  const addPhoto = async (source: "gallery" | "camera") => {
+    const uid = session?.user.id;
+    if (!uid) return toast("Zaloguj się ponownie", "error");
+    setPhotoBusy(true);
+    try {
+      const url = await pickPinPhoto(uid, source);
+      if (url) setPhotoUrl(url);
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
   const submit = async () => {
     if (!m?.user_mission_id) return;
     setBusy(true);
     try {
       let content = evidence.trim();
-      let kind = m.confirmation_method === "code" ? "code" : "text";
+      let kind: string = m.confirmation_method === "code" ? "code" : "text";
       if (m.confirmation_method === "location") {
         const perm = await Location.requestForegroundPermissionsAsync();
         if (!perm.granted) throw new Error("Ta misja wymaga jednorazowej weryfikacji lokalizacji.");
         const pos = await Location.getCurrentPositionAsync({});
         content = `${pos.coords.latitude},${pos.coords.longitude}`; kind = "location";
+      } else if (photoUrl) {
+        kind = "photo_url";
+        content = content ? `${content}\n${photoUrl}` : photoUrl;
       }
-      if (!content) throw new Error("Dodaj opis lub kod");
+      if (!content) throw new Error("Dodaj opis wykonania lub zdjęcie dowodu");
+      if (content.length > 2000) throw new Error("Dowód jest za długi (max 2000 znaków)");
       const res = await missionSubmit(m.user_mission_id, kind, content, confirmer);
-      if (res?.completed) { haptic.success(); toast(`Misja ukończona! +${res.xp} XP, kart: ${res.cards?.length ?? 0}`, "success"); refreshProfile(); }
-      else if (res?.pending_confirmation) toast("Wysłano prośbę o potwierdzenie", "success");
+      if (res?.completed) {
+        haptic.success();
+        const pd = res.pd ?? res.xp;
+        toast(`Misja ukończona! +${res.xp} XP${res.specialization ? ` / ${pd} PD` : ""}, kart: ${res.cards?.length ?? 0}`, "success");
+        refreshProfile();
+      } else if (res?.pending_confirmation) toast("Wysłano prośbę o potwierdzenie", "success");
       else if (res?.already_completed) toast("Nagroda została już przyznana", "info");
       await load();
     } catch (e) { toast(errorMessage(e), "error"); } finally { setBusy(false); }
@@ -76,7 +102,8 @@ export default function MissionDetail() {
           <Title size={24}>{m.name}</Title>
           <Body>{m.description}</Body>
           <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
-            <Badge label={`+${m.reward_xp} XP`} color={colors.brandPrimary} textColor={colors.onBrandPrimary} />
+            <Badge label={`+${m.reward_xp} XP/PD`} color={colors.brandPrimary} textColor={colors.onBrandPrimary} />
+            {m.specialization_code ? <Badge label={m.specialization_code} color={colors.surfaceTertiary} textColor={colors.onSurfaceTertiary} /> : null}
             {m.card_reward_count ? <Badge label={`Nagroda: ${m.card_reward_count} karta`} color={colors.rarityRare} textColor={colors.onBrand} /> : null}
             <Badge testID="mission-detail-status" label={MISSION_STATUS_LABEL[m.user_status]} color={colors.surfaceTertiary} textColor={colors.onSurfaceTertiary} />
           </View>
@@ -91,12 +118,22 @@ export default function MissionDetail() {
 
         {m.user_status === "in_progress" ? (
           <Card testID="mission-submit-card">
-            <Title size={18}>Potwierdź wykonanie</Title>
+            <Title size={18}>Dowód wykonania</Title>
+            <Body muted>Dodaj opis tekstowy i/lub zdjęcie. Ponowne wysłanie ukończonej misji nie przyznaje PD drugi raz.</Body>
             {m.confirmation_method !== "location" ? (
               <Field testID="mission-evidence-input" value={evidence} onChangeText={setEvidence} multiline={m.confirmation_method !== "code"}
                 autoCapitalize={m.confirmation_method === "code" ? "characters" : "sentences"}
-                placeholder={m.confirmation_method === "code" ? "Kod potwierdzenia" : "Opisz, co zrobiłeś (lub wklej link do zdjęcia)"} />
+                placeholder={m.confirmation_method === "code" ? "Kod potwierdzenia" : "Opisz, co zrobiłeś"} />
             ) : <Body muted>Sprawdzimy jednorazowo, czy jesteś w lokalu.</Body>}
+            {m.confirmation_method !== "location" && m.confirmation_method !== "code" ? (
+              <>
+                {photoUrl ? <Image source={{ uri: photoUrl }} style={{ width: "100%", height: 160, borderRadius: 12 }} contentFit="cover" /> : null}
+                <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                  <Button testID="mission-photo-gallery" title="Zdjęcie" variant="secondary" loading={photoBusy} style={{ flex: 1 }} onPress={() => void addPhoto("gallery")} />
+                  <Button testID="mission-photo-camera" title="Aparat" variant="ghost" loading={photoBusy} style={{ flex: 1 }} onPress={() => void addPhoto("camera")} />
+                </View>
+              </>
+            ) : null}
             {needsPeer ? (
               <>
                 <Body muted>Kto potwierdzi wykonanie?</Body>

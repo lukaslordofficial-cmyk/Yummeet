@@ -25,12 +25,15 @@ function Gate() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="pin/[id]" />
         <Stack.Screen name="pin/new" />
+        <Stack.Screen name="pin/edit/[id]" />
         <Stack.Screen name="route" />
         <Stack.Screen name="mission/[id]" />
         <Stack.Screen name="duel/[id]" />
         <Stack.Screen name="duel/new" />
         <Stack.Screen name="cards" />
         <Stack.Screen name="specializations" />
+        <Stack.Screen name="specialization/[code]" />
+        <Stack.Screen name="profile/culinary" />
         <Stack.Screen name="event/[id]" />
         <Stack.Screen name="event/new" />
         <Stack.Screen name="chat/[id]" />

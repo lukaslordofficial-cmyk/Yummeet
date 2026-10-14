@@ -39,7 +39,26 @@ export const CUISINES: CuisineOpt[] = [
   { key: "fine_dining", label: "Fine dining" },
   { key: "brunch", label: "Brunch" },
   { key: "international", label: "Międzynarodowa" },
+  { key: "bakery_only", label: "Piekarnia" },
+  { key: "pastry", label: "Cukiernia" },
+  { key: "food_share", label: "Jadłodzielnia" },
   { key: "other", label: "Inne" },
+];
+
+/** Tagi oferty (obok kategorii kuchni) — misje Detektywa / Strażnika. */
+export const PIN_TAGS: { key: string; label: string }[] = [
+  { key: "tanie", label: "Tanie" },
+  { key: "happy_hour", label: "Happy-Hour" },
+  { key: "duze_porcje", label: "Duże porcje" },
+  { key: "wegetarianskie", label: "Wegetariańskie" },
+  { key: "weganskie", label: "Wegańskie" },
+  { key: "bezglutenowe", label: "Bezglutenowe" },
+  { key: "nocne", label: "Nocne" },
+  { key: "grupowe", label: "Grupowe" },
+  { key: "sniadania", label: "Śniadania" },
+  { key: "tgtg", label: "Paczki TGTG" },
+  { key: "przeceny", label: "Przeceny" },
+  { key: "deser", label: "Deser" },
 ];
 
 export function cuisineLabel(key: string | null | undefined): string {
