@@ -43,7 +43,8 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 12. **`supabase/migrations/014_fix_expires_food_tab.sql`** — naprawa `expires_at is ambiguous` + Jedzenie (offer_kind, cooking_tips). Uruchom, jeśli misje nie ładują się w apce.
 13. **`supabase/migrations/015_food_nearby_photos.sql`** — Jedzenie 20 km (lista + powiadomienia), GPS cache, limit zdjęć, miasto/ulica/miejsce.
 14. **`supabase/migrations/016_photo_limits_journal_cleanup.sql`** — 1× zdjęcie lokalu + 1× menu/PDF na pin; Dziennik Spotkań (cron na końcu pliku może paść — OK).
-15. **`supabase/migrations/017_photo_slots_48h.sql`** — **3 sloty** zdjęć (dania/misje/inspiracje/stoły) zamiast limitu miesięcznego; usuwanie ze Storage **48 h** po końcu oferty/misji; `cleanup_photo_slots()` (+ cron co 30 min bez zagnieżdżonych `$$`). Pin lokalu/menu bez slotów.
+15. **`supabase/migrations/017_photo_slots_48h.sql`** — **3 sloty** zdjęć; usuwanie ze Storage **48 h** po końcu oferty/misji.
+16. **`supabase/migrations/018_fix_photo_slots_cleanup.sql`** — naprawa cleanup (kolumna `food_offers.updated_at`, błąd `relation "n"`). Uruchom po 017.
 
 Powiadomienia na trasie (dźwięk) + śledzenie w tle: włącz przełącznik na aktywnej trasie.
 Pełne tło (apka zamknięta) wymaga buildu z uprawnieniem „Always” lokalizacji; w Expo Go działa foreground + lokalne powiadomienia.

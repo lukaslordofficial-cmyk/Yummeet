@@ -4,6 +4,8 @@
 -- Naprawa crona (bez zagnieżdżonych $$)
 -- =====================================================================
 
+alter table public.food_offers add column if not exists updated_at timestamptz not null default now();
+
 create table if not exists public.photo_slots (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -51,17 +53,16 @@ returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   v uuid := public._uid();
-  n int := 0;
+  v_used int := 0;
   lim int := least(greatest(coalesce(p_limit, 3), 1), 20);
 begin
-  -- Przy okazji zwolnij to, co już powinno spaść
-  perform public.cleanup_photo_slots();
-  select count(*)::int into n from public.photo_slots
+  begin perform public.cleanup_photo_slots(); exception when others then null; end;
+  select count(*)::int into v_used from public.photo_slots
    where user_id = v and released_at is null;
   return jsonb_build_object(
-    'used', n,
+    'used', v_used,
     'limit', lim,
-    'remaining', greatest(lim - n, 0),
+    'remaining', greatest(lim - v_used, 0),
     'model', 'slots'
   );
 end $$;
@@ -80,7 +81,7 @@ returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   v uuid := public._uid();
-  n int;
+  v_used int;
   lim int := least(greatest(coalesce(p_limit, 3), 1), 20);
   v_id uuid;
 begin
@@ -90,9 +91,9 @@ begin
   if p_photo_url is null or char_length(trim(p_photo_url)) < 8 then
     raise exception 'invalid_photo';
   end if;
-  perform public.cleanup_photo_slots();
-  select count(*)::int into n from public.photo_slots where user_id = v and released_at is null;
-  if n >= lim then raise exception 'photo_slots_full'; end if;
+  begin perform public.cleanup_photo_slots(); exception when others then null; end;
+  select count(*)::int into v_used from public.photo_slots where user_id = v and released_at is null;
+  if v_used >= lim then raise exception 'photo_slots_full'; end if;
 
   insert into public.photo_slots (user_id, kind, ref_id, photo_url)
   values (v, p_kind, p_ref_id, trim(p_photo_url))
@@ -116,15 +117,15 @@ grant execute on function public.claim_photo_upload(int) to authenticated;
 create or replace function public.schedule_photo_slot_release(p_kind text, p_ref_id uuid, p_after interval default interval '48 hours')
 returns int
 language plpgsql security definer set search_path = public as $$
-declare n int;
+declare v_cnt int := 0;
 begin
   update public.photo_slots
      set release_at = least(coalesce(release_at, now() + p_after), now() + p_after)
    where kind = p_kind
      and ref_id = p_ref_id
      and released_at is null;
-  get diagnostics n = row_count;
-  return n;
+  get diagnostics v_cnt = ROW_COUNT;
+  return v_cnt;
 end $$;
 
 create or replace function public.cleanup_photo_slots()
@@ -132,20 +133,20 @@ returns jsonb
 language plpgsql security definer set search_path = public, storage as $$
 declare
   r record;
-  n_slots int := 0;
-  n_files int := 0;
-  n_offers int := 0;
+  v_slots int := 0;
+  v_files int := 0;
+  v_offers int := 0;
 begin
   -- Oferty wiszące > 7 dni → expired (potem 48 h na zdjęcie)
   update public.food_offers
      set status = 'expired', updated_at = now()
    where status in ('available', 'reserved')
      and created_at < now() - interval '7 days';
-  get diagnostics n_offers = row_count;
+  get diagnostics v_offers = ROW_COUNT;
 
   -- Zaplanuj zwolnienie slotów dla terminalnych ofert (jeśli jeszcze nie)
   update public.photo_slots s
-     set release_at = coalesce(s.release_at, o.updated_at + interval '48 hours')
+     set release_at = coalesce(s.release_at, coalesce(o.updated_at, o.created_at) + interval '48 hours')
     from public.food_offers o
    where s.kind = 'food_offer' and s.ref_id = o.id and s.released_at is null
      and o.status in ('handed_over', 'cancelled', 'expired')
@@ -171,7 +172,7 @@ begin
        and release_at is not null
        and release_at <= now()
   loop
-    if public._delete_storage_url(r.photo_url) then n_files := n_files + 1; end if;
+    if public._delete_storage_url(r.photo_url) then v_files := v_files + 1; end if;
 
     if r.kind = 'food_offer' and r.ref_id is not null then
       update public.food_offers set photo_url = null where id = r.ref_id and photo_url = r.photo_url;
@@ -183,13 +184,13 @@ begin
     -- mission_evidence: content w mission_evidence zostaje jako tekst URL, plik znika ze Storage
 
     update public.photo_slots set released_at = now() where id = r.id;
-    n_slots := n_slots + 1;
+    v_slots := v_slots + 1;
   end loop;
 
   return jsonb_build_object(
-    'slots_released', n_slots,
-    'files_deleted', n_files,
-    'offers_expired', n_offers
+    'slots_released', v_slots,
+    'files_deleted', v_files,
+    'offers_expired', v_offers
   );
 end $$;
 grant execute on function public.cleanup_photo_slots() to authenticated;

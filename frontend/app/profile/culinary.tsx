@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Body, Button, Chip, ChipRow, Field, Header, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
-  COLLAB_FORMS, CULINARY_LEVELS, DIET_STYLES, PAID_COOKING_CONSENTS, SPICE_LABELS, SUPERPOWERS,
+  COLLAB_FORMS, CULINARY_LEVELS, DIET_STYLES, PAID_COOKING_CONSENTS, SPICE_LABELS, SUPERPOWERS, SUPERPOWERS_HINT,
 } from "@/src/lib/culinaryProfile";
 import { updateMyProfile } from "@/src/lib/data";
 import { useAuth } from "@/src/providers/AuthProvider";
@@ -25,6 +25,7 @@ export default function CulinaryProfile() {
   const [diet, setDiet] = useState<string | null>(profile?.diet_style ?? null);
   const [spice, setSpice] = useState<string | null>(profile?.spice_tolerance_label ?? null);
   const [powers, setPowers] = useState<string[]>(profile?.superpowers ?? []);
+  const [customPower, setCustomPower] = useState("");
   const [collab, setCollab] = useState<string[]>(profile?.collab_forms ?? []);
   const [consents, setConsents] = useState<boolean[]>([false, false, false]);
   const [busy, setBusy] = useState(false);
@@ -39,9 +40,29 @@ export default function CulinaryProfile() {
     setCollab(profile?.collab_forms ?? []);
   }, [profile]);
 
+  const powerOptions = useMemo(() => {
+    const extras = powers.filter((p) => !(SUPERPOWERS as readonly string[]).includes(p));
+    return [...SUPERPOWERS, ...extras];
+  }, [powers]);
+
+  const selectedLevel = skill != null ? CULINARY_LEVELS.find((l) => l.level === skill) : null;
+  const selectedDiet = diet ? DIET_STYLES.find((d) => d.key === diet) : null;
+  const selectedSpice = spice ? SPICE_LABELS.find((s) => s.key === spice) : null;
+
   const togglePower = (p: string) => {
     setPowers((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : prev.length >= 3 ? prev : [...prev, p]));
   };
+
+  const addCustomPower = () => {
+    const tag = customPower.trim().replace(/\s+/g, " ");
+    if (tag.length < 2) return toast("Wpisz nazwę supermocy (min. 2 znaki)", "error");
+    if (tag.length > 40) return toast("Tag max 40 znaków", "error");
+    if (powers.includes(tag)) return toast("Ten tag już jest wybrany", "info");
+    if (powers.length >= 3) return toast("Max 3 supermoce", "error");
+    setPowers((prev) => [...prev, tag]);
+    setCustomPower("");
+  };
+
   const toggleCollab = (k: string) => {
     const paid = k === "cook_order" || k === "cook_ingredients";
     if (paid && !collab.includes(k) && !consents.every(Boolean)) {
@@ -90,10 +111,20 @@ export default function CulinaryProfile() {
 
         <Title size={16}>Poziom umiejętności</Title>
         {CULINARY_LEVELS.map((l) => (
-          <Chip key={l.level} testID={`culinary-level-${l.level}`} label={`${l.emoji} ${l.title}`} selected={skill === l.level}
-            onPress={() => setSkill(l.level)} />
+          <Chip
+            key={l.level}
+            testID={`culinary-level-${l.level}`}
+            label={`${l.emoji} Poziom ${l.level}: ${l.title}${"subtitle" in l && l.subtitle ? ` (${l.subtitle})` : ""}`}
+            selected={skill === l.level}
+            onPress={() => setSkill(l.level)}
+          />
         ))}
-        {skill ? <Body muted>{CULINARY_LEVELS.find((l) => l.level === skill)?.blurb}</Body> : null}
+        {selectedLevel ? (
+          <View style={{ gap: spacing.xs }}>
+            <Body>{selectedLevel.description}</Body>
+            <Body muted>Dla kogo: {selectedLevel.forWhom}</Body>
+          </View>
+        ) : null}
 
         <Title size={16}>Kulinarna religia (dieta)</Title>
         <ChipRow>
@@ -101,6 +132,7 @@ export default function CulinaryProfile() {
             <Chip key={d.key} testID={`culinary-diet-${d.key}`} label={d.label} selected={diet === d.key} onPress={() => setDiet(d.key)} />
           ))}
         </ChipRow>
+        {selectedDiet ? <Body muted>{selectedDiet.blurb}</Body> : null}
 
         <Title size={16}>Tolerancja na ostrość</Title>
         <ChipRow>
@@ -108,13 +140,24 @@ export default function CulinaryProfile() {
             <Chip key={s.key} testID={`culinary-spice-${s.key}`} label={s.label} selected={spice === s.key} onPress={() => setSpice(s.key)} />
           ))}
         </ChipRow>
+        {selectedSpice ? <Body muted>{selectedSpice.blurb}</Body> : null}
 
         <Title size={16}>Supermoce (max 3)</Title>
+        <Body muted>{SUPERPOWERS_HINT}</Body>
         <ChipRow>
-          {SUPERPOWERS.map((p) => (
+          {powerOptions.map((p) => (
             <Chip key={p} testID={`culinary-power-${p}`} label={p} selected={powers.includes(p)} onPress={() => togglePower(p)} />
           ))}
         </ChipRow>
+        <Field
+          testID="culinary-power-custom"
+          label="Własny tag supermocy"
+          value={customPower}
+          onChangeText={setCustomPower}
+          placeholder="np. ekspert od zup"
+          onSubmitEditing={addCustomPower}
+        />
+        <Button testID="culinary-power-add" title="Dodaj własny tag" variant="secondary" onPress={addCustomPower} />
 
         <Title size={16}>Formy współpracy</Title>
         <ChipRow>
