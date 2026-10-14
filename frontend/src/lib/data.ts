@@ -279,6 +279,8 @@ export async function eventConversationId(id: string) {
 
 // ---------- Jedzenie ----------
 export type FoodOfferKind = "giveaway" | "exchange" | "signature" | "order";
+/** Popisowe: wynagrodzenie albo składniki + podział porcji. */
+export type FoodDealMode = "paid" | "ingredients_split";
 export type FoodOffer = {
   id: string; owner_id: string; title: string; description: string | null; photo_url: string | null;
   allergens: string[]; portions: number; portions_left: number; pickup_place_public: string | null;
@@ -286,7 +288,16 @@ export type FoodOffer = {
   status: string; offer_kind: FoodOfferKind; created_at: string; place_lat?: number | null; place_lng?: number | null;
   owner?: { display_name: string } | null; owner_name?: string | null;
   storage_conditions?: string | null; prepared_at?: string | null;
+  deal_mode?: FoodDealMode | null;
 };
+export const FOOD_DEAL_MODES: { key: FoodDealMode; label: string; hint: string }[] = [
+  { key: "paid", label: "Za wynagrodzenie", hint: "Ugotuję danie w zamian za uzgodnione wynagrodzenie (ustalenia poza apką)." },
+  { key: "ingredients_split", label: "Składniki + podział porcji", hint: "Opłacenie kosztów składników i podzielenie porcji na pół." },
+];
+export function foodDealLabel(mode?: string | null): string | null {
+  if (!mode) return null;
+  return FOOD_DEAL_MODES.find((m) => m.key === mode)?.label ?? mode;
+}
 export async function listFoodOffersNearby(kind: FoodOfferKind, lat: number, lng: number): Promise<FoodOffer[]> {
   const rows = await rpc<any[]>("list_food_nearby", { p_kind: kind, p_lat: lat, p_lng: lng, p_limit: 50 });
   return (rows ?? []).map((r) => ({
@@ -299,6 +310,7 @@ export async function createFoodOffer(a: {
   kind: FoodOfferKind; title: string; description?: string; photoUrl?: string | null;
   allergens: string[]; portions?: number; city: string; street: string; placeDetail?: string;
   lat: number; lng: number; preparedAt?: string | null; storage?: string | null;
+  dealMode?: FoodDealMode | null;
 }) {
   return rpc<string>("publish_food_offer", {
     p_kind: a.kind,
@@ -314,6 +326,7 @@ export async function createFoodOffer(a: {
     p_lng: a.lng,
     p_storage: a.storage ?? null,
     p_prepared_at: a.preparedAt ?? null,
+    p_deal_mode: a.dealMode ?? null,
   });
 }
 export async function foodOfferDetails(id: string): Promise<FoodOffer | null> {

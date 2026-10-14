@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -10,8 +10,9 @@ import { Body, Button, Chip, ChipRow, EmptyState, ErrorState, Field, Loading, Ti
 import { allergenLabel, FOOD_ALLERGENS, toggleAllergen } from "@/src/lib/allergens";
 import { errorMessage } from "@/src/lib/api";
 import {
-  createCookingTip, createFoodOffer, foodOfferDetails, listCookingTipsNearby, listFoodOffersNearby,
-  type CookingTip, type FoodOffer, type FoodOfferKind,
+  createCookingTip, createFoodOffer, FOOD_DEAL_MODES, foodDealLabel, foodOfferDetails,
+  listCookingTipsNearby, listFoodOffersNearby, openDirect,
+  type CookingTip, type FoodDealMode, type FoodOffer, type FoodOfferKind,
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
 import { FREE_PHOTO_SLOTS, photoQuotaStatus, pickPinPhoto, type PhotoQuota } from "@/src/lib/storage";
@@ -43,6 +44,7 @@ const SEGMENTS: { key: Seg; label: string; kind?: FoodOfferKind }[] = [
 export default function FoodTab() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const toast = useToast();
   const { session } = useAuth();
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
@@ -59,9 +61,11 @@ export default function FoodTab() {
   const [placeDetail, setPlaceDetail] = useState("");
   const [portions, setPortions] = useState("1");
   const [allergenKeys, setAllergenKeys] = useState<string[]>([]);
+  const [dealMode, setDealMode] = useState<FoodDealMode | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [quota, setQuota] = useState<PhotoQuota | null>(null);
   const [busy, setBusy] = useState(false);
+  const [chatBusy, setChatBusy] = useState(false);
   const [detail, setDetail] = useState<FoodOffer | CookingTip | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
 
@@ -94,7 +98,22 @@ export default function FoodTab() {
 
   const resetCompose = () => {
     setTitle(""); setBody(""); setCity(""); setStreet(""); setPlaceDetail("");
-    setPortions("1"); setAllergenKeys([]); setPhoto(null);
+    setPortions("1"); setAllergenKeys([]); setDealMode(null); setPhoto(null);
+  };
+
+  const startChat = async (otherId: string) => {
+    if (!otherId) return;
+    if (otherId === session?.user.id) return toast("To Twoja oferta", "info");
+    setChatBusy(true);
+    try {
+      const convId = await openDirect(otherId);
+      setDetail(null);
+      router.push(`/chat/${convId}`);
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setChatBusy(false);
+    }
   };
 
   const addPhoto = async (source: "gallery" | "camera") => {
@@ -130,6 +149,7 @@ export default function FoodTab() {
       if (!allergenKeys.length) return toast("Zaznacz alergeny albo „Brak alergenów”", "error");
       if (!city.trim() || !street.trim()) return toast("Podaj miasto i ulicę", "error");
       if (!placeDetail.trim()) return toast("Podaj miejsce odbioru (np. przed sklepem)", "error");
+      if (seg === "signature" && !dealMode) return toast("Wybierz formę współpracy (wynagrodzenie lub składniki + podział)", "error");
     }
     setBusy(true);
     try {
@@ -152,6 +172,7 @@ export default function FoodTab() {
           placeDetail,
           lat: pos.lat,
           lng: pos.lng,
+          dealMode: kind === "signature" ? dealMode : null,
         });
       }
       toast("Opublikowano", "success");
@@ -219,6 +240,30 @@ export default function FoodTab() {
                   );
                 })}
               </View>
+              {seg === "signature" ? (
+                <View style={{ gap: spacing.sm }}>
+                  <Body>Forma współpracy</Body>
+                  <Body muted>Jak chcesz ugotować to danie dla innych?</Body>
+                  {FOOD_DEAL_MODES.map((m) => {
+                    const on = dealMode === m.key;
+                    return (
+                      <Pressable
+                        key={m.key}
+                        testID={`food-deal-${m.key}`}
+                        onPress={() => setDealMode(m.key)}
+                        style={{
+                          padding: spacing.md, borderRadius: radius.md,
+                          backgroundColor: on ? colors.brandPrimary : colors.surfaceSecondary,
+                          borderWidth: 1, borderColor: on ? colors.brandPrimary : colors.border, gap: 4,
+                        }}
+                      >
+                        <Body style={{ color: on ? colors.onBrandPrimary : colors.onSurface, fontFamily: fonts.display }}>{m.label}</Body>
+                        <Body style={{ color: on ? colors.onBrandPrimary : colors.muted, fontSize: 13 }}>{m.hint}</Body>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
               <Field testID="food-city" label="Miasto" value={city} onChangeText={setCity} placeholder="np. Kraków" />
               <Field testID="food-street" label="Ulica" value={street} onChangeText={setStreet} placeholder="np. Floriańska 12" />
               <Field testID="food-place-detail" label="Miejsce odbioru" value={placeDetail} onChangeText={setPlaceDetail} placeholder="np. przed wejściem do sklepu" />
@@ -314,6 +359,9 @@ export default function FoodTab() {
               {isOfferDetail ? (
                 <>
                   <Body muted>{(detail as FoodOffer).owner?.display_name ?? (detail as FoodOffer).owner_name ?? "Yummiter"} · {(detail as FoodOffer).portions_left}/{(detail as FoodOffer).portions} porcji</Body>
+                  {(detail as FoodOffer).deal_mode ? (
+                    <Body>Forma: {foodDealLabel((detail as FoodOffer).deal_mode)}</Body>
+                  ) : null}
                   {(detail as FoodOffer).description ? <Body>{(detail as FoodOffer).description}</Body> : null}
                   {(detail as FoodOffer).allergens?.length ? (
                     <View style={{ gap: spacing.xs }}>
@@ -331,6 +379,15 @@ export default function FoodTab() {
                       (detail as FoodOffer).place_detail ?? (detail as FoodOffer).pickup_place_public,
                     ].filter(Boolean).join(", ") || "—"}
                   </Body>
+                  {(detail as FoodOffer).owner_id && (detail as FoodOffer).owner_id !== session?.user.id ? (
+                    <Button
+                      testID="food-offer-chat"
+                      title="Napisz na czacie"
+                      icon="chat"
+                      loading={chatBusy}
+                      onPress={() => void startChat((detail as FoodOffer).owner_id)}
+                    />
+                  ) : null}
                 </>
               ) : null}
               {isTipDetail ? (

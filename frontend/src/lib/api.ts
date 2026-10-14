@@ -33,6 +33,7 @@ const MESSAGES: Record<string, string> = {
   use_reveal_with_gps: "Kod pojawi się po wykryciu GPS na miejscu w dniu wydarzenia.",
   photo_quota_exceeded: "Brak wolnych slotów na zdjęcia (max 3 aktywne). Poczekaj 48 h po zakończeniu oferty/misji.",
   photo_slots_full: "Masz już 3 aktywne zdjęcia (dania / misje). Po zakończeniu oferty lub misji slot zwolni się po 48 h.",
+  deal_mode_required: "Wybierz formę współpracy: wynagrodzenie albo składniki + podział porcji.",
   pin_cover_locked: "To miejsce ma już zdjęcie lokalu — nie można dodać kolejnego.",
   pin_menu_photo_locked: "To miejsce ma już zdjęcie menu — nie można dodać kolejnego.",
   pin_menu_pdf_locked: "To miejsce ma już PDF menu — nie można dodać kolejnego.",

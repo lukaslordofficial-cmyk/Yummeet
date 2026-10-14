@@ -46,6 +46,7 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 15. **`supabase/migrations/017_photo_slots_48h.sql`** — **3 sloty** zdjęć; usuwanie ze Storage **48 h** po końcu oferty/misji.
 16. **`supabase/migrations/018_fix_photo_slots_cleanup.sql`** — (opcjonalne) stare łatki; jeśli padało — pomiń.
 17. **`supabase/migrations/019_photo_slots_bootstrap.sql`** — **uruchom ten plik** (kompletny): tworzy `photo_slots`, cleanup 48 h, hooki publikacji. Działa nawet gdy 017/018 nie przeszły.
+18. **`supabase/migrations/020_signature_deal_mode.sql`** — Popisowe: tryb współpracy (`paid` / `ingredients_split`) + szczegóły oferty.
 
 Powiadomienia na trasie (dźwięk) + śledzenie w tle: włącz przełącznik na aktywnej trasie.
 Pełne tło (apka zamknięta) wymaga buildu z uprawnieniem „Always” lokalizacji; w Expo Go działa foreground + lokalne powiadomienia.
