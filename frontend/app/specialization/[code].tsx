@@ -72,16 +72,16 @@ export default function SpecializationDetail() {
 
         {tab === "skills" ? (
           (spec.skills ?? []).map((sk) => (
-            <Card key={sk.code} testID={`spec-skill-${sk.code}`}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.sm }}>
-                <Title size={16}>{sk.name}</Title>
+            <Card key={sk.code} testID={`spec-skill-${sk.code}`} accent={spec.color} style={{ backgroundColor: `${spec.color}14` }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.sm, alignItems: "flex-start" }}>
+                <Title size={16} style={{ flex: 1, color: spec.color }}>{sk.name}</Title>
                 <Badge
                   label={sk.status === "unlocked" ? "Odblokowany" : sk.status === "available" ? "Do odblokowania" : "Zablokowany"}
-                  color={sk.status === "unlocked" ? colors.success : colors.surfaceTertiary}
-                  textColor={sk.status === "unlocked" ? colors.onSuccess : colors.onSurfaceTertiary}
+                  color={sk.status === "unlocked" ? spec.color : colors.surfaceTertiary}
+                  textColor={sk.status === "unlocked" ? colors.onBrand : colors.onSurfaceTertiary}
                 />
               </View>
-              <Body muted>{sk.description}</Body>
+              <Body>{sk.description}</Body>
               <Body muted>Wymagany poziom specjalizacji: {sk.unlock_level}</Body>
             </Card>
           ))

@@ -94,9 +94,15 @@ export default function ProfileTab() {
               </Card>
             ))}
             <Title size={20}>Odblokowane skille</Title>
-            {unlockedSkills.length === 0 ? <Body muted>Skille odblokują się od poziomu 2 danej specjalizacji.</Body> : unlockedSkills.map((sk) => (
-              <Body key={sk.code}>• {sk.name} ({sk.spec})</Body>
-            ))}
+            {unlockedSkills.length === 0 ? <Body muted>Skille odblokują się od poziomu 2 danej specjalizacji.</Body> : unlockedSkills.map((sk) => {
+              const sc = hub?.specializations.find((s) => s.name === sk.spec);
+              return (
+                <Card key={sk.code} testID={`profile-skill-${sk.code}`} accent={sc?.color} style={sc?.color ? { backgroundColor: `${sc.color}14` } : undefined}>
+                  <Title size={15} style={sc?.color ? { color: sc.color } : undefined}>{sk.name}</Title>
+                  <Body muted>{sk.spec}</Body>
+                </Card>
+              );
+            })}
           </>
         ) : null}
 

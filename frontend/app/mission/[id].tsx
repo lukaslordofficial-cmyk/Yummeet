@@ -107,14 +107,21 @@ export default function MissionDetail() {
             {m.card_reward_count ? <Badge label={`Nagroda: ${m.card_reward_count} karta`} color={colors.rarityRare} textColor={colors.onBrand} /> : null}
             <Badge testID="mission-detail-status" label={MISSION_STATUS_LABEL[m.user_status]} color={colors.surfaceTertiary} textColor={colors.onSurfaceTertiary} />
           </View>
-          <Body muted>{METHOD_LABEL[m.confirmation_method]} · {m.duration_hours} h · {m.participation === "solo" ? "solo" : m.participation === "pair" ? "w parze" : "grupowa"}</Body>
+          <Body muted>{METHOD_LABEL[m.confirmation_method]} · {m.participation === "solo" ? "solo" : m.participation === "pair" ? "w parze" : "grupowa"} · bez limitu czasu</Body>
           {m.completions > 0 ? <Body muted>Ukończono {m.completions}×</Body> : null}
         </Card>
-        <Card>
-          <Title size={18}>Kroki</Title>
-          {(m.steps ?? []).map((s, i) => <Body key={i}>{i + 1}. {s}</Body>)}
-          {m.safety_rules ? <Body muted>🛡 {m.safety_rules}</Body> : null}
-        </Card>
+        {(m.steps ?? []).length > 0 ? (
+          <Card>
+            <Title size={18}>Kroki</Title>
+            {(m.steps ?? []).map((s, i) => <Body key={i}>{i + 1}. {s}</Body>)}
+          </Card>
+        ) : null}
+        {m.safety_rules ? (
+          <Card>
+            <Title size={18}>Bezpieczeństwo</Title>
+            <Body>{m.safety_rules}</Body>
+          </Card>
+        ) : null}
 
         {m.user_status === "in_progress" ? (
           <Card testID="mission-submit-card">
