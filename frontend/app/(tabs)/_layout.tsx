@@ -11,7 +11,8 @@ import { fonts, useTheme } from "@/src/theme";
 const TABS = [
   { name: "index", label: "Odkrywaj", icon: "map-search", sf: "map.fill" },
   { name: "tables", label: "Stoły", icon: "table-chair", sf: "fork.knife" },
-  { name: "challenges", label: "Wyzwania", icon: "sword-cross", sf: "flag.checkered" },
+  { name: "food", label: "Jedzenie", icon: "food", sf: "takeoutbag.and.cup.and.straw.fill" },
+  { name: "challenges", label: "Misje", icon: "sword-cross", sf: "flag.checkered" },
   { name: "chats", label: "Czaty", icon: "chat-processing", sf: "bubble.left.and.bubble.right.fill" },
   { name: "profile", label: "Profil", icon: "account-circle", sf: "person.crop.circle.fill" },
 ] as const;

@@ -14,7 +14,7 @@ import type { EventRow } from "@/src/types";
 
 const FILTERS = [
   { key: null, label: "Wszystkie" }, { key: "open_table", label: "Otwarte stoły" }, { key: "speed_friending", label: "Speed Friending" },
-  { key: "official", label: "Oficjalne" }, { key: "food_exchange", label: "Wymiana potraw" }, { key: "volunteer", label: "Wolontariat" },
+  { key: "official", label: "Oficjalne" }, { key: "volunteer", label: "Wolontariat" },
 ] as const;
 
 export default function Tables() {

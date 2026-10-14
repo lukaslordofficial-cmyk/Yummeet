@@ -40,6 +40,7 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 9. **`supabase/migrations/012_repair_specs_duels.sql`** — NAPRAWA (idempotentna): specjalizacje + PD/skille + edycja pinów + pojedynki proximity / ranking 20 km. Uruchom **cały plik** z gita (wersja po poprawce `GROUP BY` przy remapowaniu klas). Jeśli wcześniej padło na `ON CONFLICT … second time` — po prostu odpal 012 jeszcze raz.
 10. `supabase/migrations/011_mission_catalog_v2.sql` — katalog misji (pełne opisy; po udanym 012)
 11. `supabase/migrations/013_mission_full_texts_no_deadline.sql` — pełne teksty misji + brak deadlinu (expires_at = null)
+12. **`supabase/migrations/014_fix_expires_food_tab.sql`** — naprawa `expires_at is ambiguous` + Jedzenie (offer_kind, cooking_tips). Uruchom, jeśli misje nie ładują się w apce.
 
 Powiadomienia na trasie (dźwięk) + śledzenie w tle: włącz przełącznik na aktywnej trasie.
 Pełne tło (apka zamknięta) wymaga buildu z uprawnieniem „Always” lokalizacji; w Expo Go działa foreground + lokalne powiadomienia.

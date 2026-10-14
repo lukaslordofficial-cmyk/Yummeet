@@ -53,9 +53,7 @@ export default function Specializations() {
           <Card testID="spec-main-card" accent={colors.brandPrimary}>
             <Title size={18}>Główna specjalizacja</Title>
             <Body>{hub.main_label}</Body>
-            <Body muted>Wynika z PD za ukończone misje — nie z deklaracji. Remis = Wszechstronny Yummiter. Brak misji = Nowicjusz.</Body>
           </Card>
-          <Body muted>Preferowana specjalizacja jest opcjonalna: sortuje rekomendacje misji, ale nie blokuje żadnej klasy. Misje wszystkich specjalizacji są dostępne.</Body>
           {hub.specializations.map((s) => {
             const isPref = hub.preferred === s.code;
             const isMain = hub.main === s.code;

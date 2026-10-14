@@ -29,9 +29,9 @@ create or replace function public.mission_start(p_um uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare v uuid := public._uid();
 begin
-  update public.user_missions set status = 'in_progress', started_at = now()
-   where id = p_um and user_id = v and status = 'accepted'
-     and (expires_at is null or expires_at > now());
+  update public.user_missions um set status = 'in_progress', started_at = now()
+   where um.id = p_um and um.user_id = v and um.status = 'accepted'
+     and (um.expires_at is null or um.expires_at > now());
   if not found then raise exception 'invalid_transition'; end if;
 end $$;
 
@@ -80,20 +80,23 @@ returns table (mission_id uuid, code text, name text, description text, category
 language plpgsql security definer set search_path = public as $$
 declare v uuid := public._uid(); v_pref text; v_main text;
 begin
-  update public.user_missions set status = 'expired'
-   where user_id = v and status in ('accepted','in_progress')
-     and expires_at is not null and expires_at < now();
+  update public.user_missions um set status = 'expired'
+   where um.user_id = v and um.status in ('accepted','in_progress')
+     and um.expires_at is not null and um.expires_at < now();
   select preferred_specialization into v_pref from public.profiles where id = v;
   v_main := public.compute_main_specialization(v);
   return query
   select m.id, m.code, m.name, m.description, m.category, m.specialization_code, m.participation, m.difficulty, m.confirmation_method,
          m.duration_hours, m.reward_xp, m.steps, m.safety_rules,
          (m.specialization_code is not null and m.specialization_code = coalesce(v_pref, case when v_main = '__versatile__' then null else v_main end)),
-         um.id, coalesce(um.status, 'available'), um.expires_at,
+         um.id, coalesce(um.status, 'available')::text, um.expires_at,
          (select count(*)::int from public.mission_completions c where c.user_id = v and c.mission_id = m.id),
          (select coalesce(sum(cr.count), 0)::int from public.card_rewards cr where cr.mission_id = m.id)
   from public.mission_definitions m
-  left join lateral (select * from public.user_missions x where x.user_id = v and x.mission_id = m.id order by x.created_at desc limit 1) um on true
+  left join lateral (
+    select x.id, x.status, x.expires_at from public.user_missions x
+    where x.user_id = v and x.mission_id = m.id order by x.created_at desc limit 1
+  ) um on true
   where m.is_active
   order by (m.specialization_code = v_pref) desc nulls last, m.difficulty, m.name;
 end $$;

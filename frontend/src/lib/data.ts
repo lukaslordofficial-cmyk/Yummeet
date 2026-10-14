@@ -275,6 +275,64 @@ export async function eventConversationId(id: string) {
   return (r as any)?.id as string | undefined;
 }
 
+// ---------- Jedzenie ----------
+export type FoodOfferKind = "giveaway" | "exchange" | "signature" | "order";
+export type FoodOffer = {
+  id: string; owner_id: string; title: string; description: string | null; photo_url: string | null;
+  allergens: string[]; portions: number; portions_left: number; pickup_place_public: string | null;
+  status: string; offer_kind: FoodOfferKind; created_at: string; place_lat?: number | null; place_lng?: number | null;
+  owner?: { display_name: string } | null;
+};
+export async function listFoodOffers(kind: FoodOfferKind): Promise<FoodOffer[]> {
+  return must(
+    supabase.from("food_offers")
+      .select("id,owner_id,title,description,photo_url,allergens,portions,portions_left,pickup_place_public,status,offer_kind,created_at,place_lat,place_lng,owner:profiles!food_offers_owner_id_fkey(display_name)")
+      .eq("offer_kind", kind)
+      .in("status", ["available", "reserved"])
+      .order("created_at", { ascending: false })
+      .limit(80),
+  ) as any;
+}
+export async function createFoodOffer(a: {
+  kind: FoodOfferKind; title: string; description?: string; photoUrl?: string | null;
+  allergens?: string[]; portions?: number; pickupPlace?: string; lat?: number | null; lng?: number | null;
+  preparedAt?: string | null; storage?: string | null;
+}) {
+  return must(supabase.from("food_offers").insert({
+    offer_kind: a.kind,
+    title: a.title.trim(),
+    description: a.description?.trim() || null,
+    photo_url: a.photoUrl ?? null,
+    allergens: a.allergens ?? [],
+    portions: a.portions ?? 1,
+    portions_left: a.portions ?? 1,
+    pickup_place_public: a.pickupPlace?.trim() || null,
+    place_lat: a.lat ?? null,
+    place_lng: a.lng ?? null,
+    prepared_at: a.preparedAt ?? null,
+    storage_conditions: a.storage ?? null,
+    owner_id: await uid(),
+    status: "available",
+  }).select("id").single());
+}
+export type CookingTip = {
+  id: string; author_id: string; title: string; body: string; photo_url: string | null; created_at: string;
+  author?: { display_name: string } | null;
+};
+export async function listCookingTips(): Promise<CookingTip[]> {
+  return must(
+    supabase.from("cooking_tips")
+      .select("id,author_id,title,body,photo_url,created_at,author:profiles!cooking_tips_author_id_fkey(display_name)")
+      .order("created_at", { ascending: false })
+      .limit(80),
+  ) as any;
+}
+export async function createCookingTip(title: string, body: string, photoUrl?: string | null) {
+  return must(supabase.from("cooking_tips").insert({
+    title: title.trim(), body: body.trim(), photo_url: photoUrl ?? null, author_id: await uid(),
+  }).select("id").single());
+}
+
 // ---------- chat ----------
 export const myConversations = () => rpc<any[]>("my_conversations");
 export const openDirect = (other: string) => rpc<string>("chat_open_direct", { p_other: other });
