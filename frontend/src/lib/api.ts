@@ -28,7 +28,8 @@ const MESSAGES: Record<string, string> = {
   event_closed: "Okno obecności minęło (max 4 h od startu) albo dzień się skończył.",
   not_joined: "Najpierw dołącz do wydarzenia.",
   no_venue_coords: "Brak współrzędnych miejsca — przy tworzeniu stołu wskaż lokalizację.",
-  location_required: "Włącz GPS, żeby potwierdzić obecność.",
+  location_required: "Włącz GPS, żeby potwierdzić obecność / zobaczyć ranking w okolicy.",
+  proximity_only: "Pojedynki tylko w pobliżu — włącz tryb pojedynków w ustawieniach.",
   use_reveal_with_gps: "Kod pojawi się po wykryciu GPS na miejscu w dniu wydarzenia.",
 };
 
@@ -37,7 +38,7 @@ export function errorMessage(e: unknown): string {
   const key = Object.keys(MESSAGES).find((k) => raw.includes(k));
   if (key) return MESSAGES[key];
   if (raw.includes("schema cache") || raw.includes("does not exist") || raw.includes("public.events")) {
-    return "Baza niegotowa: w SQL Editor uruchom kolejno yummeet_all.sql → 004 → 005 → 006 → 007 (patrz docs/SETUP.md).";
+    return "Baza niegotowa: w SQL Editor uruchom migracje z docs/SETUP.md (w tym 012_repair_specs_duels.sql, potem 011).";
   }
   if (/invalid api key/i.test(raw)) {
     return "Nieprawidłowy klucz Supabase. W frontend/.env wstaw URL i anon key z tego samego projektu (Settings → API).";

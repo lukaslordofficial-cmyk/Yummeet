@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Text, View } from "react-native";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,9 +25,15 @@ export default function ChatScreen() {
   useEffect(() => {
     load();
     return subscribePostgres(`chat-${id}`, { event: "INSERT", table: "messages", filter: `conversation_id=eq.${id}` }, (p) => {
-      setMsgs((prev) => (prev.some((m) => m.id === (p.new as any).id) ? prev : [p.new, ...prev]));
+      setMsgs((prev) => (prev.some((m) => m.id === (p.new as any).id) ? prev : [(p.new as any), ...prev]));
     });
   }, [id, load]);
+
+  /** Chronologicznie (stare → nowe), bez inverted FlatList — empty state nie jest odwrócony. */
+  const chronological = useMemo(
+    () => [...msgs].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    [msgs],
+  );
 
   const send = async () => {
     const body = text.trim();
@@ -39,8 +45,11 @@ export default function ChatScreen() {
   return (
     <View testID="chat-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="Rozmowa" />
-      <FlatList inverted data={msgs} keyExtractor={(m) => m.id} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}
-        ListEmptyComponent={<View style={{ transform: [{ scaleY: -1 }] }}><EmptyState testID="chat-empty" icon="chat-outline" title="Napisz pierwszą wiadomość" /></View>}
+      <FlatList
+        data={chronological}
+        keyExtractor={(m) => m.id}
+        contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, flexGrow: 1 }}
+        ListEmptyComponent={<EmptyState testID="chat-empty" icon="chat-outline" title="Napisz pierwszą wiadomość" />}
         renderItem={({ item }) => {
           const mine = item.sender_id === me;
           return (
@@ -49,7 +58,8 @@ export default function ChatScreen() {
               <Text style={{ fontFamily: fonts.text, fontSize: 15, color: mine ? colors.onBrandPrimary : colors.onSurface }}>{item.body}</Text>
             </View>
           );
-        }} />
+        }}
+      />
       <KeyboardStickyView offset={{ opened: insets.bottom }}>
         <View style={{ flexDirection: "row", gap: spacing.sm, alignItems: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: insets.bottom + spacing.sm, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.divider }}>
           <View style={{ flex: 1 }}><Field testID="chat-input" value={text} onChangeText={setText} placeholder="Wiadomość…" onSubmitEditing={send} returnKeyType="send" /></View>

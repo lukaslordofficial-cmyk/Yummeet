@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Body, Button, Card, Header, Loading, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { blockUser, duelInvite, getProfile, openDirect, profileStats, report } from "@/src/lib/data";
+import { blockUser, getProfile, openDirect, profileStats, report } from "@/src/lib/data";
 import { spacing, useTheme } from "@/src/theme";
 import type { Profile } from "@/src/types";
 
@@ -32,7 +32,7 @@ export default function UserProfile() {
             {p.bio ? <Body>{p.bio}</Body> : null}
             {stats ? <Body muted>Misje {stats.missions_completed} · Pojedynki W{stats.duels_won}/P{stats.duels_lost} · Karty {stats.cards_owned}</Body> : <Body muted>Statystyki prywatne</Body>}
           </Card>
-          <Button testID="user-duel-button" title="Wyzwij na pojedynek" icon="sword-cross" onPress={() => act(async () => router.push(`/duel/${await duelInvite(id)}`), "Wyzwanie wysłane")} />
+          <Body muted>Pojedynki tylko automatycznie w pobliżu (tryb pojedynków) — max raz na tydzień z tą samą osobą.</Body>
           <Button testID="user-message-button" title="Napisz" icon="chat" variant="secondary" onPress={() => act(async () => router.push(`/chat/${await openDirect(id)}`))} />
           <Button testID="user-block-button" title="Zablokuj" variant="ghost" onPress={() => act(async () => { await blockUser(id); router.back(); }, "Zablokowano")} />
           <Button testID="user-report-button" title="Zgłoś profil" variant="ghost" onPress={() => act(() => report("profile", id, "profile_issue"), "Zgłoszenie wysłane")} />

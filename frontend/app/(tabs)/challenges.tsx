@@ -7,7 +7,8 @@ import { Icon } from "@/src/components/Icon";
 import { Badge, Body, Button, Card, Chip, ChipRow, EmptyState, ErrorState, IconButton, Loading, Title, useToast } from "@/src/components/ui";
 import { DUEL_OUTCOME_LABEL, DUEL_STATUS_LABEL, MISSION_STATUS_LABEL, OPEN_DUEL_STATUSES } from "@/src/domain/rules";
 import { errorMessage } from "@/src/lib/api";
-import { cardHistory, confirmRequests, duelLeaderboard, getSpecializationHub, missionBoard, missionConfirm, missionHistory, myDuels, type SpecHub } from "@/src/lib/data";
+import { cardHistory, confirmRequests, duelLeaderboard, getSpecializationHub, missionBoard, missionConfirm, missionHistory, myDuels, touchLocation, type SpecHub } from "@/src/lib/data";
+import { getCurrentPosition } from "@/src/lib/location";
 import { usesNativeTabs } from "@/src/navigation";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, spacing, useTheme } from "@/src/theme";
@@ -47,7 +48,17 @@ export default function Challenges() {
         const [b, r, h] = await Promise.all([missionBoard(), confirmRequests(), getSpecializationHub()]);
         setBoard(b); setRequests(r as any[]); setHub(h);
       }
-      if (seg === "duels") { const [d, l] = await Promise.all([myDuels(), duelLeaderboard()]); setDuels(d as any[]); setLeaders(l); }
+      if (seg === "duels") {
+        const d = await myDuels();
+        setDuels(d as any[]);
+        const pos = await getCurrentPosition();
+        if (pos) {
+          try { await touchLocation(pos.lat, pos.lng); } catch { /* ignore */ }
+          setLeaders(await duelLeaderboard(pos.lat, pos.lng));
+        } else {
+          setLeaders([]);
+        }
+      }
       if (seg === "history") { const [m, c] = await Promise.all([missionHistory(), cardHistory()]); setHistory({ missions: m as any[], cards: c as any[] }); }
     } catch (e) { setError(errorMessage(e)); }
   }, [seg]);
@@ -143,8 +154,8 @@ export default function Challenges() {
     if (!duels) return <Loading />;
     return (
       <>
-        <Button testID="duel-new-button" title="Wyzwij Yummiteera" icon="sword-cross" onPress={() => router.push("/duel/new")} />
-        {duels.length === 0 ? <EmptyState testID="duels-empty" icon="sword-cross" title="Brak pojedynków" text="Wyzwij kogoś albo włącz tryb pojedynków w ustawieniach." /> : null}
+        <Body muted>Pojedynki tylko w pobliżu (włącz tryb pojedynków). Ta sama para — max raz na tydzień. Ranking: Yummiterzy w promieniu 20 km.</Body>
+        {duels.length === 0 ? <EmptyState testID="duels-empty" icon="sword-cross" title="Brak pojedynków" text="Włącz tryb pojedynków w ustawieniach i spotkaj Yummitera w pobliżu." /> : null}
         {duels.map((d) => {
           const other = d.challenger_id === me ? d.opponent?.display_name : d.challenger?.display_name;
           const open = OPEN_DUEL_STATUSES.includes(d.status);
@@ -158,9 +169,9 @@ export default function Challenges() {
             </Card>
           );
         })}
-        <Title size={20} style={{ marginTop: spacing.md }}>Ranking pojedynków</Title>
+        <Title size={20} style={{ marginTop: spacing.md }}>Ranking (≤20 km)</Title>
         <Card testID="duel-leaderboard">
-          {leaders.length === 0 ? <Body muted>Brak danych</Body> : leaders.map((l, i) => (
+          {leaders.length === 0 ? <Body muted>Brak danych w okolicy — włącz GPS albo poczekaj, aż ktoś pojawi się w promieniu 20 km.</Body> : leaders.map((l, i) => (
             <View key={l.user_id} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
               <Body style={{ flex: 1 }}>{i + 1}. {l.display_name}</Body>
               <Body muted>W {l.wins} · P {l.losses} · +{l.cards_won}/-{l.cards_lost} kart</Body>

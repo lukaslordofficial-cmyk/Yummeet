@@ -81,7 +81,7 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background:#F2E6DD; }
-    .pin-dot { background:#E05F36; border-radius:50%; border:1.5px solid #fff; box-shadow:0 0 0 1px rgba(224,95,54,0.3); box-sizing:border-box; }
+    .pin-dot { background:#E05F36; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px rgba(224,95,54,0.45), 0 1px 2px rgba(0,0,0,0.25); box-sizing:border-box; }
     .pin-stack { display:flex; flex-direction:column; align-items:center; gap:2px; }
     .pin-label { max-width:100px; min-height:14px; padding:1px 5px; border-radius:7px; border:1px solid #fff; color:#fff; font:700 9px/11px -apple-system,Segoe UI,Roboto,sans-serif; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.25); box-sizing:border-box; white-space:normal; overflow:hidden; word-break:break-word; max-height:28px; }
     .pin-photo { border-radius:50%; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.3); object-fit:cover; background:#E05F36; display:block; box-sizing:border-box; }
@@ -104,16 +104,16 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     L.tileLayer(C.tileUrl, { maxZoom: C.maxZoom, subdomains: 'abc' }).addTo(map);
 
     function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-    /** Im dalej zoom, tym mniejsza kropka — przy Polsce nie zasłaniają powiatów. */
+    /** Im dalej zoom, tym mniejsza kropka — zawsze zauważalna (min. ~8px). */
     function pinScale(z){
-      if (z <= 5) return { dot: 3, photo: 0, label: false };
-      if (z <= 7) return { dot: 4, photo: 0, label: false };
-      if (z <= 9) return { dot: 5, photo: 0, label: false };
-      if (z <= 11) return { dot: 6, photo: 8, label: false };
-      if (z <= 13) return { dot: 7, photo: 12, label: false };
-      if (z <= 15) return { dot: 8, photo: 16, label: false };
-      if (z < LABEL_ZOOM) return { dot: 9, photo: 18, label: false };
-      return { dot: 10, photo: 22, label: true };
+      if (z <= 5) return { dot: 8, photo: 0, label: false };
+      if (z <= 7) return { dot: 9, photo: 0, label: false };
+      if (z <= 9) return { dot: 10, photo: 0, label: false };
+      if (z <= 11) return { dot: 11, photo: 14, label: false };
+      if (z <= 13) return { dot: 12, photo: 16, label: false };
+      if (z <= 15) return { dot: 13, photo: 18, label: false };
+      if (z < LABEL_ZOOM) return { dot: 14, photo: 20, label: false };
+      return { dot: 16, photo: 26, label: true };
     }
     function pinIcon(color, label, coverUrl, showLabel, scale){
       var bg = color || '#E05F36';

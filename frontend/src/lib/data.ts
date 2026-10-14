@@ -151,9 +151,12 @@ export const duelPlayDefense = (id: string, userCard: string | null) => rpc("due
 export const duelSubmitEvidence = (id: string, text: string) => rpc("duel_submit_evidence", { p_duel: id, p_evidence: text });
 export const duelConfirm = (id: string, accept: boolean) => rpc("duel_confirm", { p_duel: id, p_accept: accept });
 export const duelForfeit = (id: string) => rpc("duel_forfeit", { p_duel: id });
-export const duelLeaderboard = () => rpc<any[]>("duel_leaderboard", { p_limit: 20 });
+/** Ranking tylko w promieniu 20 km od podanej lokalizacji. */
+export const duelLeaderboard = (lat: number, lng: number, limit = 20) =>
+  rpc<any[]>("duel_leaderboard", { p_lat: lat, p_lng: lng, p_limit: limit });
 export const setDuelMode = (on: boolean) => rpc("set_duel_mode", { p_enabled: on });
 export const presencePing = (lat: number, lng: number) => rpc<{ duels?: string[] }>("presence_ping", { p_lat: lat, p_lng: lng });
+export const touchLocation = (lat: number, lng: number) => rpc("touch_location", { p_lat: lat, p_lng: lng });
 
 // ---------- people ----------
 export async function searchPeople(q: string): Promise<Pick<Profile, "id" | "display_name" | "primary_specialization" | "level">[]> {

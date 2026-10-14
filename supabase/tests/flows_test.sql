@@ -72,7 +72,7 @@ do $$ declare d uuid := (select id from t_duel); s jsonb; n int; begin
   s := duel_state(d);
   assert s->>'status' = 'finished' and s->>'outcome' = 'challenge_completed', 'final ' || s;
   select count(*) into n from card_usage_history where duel_id = d and action = 'played_offense'; assert n = 1, 'usage not logged';
-  select wins into n from duel_leaderboard(10) where user_id = auth.uid(); assert n = 1, 'leaderboard';
+  select wins into n from duel_leaderboard(52.23, 21.01, 10) where user_id = auth.uid(); assert n = 1, 'leaderboard';
 end $$;
 -- Second duel: B forfeits => loses one card to A
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-00000000000b', false);
