@@ -37,8 +37,8 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 6. `supabase/migrations/008_travel_routes.sql` — historia Gastro-Tras + knajpy z recenzją
 7. `supabase/migrations/009_pin_price_range.sql` — zakres cen dań (price_min / price_max)
 8. `supabase/migrations/010_pin_edit_specs_missions.sql` — (opcjonalnie; jeśli pada, pomiń)
-9. **`supabase/migrations/012_repair_specs_duels.sql`** — NAPRAWA: specjalizacje + PD/skille + edycja pinów + pojedynki proximity / ranking 20 km. Uruchom to, jeśli 010 nie weszło.
-10. `supabase/migrations/011_mission_catalog_v2.sql` — katalog misji (dopiero po 012, bo wymaga kodów detective/host/alchemist/guardian)
+9. **`supabase/migrations/012_repair_specs_duels.sql`** — NAPRAWA (idempotentna): specjalizacje + PD/skille + edycja pinów + pojedynki proximity / ranking 20 km. Uruchom **cały plik** z gita (wersja po poprawce `GROUP BY` przy remapowaniu klas). Jeśli wcześniej padło na `ON CONFLICT … second time` — po prostu odpal 012 jeszcze raz.
+10. `supabase/migrations/011_mission_catalog_v2.sql` — katalog misji (dopiero po udanym 012)
 
 Powiadomienia na trasie (dźwięk) + śledzenie w tle: włącz przełącznik na aktywnej trasie.
 Pełne tło (apka zamknięta) wymaga buildu z uprawnieniem „Always” lokalizacji; w Expo Go działa foreground + lokalne powiadomienia.

@@ -32,14 +32,22 @@ update public.card_definitions set specialization_code = 'host' where specializa
 update public.card_definitions set specialization_code = 'alchemist' where specialization_code = 'chef';
 update public.card_definitions set specialization_code = 'guardian' where specialization_code = 'rescuer';
 
+-- Jedna para (user, nowy_kod) — critic+explorer mapują się na detective (bez podwójnego ON CONFLICT).
 insert into public.user_specializations (user_id, code, is_primary)
-select user_id,
-  case code when 'critic' then 'detective' when 'explorer' then 'detective'
-            when 'connector' then 'host' when 'romantic' then 'host'
-            when 'chef' then 'alchemist' when 'rescuer' then 'guardian' else code end,
-  is_primary
-from public.user_specializations
-where code in ('critic','explorer','connector','romantic','chef','rescuer')
+select user_id, new_code, bool_or(is_primary)
+from (
+  select user_id,
+    case code
+      when 'critic' then 'detective' when 'explorer' then 'detective'
+      when 'connector' then 'host' when 'romantic' then 'host'
+      when 'chef' then 'alchemist' when 'rescuer' then 'guardian'
+      else code
+    end as new_code,
+    is_primary
+  from public.user_specializations
+  where code in ('critic','explorer','connector','romantic','chef','rescuer')
+) mapped
+group by user_id, new_code
 on conflict (user_id, code) do update set is_primary = public.user_specializations.is_primary or excluded.is_primary;
 delete from public.user_specializations where code in ('critic','explorer','connector','romantic','chef','rescuer');
 
@@ -441,7 +449,7 @@ on conflict (user_id, code) do update set
   pd = excluded.pd, level = excluded.level, missions_completed = excluded.missions_completed, updated_at = now();
 
 insert into public.user_skills (user_id, skill_code)
-select p.user_id, s.code
+select distinct p.user_id, s.code
 from public.specialization_progress p
 join public.skill_definitions s on s.specialization_code = p.code and s.is_active and s.unlock_level <= p.level
 on conflict do nothing;
