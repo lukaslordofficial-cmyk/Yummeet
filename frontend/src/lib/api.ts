@@ -31,6 +31,12 @@ const MESSAGES: Record<string, string> = {
   location_required: "Włącz GPS, żeby potwierdzić obecność / zobaczyć ranking w okolicy.",
   proximity_only: "Pojedynki tylko w pobliżu — włącz tryb pojedynków w ustawieniach.",
   use_reveal_with_gps: "Kod pojawi się po wykryciu GPS na miejscu w dniu wydarzenia.",
+  photo_quota_exceeded: "Limit 5 zdjęć w tym miesiącu (konto free). Spróbuj w kolejnym miesiącu.",
+  allergens_required: "Zaznacz alergeny albo „Brak alergenów”.",
+  invalid_title: "Podaj tytuł (min. 2 znaki).",
+  invalid_body: "Opis triku musi mieć min. 10 znaków.",
+  invalid_portions: "Podaj liczbę porcji (1–200).",
+  invalid_kind: "Nieprawidłowy typ oferty.",
 };
 
 export function errorMessage(e: unknown): string {

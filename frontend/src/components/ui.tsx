@@ -14,9 +14,9 @@ export const haptic = {
   success: () => Platform.OS !== "web" && Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
 };
 
-export function Title({ children, size = 24, style, testID }: { children: ReactNode; size?: number; style?: any; testID?: string }) {
+export function Title({ children, size = 24, style, testID, numberOfLines }: { children: ReactNode; size?: number; style?: any; testID?: string; numberOfLines?: number }) {
   const { colors } = useTheme();
-  return <Text testID={testID} style={[{ fontFamily: fonts.display, fontSize: size, color: colors.onSurface }, style]}>{children}</Text>;
+  return <Text testID={testID} numberOfLines={numberOfLines} style={[{ fontFamily: fonts.display, fontSize: size, color: colors.onSurface }, style]}>{children}</Text>;
 }
 
 export function Body({ children, muted, style, numberOfLines, testID }: { children: ReactNode; muted?: boolean; style?: any; numberOfLines?: number; testID?: string }) {

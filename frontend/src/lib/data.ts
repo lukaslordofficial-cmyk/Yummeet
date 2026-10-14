@@ -280,57 +280,64 @@ export type FoodOfferKind = "giveaway" | "exchange" | "signature" | "order";
 export type FoodOffer = {
   id: string; owner_id: string; title: string; description: string | null; photo_url: string | null;
   allergens: string[]; portions: number; portions_left: number; pickup_place_public: string | null;
+  city?: string | null; street?: string | null; place_detail?: string | null;
   status: string; offer_kind: FoodOfferKind; created_at: string; place_lat?: number | null; place_lng?: number | null;
-  owner?: { display_name: string } | null;
+  owner?: { display_name: string } | null; owner_name?: string | null;
+  storage_conditions?: string | null; prepared_at?: string | null;
 };
-export async function listFoodOffers(kind: FoodOfferKind): Promise<FoodOffer[]> {
-  return must(
-    supabase.from("food_offers")
-      .select("id,owner_id,title,description,photo_url,allergens,portions,portions_left,pickup_place_public,status,offer_kind,created_at,place_lat,place_lng,owner:profiles!food_offers_owner_id_fkey(display_name)")
-      .eq("offer_kind", kind)
-      .in("status", ["available", "reserved"])
-      .order("created_at", { ascending: false })
-      .limit(80),
-  ) as any;
+export async function listFoodOffersNearby(kind: FoodOfferKind, lat: number, lng: number): Promise<FoodOffer[]> {
+  const rows = await rpc<any[]>("list_food_nearby", { p_kind: kind, p_lat: lat, p_lng: lng, p_limit: 50 });
+  return (rows ?? []).map((r) => ({
+    ...r,
+    offer_kind: r.offer_kind as FoodOfferKind,
+    owner: { display_name: r.owner_name ?? "Yummiter" },
+  }));
 }
 export async function createFoodOffer(a: {
   kind: FoodOfferKind; title: string; description?: string; photoUrl?: string | null;
-  allergens?: string[]; portions?: number; pickupPlace?: string; lat?: number | null; lng?: number | null;
-  preparedAt?: string | null; storage?: string | null;
+  allergens: string[]; portions?: number; city: string; street: string; placeDetail?: string;
+  lat: number; lng: number; preparedAt?: string | null; storage?: string | null;
 }) {
-  return must(supabase.from("food_offers").insert({
-    offer_kind: a.kind,
-    title: a.title.trim(),
-    description: a.description?.trim() || null,
-    photo_url: a.photoUrl ?? null,
-    allergens: a.allergens ?? [],
-    portions: a.portions ?? 1,
-    portions_left: a.portions ?? 1,
-    pickup_place_public: a.pickupPlace?.trim() || null,
-    place_lat: a.lat ?? null,
-    place_lng: a.lng ?? null,
-    prepared_at: a.preparedAt ?? null,
-    storage_conditions: a.storage ?? null,
-    owner_id: await uid(),
-    status: "available",
-  }).select("id").single());
+  return rpc<string>("publish_food_offer", {
+    p_kind: a.kind,
+    p_title: a.title.trim(),
+    p_description: a.description?.trim() || null,
+    p_photo_url: a.photoUrl ?? null,
+    p_allergens: a.allergens,
+    p_portions: a.portions ?? 1,
+    p_city: a.city.trim(),
+    p_street: a.street.trim(),
+    p_place_detail: a.placeDetail?.trim() || null,
+    p_lat: a.lat,
+    p_lng: a.lng,
+    p_storage: a.storage ?? null,
+    p_prepared_at: a.preparedAt ?? null,
+  });
+}
+export async function foodOfferDetails(id: string): Promise<FoodOffer | null> {
+  const r = await rpc<any>("food_offer_details", { p_id: id });
+  if (!r) return null;
+  return { ...r, owner: { display_name: r.owner_name ?? "Yummiter" } };
 }
 export type CookingTip = {
   id: string; author_id: string; title: string; body: string; photo_url: string | null; created_at: string;
-  author?: { display_name: string } | null;
+  author?: { display_name: string } | null; author_name?: string | null;
 };
-export async function listCookingTips(): Promise<CookingTip[]> {
-  return must(
-    supabase.from("cooking_tips")
-      .select("id,author_id,title,body,photo_url,created_at,author:profiles!cooking_tips_author_id_fkey(display_name)")
-      .order("created_at", { ascending: false })
-      .limit(80),
-  ) as any;
+export async function listCookingTipsNearby(lat: number, lng: number): Promise<CookingTip[]> {
+  const rows = await rpc<any[]>("list_tips_nearby", { p_lat: lat, p_lng: lng, p_limit: 50 });
+  return (rows ?? []).map((r) => ({
+    ...r,
+    author: { display_name: r.author_name ?? "Yummiter" },
+  }));
 }
-export async function createCookingTip(title: string, body: string, photoUrl?: string | null) {
-  return must(supabase.from("cooking_tips").insert({
-    title: title.trim(), body: body.trim(), photo_url: photoUrl ?? null, author_id: await uid(),
-  }).select("id").single());
+export async function createCookingTip(title: string, body: string, photoUrl: string | null, lat: number, lng: number) {
+  return rpc<string>("publish_cooking_tip", {
+    p_title: title.trim(),
+    p_body: body.trim(),
+    p_photo_url: photoUrl,
+    p_lat: lat,
+    p_lng: lng,
+  });
 }
 
 // ---------- chat ----------

@@ -1,21 +1,22 @@
 import { Image } from "expo-image";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, RefreshControl, View } from "react-native";
+import { FlatList, Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Body, Button, Card, Chip, ChipRow, EmptyState, ErrorState, Field, Loading, Title, useToast } from "@/src/components/ui";
+import { Body, Button, Chip, ChipRow, EmptyState, ErrorState, Field, Loading, Title, useToast } from "@/src/components/ui";
+import { allergenLabel, FOOD_ALLERGENS, toggleAllergen } from "@/src/lib/allergens";
 import { errorMessage } from "@/src/lib/api";
 import {
-  createCookingTip, createFoodOffer, listCookingTips, listFoodOffers,
+  createCookingTip, createFoodOffer, foodOfferDetails, listCookingTipsNearby, listFoodOffersNearby,
   type CookingTip, type FoodOffer, type FoodOfferKind,
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
-import { pickPinPhoto } from "@/src/lib/storage";
+import { photoQuotaStatus, pickPinPhoto, type PhotoQuota } from "@/src/lib/storage";
 import { usesNativeTabs } from "@/src/navigation";
 import { useAuth } from "@/src/providers/AuthProvider";
-import { radius, spacing, useTheme } from "@/src/theme";
+import { fonts, radius, spacing, useTheme } from "@/src/theme";
 
 type Seg = "exchange" | "giveaway" | "signature" | "tips";
 
@@ -29,7 +30,6 @@ const SEGMENTS: { key: Seg; label: string; kind?: FoodOfferKind }[] = [
 export default function FoodTab() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const toast = useToast();
   const { session } = useAuth();
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
@@ -41,61 +41,109 @@ export default function FoodTab() {
   const [compose, setCompose] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [place, setPlace] = useState("");
-  const [allergens, setAllergens] = useState("");
+  const [city, setCity] = useState("");
+  const [street, setStreet] = useState("");
+  const [placeDetail, setPlaceDetail] = useState("");
+  const [portions, setPortions] = useState("1");
+  const [allergenKeys, setAllergenKeys] = useState<string[]>([]);
   const [photo, setPhoto] = useState<string | null>(null);
+  const [quota, setQuota] = useState<PhotoQuota | null>(null);
   const [busy, setBusy] = useState(false);
+  const [detail, setDetail] = useState<FoodOffer | CookingTip | null>(null);
+  const [detailBusy, setDetailBusy] = useState(false);
+
+  const loadQuota = useCallback(async () => {
+    try { setQuota(await photoQuotaStatus(5)); } catch { /* migracja 015 jeszcze nieodpalona */ }
+  }, []);
 
   const load = useCallback(async () => {
     try {
       setError(null);
-      if (seg === "tips") setTips(await listCookingTips());
+      const pos = await getCurrentPosition();
+      if (!pos) {
+        setError("location_required");
+        setOffers([]);
+        setTips([]);
+        return;
+      }
+      if (seg === "tips") setTips(await listCookingTipsNearby(pos.lat, pos.lng));
       else {
         const kind = SEGMENTS.find((s) => s.key === seg)?.kind ?? "exchange";
-        setOffers(await listFoodOffers(kind));
+        setOffers(await listFoodOffersNearby(kind, pos.lat, pos.lng));
       }
+      await loadQuota();
     } catch (e) {
       setError(errorMessage(e));
     }
-  }, [seg]);
+  }, [seg, loadQuota]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const addPhoto = async () => {
+  const resetCompose = () => {
+    setTitle(""); setBody(""); setCity(""); setStreet(""); setPlaceDetail("");
+    setPortions("1"); setAllergenKeys([]); setPhoto(null);
+  };
+
+  const addPhoto = async (source: "gallery" | "camera") => {
     const uid = session?.user.id;
     if (!uid) return;
     try {
-      const url = await pickPinPhoto(uid, "gallery");
-      if (url) setPhoto(url);
+      const url = await pickPinPhoto(uid, source, { enforceQuota: true, quotaLimit: 5 });
+      if (url) {
+        setPhoto(url);
+        await loadQuota();
+      }
     } catch (e) {
       toast(errorMessage(e), "error");
+    }
+  };
+
+  const openOfferDetail = async (item: FoodOffer) => {
+    setDetailBusy(true);
+    try {
+      const full = await foodOfferDetails(item.id);
+      setDetail(full ?? item);
+    } catch {
+      setDetail(item);
+    } finally {
+      setDetailBusy(false);
     }
   };
 
   const publish = async () => {
     if (title.trim().length < 2) return toast("Podaj tytuł", "error");
     if (seg === "tips" && body.trim().length < 10) return toast("Opisz trik (min. 10 znaków)", "error");
+    if (seg !== "tips") {
+      if (!allergenKeys.length) return toast("Zaznacz alergeny albo „Brak alergenów”", "error");
+      if (!city.trim() || !street.trim()) return toast("Podaj miasto i ulicę", "error");
+      if (!placeDetail.trim()) return toast("Podaj miejsce odbioru (np. przed sklepem)", "error");
+    }
     setBusy(true);
     try {
+      const pos = await getCurrentPosition();
+      if (!pos) throw new Error("location_required");
       if (seg === "tips") {
-        await createCookingTip(title, body, photo);
+        await createCookingTip(title, body, photo, pos.lat, pos.lng);
       } else {
         const kind = SEGMENTS.find((s) => s.key === seg)?.kind ?? "exchange";
-        const pos = await getCurrentPosition();
+        const n = Math.max(1, Math.min(200, parseInt(portions, 10) || 1));
         await createFoodOffer({
           kind,
           title,
           description: body,
           photoUrl: photo,
-          allergens: allergens.split(/[,;]/).map((s) => s.trim()).filter(Boolean),
-          pickupPlace: place || undefined,
-          lat: pos?.lat ?? null,
-          lng: pos?.lng ?? null,
+          allergens: allergenKeys,
+          portions: n,
+          city,
+          street,
+          placeDetail,
+          lat: pos.lat,
+          lng: pos.lng,
         });
       }
       toast("Opublikowano", "success");
       setCompose(false);
-      setTitle(""); setBody(""); setPlace(""); setAllergens(""); setPhoto(null);
+      resetCompose();
       await load();
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -110,15 +158,18 @@ export default function FoodTab() {
         : seg === "signature" ? "Dodaj popisowe danie"
           : "Zaproponuj wymianę";
 
+  const isOfferDetail = detail && "portions" in detail;
+  const isTipDetail = detail && "body" in detail && !("portions" in detail);
+
   return (
     <View testID="food-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
       <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Title size={28}>Jedzenie</Title>
-        <Button testID="food-compose-toggle" title={compose ? "Anuluj" : composeLabel} variant={compose ? "ghost" : "primary"} onPress={() => setCompose((v) => !v)} />
+        <Button testID="food-compose-toggle" title={compose ? "Anuluj" : composeLabel} variant={compose ? "ghost" : "primary"} onPress={() => { setCompose((v) => !v); if (compose) resetCompose(); }} />
       </View>
       <ChipRow testID="food-segments">
         {SEGMENTS.map((s) => (
-          <Chip key={s.key} testID={`food-seg-${s.key}`} label={s.label} selected={seg === s.key} onPress={() => { setSeg(s.key); setCompose(false); }} />
+          <Chip key={s.key} testID={`food-seg-${s.key}`} label={s.label} selected={seg === s.key} onPress={() => { setSeg(s.key); setCompose(false); resetCompose(); }} />
         ))}
       </ChipRow>
 
@@ -126,43 +177,77 @@ export default function FoodTab() {
         <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: bottomChrome + spacing.xl }}>
           <Body muted>
             {seg === "tips"
-              ? "Podziel się sprawdzonym trikiem kuchennym."
-              : seg === "giveaway"
-                ? "Oddaj nadwyżkę — podaj alergeny, miejsce odbioru (publiczne) i warunki. Bez pól ceny w aplikacji."
-                : seg === "signature"
-                  ? "Popisowe danie do wymiany — opis, zdjęcie, alergeny."
-                  : "Wymiana obiadów — ustalenia finansowe tylko poza aplikacją. Alergeny obowiązkowe."}
+              ? "Podziel się sprawdzonym trikiem. Widzą go użytkownicy w promieniu 20 km."
+              : "Oferta widoczna w 20 km od Ciebie. GPS zapisuje lokalizację publikacji. Alergeny obowiązkowe."}
           </Body>
           <Field testID="food-title" label="Tytuł" value={title} onChangeText={setTitle} placeholder={seg === "tips" ? "np. Chrupiące ziemniaki" : "np. Domowa lasagne"} />
           <Field testID="food-body" label={seg === "tips" ? "Opis triku" : "Opis"} value={body} onChangeText={setBody} multiline
-            placeholder={seg === "tips" ? "Jak to zrobić i dlaczego działa…" : "Skład, porcje, warunki…"} />
+            placeholder={seg === "tips" ? "Jak to zrobić i dlaczego działa…" : "Skład, warunki…"} style={{ minHeight: 100 }} />
           {seg !== "tips" ? (
             <>
-              <Field testID="food-allergens" label="Alergeny (po przecinku)" value={allergens} onChangeText={setAllergens} placeholder="gluten, mleko…" />
-              <Field testID="food-place" label="Miejsce odbioru (publiczne)" value={place} onChangeText={setPlace} placeholder="np. przed sklepem na rynku" />
+              <Field testID="food-portions" label="Liczba porcji" value={portions} onChangeText={setPortions} keyboardType="number-pad" placeholder="1" />
+              <Body>Alergeny</Body>
+              <View style={{ gap: spacing.xs }}>
+                {FOOD_ALLERGENS.map((a) => {
+                  const on = allergenKeys.includes(a.key);
+                  return (
+                    <Pressable
+                      key={a.key}
+                      testID={`food-allergen-${a.key}`}
+                      onPress={() => setAllergenKeys((prev) => toggleAllergen(prev, a.key))}
+                      style={{
+                        paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.md,
+                        backgroundColor: on ? colors.brandPrimary : colors.surfaceSecondary,
+                        borderWidth: 1, borderColor: on ? colors.brandPrimary : colors.border,
+                      }}
+                    >
+                      <Body style={{ color: on ? colors.onBrandPrimary : colors.onSurfaceSecondary, fontSize: 13 }}>{a.label}</Body>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Field testID="food-city" label="Miasto" value={city} onChangeText={setCity} placeholder="np. Kraków" />
+              <Field testID="food-street" label="Ulica" value={street} onChangeText={setStreet} placeholder="np. Floriańska 12" />
+              <Field testID="food-place-detail" label="Miejsce odbioru" value={placeDetail} onChangeText={setPlaceDetail} placeholder="np. przed wejściem do sklepu" />
             </>
           ) : null}
-          {photo ? <Image source={{ uri: photo }} style={{ width: "100%", height: 160, borderRadius: radius.lg }} contentFit="cover" /> : null}
-          <Button testID="food-photo" title="Dodaj zdjęcie" variant="secondary" onPress={() => void addPhoto()} />
+          {photo ? <Image source={{ uri: photo }} style={{ width: "100%", height: 180, borderRadius: radius.lg }} contentFit="cover" /> : null}
+          {quota ? (
+            <Body muted>Zdjęcia w tym miesiącu: {quota.used}/{quota.limit} (konto free)</Body>
+          ) : null}
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <Button testID="food-photo-camera" title="Zrób zdjęcie" variant="secondary" onPress={() => void addPhoto("camera")} style={{ flex: 1 }} />
+            <Button testID="food-photo-gallery" title="Galeria" variant="secondary" onPress={() => void addPhoto("gallery")} style={{ flex: 1 }} />
+          </View>
           <Button testID="food-publish" title="Opublikuj" loading={busy} onPress={() => void publish()} />
         </KeyboardAwareScrollView>
       ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+        <ErrorState message={errorMessage(error)} onRetry={load} />
       ) : seg === "tips" ? (
         tips === null ? <Loading /> : (
           <FlatList
             data={tips}
             keyExtractor={(t) => t.id}
-            contentContainerStyle={{ padding: spacing.lg, paddingBottom: bottomChrome + spacing.xl, gap: spacing.md }}
+            contentContainerStyle={{ padding: spacing.lg, paddingBottom: bottomChrome + spacing.xl, gap: spacing.sm }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brandPrimary} />}
-            ListEmptyComponent={<EmptyState testID="food-tips-empty" icon="lightbulb-on-outline" title="Brak inspiracji" text="Dodaj pierwszy kulinarny trik." />}
+            ListEmptyComponent={<EmptyState testID="food-tips-empty" icon="lightbulb-on-outline" title="Brak inspiracji w 20 km" text="Dodaj pierwszy kulinarny trik albo zbliż się do innych." />}
             renderItem={({ item }) => (
-              <Card testID={`food-tip-${item.id}`}>
-                <Title size={17}>{item.title}</Title>
-                <Body muted>{item.author?.display_name ?? "Yummiter"}</Body>
-                <Body>{item.body}</Body>
-                {item.photo_url ? <Image source={{ uri: item.photo_url }} style={{ width: "100%", height: 140, borderRadius: radius.md, marginTop: spacing.sm }} contentFit="cover" /> : null}
-              </Card>
+              <Pressable
+                testID={`food-tip-${item.id}`}
+                onPress={() => setDetail(item)}
+                style={{
+                  flexDirection: "row", alignItems: "center", gap: spacing.md,
+                  paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+                  borderBottomWidth: 1, borderBottomColor: colors.border,
+                }}
+              >
+                {item.photo_url ? (
+                  <Image source={{ uri: item.photo_url }} style={{ width: 44, height: 44, borderRadius: radius.sm }} contentFit="cover" />
+                ) : (
+                  <View style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.surfaceSecondary }} />
+                )}
+                <Title size={15} style={{ flex: 1 }} numberOfLines={1}>{item.title}</Title>
+              </Pressable>
             )}
           />
         )
@@ -170,28 +255,84 @@ export default function FoodTab() {
         <FlatList
           data={offers}
           keyExtractor={(o) => o.id}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: bottomChrome + spacing.xl, gap: spacing.md }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: bottomChrome + spacing.xl, gap: spacing.sm }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brandPrimary} />}
           ListEmptyComponent={
             <EmptyState
               testID="food-offers-empty"
               icon="food"
-              title="Brak ofert"
-              text={seg === "giveaway" ? "Nikt jeszcze nie oddaje jedzenia w okolicy." : seg === "signature" ? "Brak popisowych dań." : "Zaproponuj pierwszą wymianę."}
+              title="Brak ofert w 20 km"
+              text={seg === "giveaway" ? "Nikt w okolicy nie oddaje jedzenia." : seg === "signature" ? "Brak popisowych dań w okolicy." : "Zaproponuj pierwszą wymianę w okolicy."}
             />
           }
           renderItem={({ item }) => (
-            <Card testID={`food-offer-${item.id}`} onPress={() => router.push(`/user/${item.owner_id}`)}>
-              {item.photo_url ? <Image source={{ uri: item.photo_url }} style={{ width: "100%", height: 140, borderRadius: radius.md }} contentFit="cover" /> : null}
-              <Title size={17}>{item.title}</Title>
-              <Body muted>{item.owner?.display_name ?? "Yummiter"} · {item.portions_left}/{item.portions} porcji</Body>
-              {item.description ? <Body numberOfLines={3}>{item.description}</Body> : null}
-              {item.allergens?.length ? <Body muted>Alergeny: {item.allergens.join(", ")}</Body> : null}
-              {item.pickup_place_public ? <Body muted>Odbiór: {item.pickup_place_public}</Body> : null}
-            </Card>
+            <Pressable
+              testID={`food-offer-${item.id}`}
+              onPress={() => void openOfferDetail(item)}
+              style={{
+                flexDirection: "row", alignItems: "center", gap: spacing.md,
+                paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+                borderBottomWidth: 1, borderBottomColor: colors.border,
+              }}
+            >
+              {item.photo_url ? (
+                <Image source={{ uri: item.photo_url }} style={{ width: 44, height: 44, borderRadius: radius.sm }} contentFit="cover" />
+              ) : (
+                <View style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.surfaceSecondary }} />
+              )}
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Title size={15} numberOfLines={1}>{item.title}</Title>
+              </View>
+              <Body muted style={{ fontFamily: fonts.display }}>{item.portions_left}/{item.portions} porcji</Body>
+            </Pressable>
           )}
         />
       )}
+
+      <Modal visible={!!detail} animationType="slide" onRequestClose={() => setDetail(null)}>
+        <View style={{ flex: 1, backgroundColor: colors.surface, paddingTop: insets.top + spacing.md }}>
+          <View style={{ paddingHorizontal: spacing.lg, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Title size={22}>{isOfferDetail ? "Oferta" : "Inspiracja"}</Title>
+            <Button testID="food-detail-close" title="Zamknij" variant="ghost" onPress={() => setDetail(null)} />
+          </View>
+          {detailBusy ? <Loading /> : (
+            <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: insets.bottom + spacing.xl }}>
+              {detail?.photo_url ? (
+                <Image source={{ uri: detail.photo_url }} style={{ width: "100%", height: 220, borderRadius: radius.lg }} contentFit="cover" />
+              ) : null}
+              <Title size={22}>{detail?.title}</Title>
+              {isOfferDetail ? (
+                <>
+                  <Body muted>{(detail as FoodOffer).owner?.display_name ?? (detail as FoodOffer).owner_name ?? "Yummiter"} · {(detail as FoodOffer).portions_left}/{(detail as FoodOffer).portions} porcji</Body>
+                  {(detail as FoodOffer).description ? <Body>{(detail as FoodOffer).description}</Body> : null}
+                  {(detail as FoodOffer).allergens?.length ? (
+                    <View style={{ gap: spacing.xs }}>
+                      <Body muted>Alergeny</Body>
+                      {(detail as FoodOffer).allergens.map((k) => (
+                        <Body key={k}>• {allergenLabel(k)}</Body>
+                      ))}
+                    </View>
+                  ) : null}
+                  <Body muted>Odbiór</Body>
+                  <Body>
+                    {[
+                      (detail as FoodOffer).city,
+                      (detail as FoodOffer).street,
+                      (detail as FoodOffer).place_detail ?? (detail as FoodOffer).pickup_place_public,
+                    ].filter(Boolean).join(", ") || "—"}
+                  </Body>
+                </>
+              ) : null}
+              {isTipDetail ? (
+                <>
+                  <Body muted>{(detail as CookingTip).author?.display_name ?? (detail as CookingTip).author_name ?? "Yummiter"}</Body>
+                  <Body>{(detail as CookingTip).body}</Body>
+                </>
+              ) : null}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
