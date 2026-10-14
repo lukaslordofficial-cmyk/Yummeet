@@ -1,10 +1,11 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Body, Button, Chip, ChipRow, Field, Header, Title, useToast } from "@/src/components/ui";
+import { Icon } from "@/src/components/Icon";
+import { Body, Button, Chip, ChipRow, Field, Header, Title, haptic, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
   COLLAB_FORMS, CULINARY_LEVELS, DIET_STYLES, PAID_COOKING_CONSENTS, SPICE_LABELS, SUPERPOWERS, SUPERPOWERS_HINT,
@@ -167,10 +168,22 @@ export default function CulinaryProfile() {
         </ChipRow>
 
         <Title size={16}>Oświadczenia (gotowanie odpłatne / za składniki)</Title>
-        <Body muted>Aplikacja nie pośredniczy w płatnościach i nie jest sprzedawcą żywności. Zanim włączysz te formy, potwierdź:</Body>
+        <Body muted>Aplikacja nie pośredniczy w płatnościach i nie jest sprzedawcą żywności. Przeczytaj pełny tekst i zaznacz każde oświadczenie:</Body>
         {PAID_COOKING_CONSENTS.map((text, i) => (
-          <Chip key={i} testID={`culinary-consent-${i}`} label={consents[i] ? `✓ ${text.slice(0, 80)}…` : text.slice(0, 90) + "…"}
-            selected={consents[i]} onPress={() => setConsents((prev) => prev.map((v, j) => (j === i ? !v : v)))} />
+          <Pressable
+            key={i}
+            testID={`culinary-consent-${i}`}
+            onPress={() => { haptic.tap(); setConsents((prev) => prev.map((v, j) => (j === i ? !v : v))); }}
+            style={{
+              flexDirection: "row", gap: spacing.md, alignItems: "flex-start",
+              padding: spacing.md, borderRadius: 12,
+              backgroundColor: consents[i] ? colors.brandPrimary + "22" : colors.surfaceSecondary,
+              borderWidth: 1, borderColor: consents[i] ? colors.brandPrimary : colors.border,
+            }}
+          >
+            <Icon name={consents[i] ? "checkbox-marked" : "checkbox-blank-outline"} size={24} color={consents[i] ? colors.brandPrimary : colors.muted} />
+            <Body style={{ flex: 1 }}>{text}</Body>
+          </Pressable>
         ))}
 
         <Button testID="culinary-save" title="Zapisz" loading={busy} onPress={() => void save()} />

@@ -145,5 +145,4 @@ exception when others then
 end;
 $cronsetup$;
 
--- Smoke test (nie może tworzyć relacji "n")
-select public.cleanup_photo_slots();
+-- Smoke test przeniesiony do 019 (tu photo_slots mogło jeszcze nie istnieć).
