@@ -48,12 +48,19 @@ const MESSAGES: Record<string, string> = {
   website_too_long: "Adres strony jest za długi.",
   phone_too_long: "Numer telefonu jest za długi.",
   order_url_too_long: "Link do dostawcy jest za długi.",
+  need_score: "Zaznacz choć jedną cechę dania.",
+  too_many_dishes: "Na jednym spotkaniu zmieści się 12 dań.",
+  invalid_duration: "Czas spotkania: od 15 minut do 12 godzin.",
+  invalid_budget: "Budżet na osobę jest poza zakresem.",
 };
 
 export function errorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as any).message) : String(e);
   const key = Object.keys(MESSAGES).find((k) => raw.includes(k));
   if (key) return MESSAGES[key];
+  if (raw.includes("event_set_meeting") || raw.includes("event_add_dish") || raw.includes("dish_ratings") || raw.includes("pin_dish_summary") || raw.includes("event_dish_board")) {
+    return "Oceny dań wymagają migracji 040_meeting_categories_dishes.sql w SQL Editorze Supabase.";
+  }
   if (raw.includes("schema cache") || raw.includes("does not exist") || raw.includes("public.events")) {
     return "Baza niegotowa: w SQL Editor uruchom migracje z docs/SETUP.md (w tym 012_repair_specs_duels.sql, potem 011).";
   }

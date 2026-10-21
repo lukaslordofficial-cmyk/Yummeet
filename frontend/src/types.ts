@@ -56,4 +56,6 @@ export interface EventRow {
   id: string; kind: string; title: string; description: string | null; place_name: string; starts_at: string; capacity: number;
   seats_taken: number; theme: string | null; rules: string | null; status: string; discount_text: string | null; is_official: boolean;
   organizer_id: string | null; pin_id: string | null; place_lat?: number | null; place_lng?: number | null;
+  category_key?: string | null; subcategory_key?: string | null; template_key?: string | null;
+  duration_min?: number | null; budget_per_person?: number | null;
 }

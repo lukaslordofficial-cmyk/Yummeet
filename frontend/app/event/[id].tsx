@@ -6,6 +6,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { KIND_LABEL, formatDate } from "@/src/components/EventCard";
+import { EventDishSection } from "@/src/components/meetings/EventDishSection";
 import { Stars } from "@/src/components/Stars";
 import { Badge, Body, Button, Card, ErrorState, Field, Header, Loading, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
@@ -15,6 +16,7 @@ import {
   report, saveOrganizerReview, type OrganizerRating,
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
+import { subcategoryLabel } from "@/src/lib/meetingCatalog";
 import { subscribePostgres } from "@/src/lib/realtime";
 import { FREE_PHOTO_SLOTS, pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
@@ -187,10 +189,12 @@ export default function EventDetail() {
   const joined = status === "joined" || status === "attended";
   const dayOk = isEventDay(e.starts_at);
   const windowOk = withinCheckinWindow(e.starts_at);
+  const tasting = e.category_key === "oceniaj" || e.kind === "tasting";
+  const kindLabel = subcategoryLabel(e.subcategory_key) ?? KIND_LABEL[e.kind] ?? "Spotkanie";
 
   return (
     <View testID="event-detail-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title={KIND_LABEL[e.kind] ?? "Spotkanie"} right={<Button testID="event-report-button" title="Zgłoś" variant="ghost" onPress={() => act(() => report("event", id, "event_issue"), "Zgłoszenie wysłane")} />} />
+      <Header title={kindLabel} right={<Button testID="event-report-button" title="Zgłoś" variant="ghost" onPress={() => act(() => report("event", id, "event_issue"), "Zgłoszenie wysłane")} />} />
       <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
         <Card accent={e.is_official ? colors.rarityLegendary : undefined}>
           {e.is_official ? <Badge label="OFICJALNE WYDARZENIE" color={colors.rarityLegendary} textColor={colors.onSurface} /> : null}
@@ -198,6 +202,7 @@ export default function EventDetail() {
           <Body>{e.place_name} · {formatDate(e.starts_at)}</Body>
           {e.description ? <Body muted>{e.description}</Body> : null}
           {e.theme ? <Body>Temat: {e.theme}</Body> : null}
+          {e.budget_per_person != null ? <Body>Budżet: {e.budget_per_person} zł / os.</Body> : null}
           {e.rules ? <Body muted>Zasady: {e.rules}</Body> : null}
           {e.discount_text ? <Badge label={e.discount_text} color={colors.brandSecondary} textColor={colors.onBrandSecondary} /> : null}
           <View style={{ flexDirection: "row", alignItems: "baseline", gap: spacing.sm }}>
@@ -300,6 +305,8 @@ export default function EventDetail() {
             </View>
           </Card>
         ) : null}
+
+        {tasting ? <EventDishSection eventId={id} canRate={joined} canEdit={isOrganizer} /> : null}
 
         <Title size={18}>Uczestnicy</Title>
         {people.length === 0 ? <Body muted testID="event-participants-hidden">Lista uczestników widoczna po dołączeniu.</Body> : people.map((p) => (

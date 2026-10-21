@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 
 import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.ts";
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
+import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
+import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
 import { distanceToPolyline, haversineM } from "../../frontend/src/lib/geo.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
@@ -80,6 +82,31 @@ test("route band keeps pins near the line and orders them from the driver", () =
   pins.sort((a, b) => haversineM(origin, a) - haversineM(origin, b));
   assert.equal(pins.length, 2);
   assert.equal(pins[0].lat, 52.001);
+});
+
+test("meeting catalog keeps the tasting, game and hobby shelves", () => {
+  const oceniaj = categoryByKey("oceniaj");
+  const gry = categoryByKey("gry");
+  const pasje = categoryByKey("pasje");
+  assert.deepEqual(oceniaj?.subs.map((s) => s.label), ["Jedno danie, wiele opinii", "Wiele dań i dzielenie porcji"]);
+  assert.deepEqual(gry?.subs.map((s) => s.key), ["planszowe", "karciane", "szachy", "komputerowe", "inne"]);
+  assert.deepEqual(pasje?.subs.map((s) => s.label), ["Rozmowa w językach obcych", "Wolontariat", "Wymiana ugotowanych potraw", "Inne"]);
+  assert.equal(MEETING_CATEGORIES.length, 5);
+  assert.equal(oceniaj?.subs.every((s) => s.format !== "standard"), true);
+});
+
+test("dish average skips empty traits and counts cards", () => {
+  assert.equal(cardScore({ taste: 8, look: 6, texture: null }), 7);
+  assert.equal(cardScore({}), null);
+  const board = summarizeDishes([
+    { name: "Ramen", description: "Miso", taste: 8, look: 8 },
+    { name: " ramen ", description: "", taste: 6 },
+    { name: "Gyoza", description: "Na parze", taste: 9 },
+  ]);
+  assert.equal(board.length, 2);
+  assert.equal(board.find((d) => d.name === "Gyoza")?.average, 9);
+  assert.equal(board.find((d) => d.name === "Ramen")?.ratingCount, 2);
+  assert.equal(board.find((d) => d.name === "Ramen")?.description, "Miso");
 });
 
 test("bbox from view is valid and ordered", () => {

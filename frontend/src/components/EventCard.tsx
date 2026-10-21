@@ -1,12 +1,13 @@
 import { Text, View } from "react-native";
 
+import { subcategoryLabel } from "@/src/lib/meetingCatalog";
 import { fonts, spacing, useTheme } from "@/src/theme";
 import type { EventRow } from "@/src/types";
 import { Icon } from "./Icon";
 import { Badge, Body, Card, Title } from "./ui";
 
 export const KIND_LABEL: Record<string, string> = {
-  open_table: "Otwarte spotkanie", speed_friending: "Speed Friending", official: "Wydarzenie", food_exchange: "Wymiana potraw", volunteer: "Wolontariat", dinner: "Kolacja tematyczna",
+  open_table: "Otwarte spotkanie", speed_friending: "Speed Friending", official: "Wydarzenie", food_exchange: "Wymiana potraw", volunteer: "Wolontariat", dinner: "Kolacja tematyczna", tasting: "Degustacja",
 };
 
 export const formatDate = (iso: string) =>
@@ -19,7 +20,7 @@ export function EventCard({ event, onPress }: { event: EventRow; onPress: () => 
     <Card testID={`event-card-${event.id}`} onPress={onPress} accent={event.is_official ? colors.rarityLegendary : undefined}>
       <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
         {event.is_official ? <Badge testID="event-official-badge" label="OFICJALNE WYDARZENIE" color={colors.rarityLegendary} textColor={colors.onSurface} /> : null}
-        <Badge label={KIND_LABEL[event.kind] ?? event.kind} color={colors.brandTertiary} textColor={colors.onBrandTertiary} />
+        <Badge label={subcategoryLabel(event.subcategory_key) ?? KIND_LABEL[event.kind] ?? event.kind} color={colors.brandTertiary} textColor={colors.onBrandTertiary} />
         {event.discount_text ? <Badge testID="event-discount-badge" label={event.discount_text} color={colors.brandSecondary} textColor={colors.onBrandSecondary} /> : null}
       </View>
       <Title size={20}>{event.title}</Title>

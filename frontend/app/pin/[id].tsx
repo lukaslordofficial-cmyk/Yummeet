@@ -6,6 +6,7 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PinDishSection } from "@/src/components/meetings/PinDishSection";
 import { PinOrderActions } from "@/src/components/PinOrderActions";
 import { Stars } from "@/src/components/Stars";
 import { Badge, Body, Button, Card, Chip, ErrorState, Field, Header, Loading, Title, useToast } from "@/src/components/ui";
@@ -164,7 +165,9 @@ export default function PinDetail() {
             </Card>
           ))
         )}
-        <Title size={20}>Recenzje</Title>
+        <PinDishSection pinId={id} />
+        <Title size={20}>Recenzje lokalu</Title>
+        <Body muted>To jest przybliżona ocena miejsca. Konkretne dania oceniają uczestnicy spotkań degustacyjnych.</Body>
         {pin.reviews.length === 0 ? <Body muted testID="pin-no-reviews">Brak recenzji — bądź pierwszy!</Body> : pin.reviews.map((rv: any) => (
           <Card key={rv.id} testID={`review-${rv.id}`}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>

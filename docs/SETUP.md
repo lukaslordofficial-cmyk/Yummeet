@@ -67,6 +67,7 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 36. **`supabase/migrations/037_pins_bbox_higher_limit.sql`** — mapa ładuje do 1000 pinów w kadrze (wcześniej ucinała przy 300).
 37. **`supabase/migrations/038_poland_osm_website_pins_001.sql`** … **`_061.sql`** — 10 310 lokali gastronomicznych z całej Polski, które w OpenStreetMap mają stronę www (21 października 2026). Uruchom **wszystkie** pliki `038_` po kolei. Plik pomija lokal, jeśli w promieniu 40 m jest już opublikowany pin. Nie dodaje linków Uber Eats, Glovo, Pyszne, Wolt ani Bolt Food.
 38. **`supabase/migrations/039_map_frame_and_route_order.sql`** — kadr do 1500 pinów; Gastro-Trasa sortuje lokale w pasie od najbliższego wobec GPS.
+39. **`supabase/migrations/040_meeting_categories_dishes.sql`** — kategorie spotkań oraz karty dań 1–10. Zwykła ocena lokalu (1–5) zostaje. Średnie potraw widać na pinie.
 
 ### Szybka naprawa edycji pinu
 1. **`029_fix_pin_updated_xp_cards.sql`**

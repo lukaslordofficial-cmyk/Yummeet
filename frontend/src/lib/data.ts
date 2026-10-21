@@ -262,12 +262,20 @@ export async function updatePreferences(patch: Record<string, unknown>) {
 export const deleteMyAccount = () => rpc("delete_my_account");
 
 // ---------- events / tables ----------
-export async function listEvents(kind: string | null): Promise<EventRow[]> {
-  let q = supabase.from("events").select("id,kind,title,description,place_name,starts_at,capacity,seats_taken,theme,rules,status,discount_text,is_official,organizer_id,pin_id")
-    .in("status", ["open", "full"]).gte("starts_at", new Date(Date.now() - 3 * 3600e3).toISOString()).order("starts_at").limit(50);
-  if (kind === "official") q = q.eq("is_official", true);
-  else if (kind) q = q.eq("kind", kind);
-  return must(q) as Promise<EventRow[]>;
+const EVENT_LIST_COLS = "id,kind,title,description,place_name,starts_at,capacity,seats_taken,theme,rules,status,discount_text,is_official,organizer_id,pin_id,category_key,subcategory_key,template_key";
+export async function listEvents(category: string | null): Promise<EventRow[]> {
+  const since = new Date(Date.now() - 3 * 3600e3).toISOString();
+  const run = (cols: string, withCategory: boolean) => {
+    let q = supabase.from("events").select(cols).in("status", ["open", "full"]).gte("starts_at", since).order("starts_at").limit(50);
+    if (withCategory && category) q = q.eq("category_key", category);
+    return must(q) as Promise<EventRow[]>;
+  };
+  try {
+    return await run(EVENT_LIST_COLS, true);
+  } catch (e) {
+    if (category) throw e;
+    return await run("id,kind,title,description,place_name,starts_at,capacity,seats_taken,theme,rules,status,discount_text,is_official,organizer_id,pin_id", false);
+  }
 }
 export const getEvent = (id: string) => must(supabase.from("events").select("*").eq("id", id).maybeSingle()) as Promise<EventRow | null>;
 export async function myEventStatus(id: string) {
