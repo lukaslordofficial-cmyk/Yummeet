@@ -55,10 +55,10 @@ export default function MeetingsJournal() {
               <Body muted>{KIND_LABEL[item.kind] ?? item.kind} · {formatDate(item.starts_at)} · {item.place_name}</Body>
               {item.description ? <Body numberOfLines={4}>{item.description}</Body> : null}
               {item.theme ? <Body muted>Temat: {item.theme}</Body> : null}
-              {item.attractions?.length ? (
+              {item.attractions?.filter((a) => a.category !== "questions").length ? (
                 <View style={{ gap: 4 }}>
-                  <Body muted>Atrakcje / pytania</Body>
-                  {item.attractions.slice(0, 6).map((a) => (
+                  <Body muted>Atrakcje</Body>
+                  {item.attractions.filter((a) => a.category !== "questions").slice(0, 6).map((a) => (
                     <Body key={a.id}>• [{CAT[a.category] ?? a.category}] {a.title}{a.body ? ` — ${a.body}` : ""}</Body>
                   ))}
                 </View>

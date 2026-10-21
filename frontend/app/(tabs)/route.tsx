@@ -5,7 +5,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { RouteHistory } from "@/src/components/RouteHistory";
-import { RouteMapFrame } from "@/src/components/RouteMapFrame";
+import { RouteMapPane, type RouteMapMode } from "@/src/components/RouteMapPane";
 import { RoutePinProgress } from "@/src/components/RoutePinProgress";
 import { RoutePointInput } from "@/src/components/RoutePointInput";
 import { Body, Button, Chip, ChipRow, Title, useToast } from "@/src/components/ui";
@@ -13,7 +13,7 @@ import { useActiveRoute } from "@/src/hooks/useActiveRoute";
 import { errorMessage } from "@/src/lib/api";
 import { CUISINES, cuisinePinStyle } from "@/src/lib/cuisines";
 import { myTravelRoutes, pinsAlongRoute, travelAddKm, travelRouteFinish } from "@/src/lib/data";
-import { formatDuration, formatKm, haversineM, simplify } from "@/src/lib/geo";
+import { clampRouteBuffer, distanceToPolyline, formatDuration, formatKm, haversineM, simplify } from "@/src/lib/geo";
 import { stopRouteBackground } from "@/src/lib/routeBg";
 import { pinsNearestOnRoute } from "@/src/lib/routePinsFilter";
 import { labelRoutePins, userAlongRoute } from "@/src/lib/routeProgress";
@@ -37,6 +37,7 @@ export default function RoutePlanner() {
   const [b, setB] = useState<GeocodeResult | null>(null);
   const [mode, setMode] = useState<TravelMode>("car");
   const [buffer, setBuffer] = useState(1000);
+  const [mapMode, setMapMode] = useState<RouteMapMode>("window");
   const [cuisine, setCuisine] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [routeFollow, setRouteFollow] = useState(0);
@@ -49,7 +50,7 @@ export default function RoutePlanner() {
   useEffect(() => {
     if (!active) return;
     setA(active.a); setB(active.b); setMode(active.mode);
-    setBuffer(active.buffer); setCuisine(active.cuisine);
+    setBuffer(clampRouteBuffer(active.buffer)); setCuisine(active.cuisine);
   }, [active?.id]);
 
   const loadHistory = useCallback(() => {
@@ -69,14 +70,16 @@ export default function RoutePlanner() {
 
   /** Pas liczony od linii trasy. SQL zwraca najbliższe wobec GPS, lista i tak sortuje lokalnie. */
   const fetchPins = async (path: typeof line, buf: number, cui: string | null) => {
-    const raw = await pinsAlongRoute(path.map((p) => [p.lng, p.lat] as [number, number]), buf, cui, userPos);
-    return pinsNearestOnRoute(raw, path, buf, userPos);
+    const cap = clampRouteBuffer(buf);
+    const raw = await pinsAlongRoute(path.map((p) => [p.lng, p.lat] as [number, number]), cap, cui, userPos);
+    return pinsNearestOnRoute(raw, path, cap, userPos);
   };
 
   const refreshPins = async (path: typeof line, buf: number, cui: string | null) => {
     if (path.length < 2 || !active) return;
-    const nextPins = await fetchPins(path, buf, cui);
-    await setActive({ ...active, pins: nextPins, buffer: buf, cuisine: cui });
+    const cap = clampRouteBuffer(buf);
+    const nextPins = await fetchPins(path, cap, cui);
+    await setActive({ ...active, pins: nextPins, buffer: cap, cuisine: cui });
   };
 
   const run = async () => {
@@ -143,6 +146,12 @@ export default function RoutePlanner() {
     void refreshPins(line, buffer, cuisine);
   }, [tracking, userPos, line, buffer, cuisine]);
   const distMap = fromHereM(visiblePins);
+  const alongRouteM = useMemo(() => {
+    const out: Record<string, number> = {};
+    if (line.length < 2) return out;
+    for (const p of visiblePins) out[p.id] = distanceToPolyline(p, line).distanceM;
+    return out;
+  }, [visiblePins, line]);
   const mapCenter = userPos ?? line[Math.floor(line.length / 2)] ?? line[0] ?? { lat: 52.23, lng: 21.01 };
   const openPin = useCallback((id: string) => {
     if (id.length > 2 && id !== "me") router.push(`/pin/${id}`);
@@ -173,6 +182,22 @@ export default function RoutePlanner() {
       ...(tracking ? pinMarks.slice(0, 24) : pinMarks),
     ];
   }, [a, b, pinsStatus, userPos, colors, tracking]);
+  const routeMap = (where: "flow" | "full") => (
+    <RouteMapPane
+      mode={where === "full" ? "full" : mapMode}
+      onMode={setMapMode}
+      tall={tracking ? Math.max(266, Math.round(windowH * 0.434)) : 322}
+      edgeToEdge={tracking || where === "full"}
+      tracking={tracking}
+      center={mapCenter}
+      line={line}
+      markers={markers}
+      followToken={tracking ? liveFollow : routeFollow}
+      onMarkerPress={openPin}
+      windowHeight={windowH}
+      topInset={insets.top}
+    />
+  );
 
   return (
     <View testID="route-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
@@ -180,18 +205,7 @@ export default function RoutePlanner() {
         <Title size={28} testID="route-title">Gastro-Trasa</Title>
         <Body muted testID="route-intro">Ustal trasę przejazdu i odkryj miejsca po drodze, w których mógłbyś zjeść.</Body>
       </View>
-      {tracking && line.length > 1 ? (
-        <RouteMapFrame
-          tall={Math.max(266, Math.round(windowH * 0.434))}
-          edgeToEdge
-          tracking
-          center={mapCenter}
-          line={line}
-          markers={markers}
-          followToken={liveFollow}
-          onMarkerPress={openPin}
-        />
-      ) : null}
+      {tracking && line.length > 1 && mapMode !== "full" ? routeMap("flow") : null}
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
         {active ? (
           <View style={{ marginHorizontal: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, gap: spacing.sm }}>
@@ -223,7 +237,7 @@ export default function RoutePlanner() {
             <Chip key={m} testID={`route-buffer-${m}`} label={`≤${formatKm(m)} od trasy`} selected={buffer === m} onPress={() => { setBuffer(m); if (active) void refreshPins(line, m, cuisine); }} color={colors.brandSecondary} />
           ))}
         </ChipRow>
-        <Body muted style={{ paddingHorizontal: spacing.lg }}>Pas wzdłuż trasy. Na liście 1. to lokal najbliżej Ciebie, dalej kolejne aż do krańca pasa.</Body>
+        <Body muted style={{ paddingHorizontal: spacing.lg }}>Pas wzdłuż trasy, najwyżej 3 km. Gdy jesteś na trasie, lista też nie sięga dalej niż wybrany dystans od Ciebie. 1. to najbliższy lokal.</Body>
         <ChipRow testID="route-cuisine-chips">
           {CUISINES.map((c) => (
             <Chip key={c.key ?? c.label} testID={`route-cuisine-${c.key ?? "all"}`} label={`${cuisinePinStyle(c.key).glyph} ${c.label}`} selected={cuisine === c.key} onPress={() => { const next = cuisine === c.key ? null : c.key; setCuisine(next); if (active) void refreshPins(line, buffer, next); }} />
@@ -236,30 +250,20 @@ export default function RoutePlanner() {
 
         {line.length > 1 ? (
           <>
-            {tracking ? null : (
-              <RouteMapFrame
-                tall={322}
-                edgeToEdge={false}
-                tracking={false}
-                center={mapCenter}
-                line={line}
-                markers={markers}
-                followToken={routeFollow}
-                onMarkerPress={openPin}
-              />
-            )}
+            {!tracking && mapMode !== "full" ? routeMap("flow") : null}
             <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
               <Title size={18} testID="route-summary">{active?.meta ? `${formatKm(active.meta.d)} · ${formatDuration(active.meta.t)} · ${visiblePins.length} lokali w pasie ≤${formatKm(buffer)}` : ""}</Title>
               {tracking ? <Body testID="route-tracked-km">Przejechano: {(active!.trackedM / 1000).toFixed(2)} km</Body> : null}
               {!tracking ? <Button testID="route-start-button" title="Start — śledź trasę" icon="play" onPress={() => void onStart()} /> : null}
               <Button testID="route-end-button" title="Zamknij trasę i zapisz" icon="flag-checkered" variant="secondary" loading={busy} onPress={() => void endTrip()} />
-              <RoutePinProgress pins={pinsStatus} fromHereM={distMap} onOpen={(id) => router.push(`/pin/${id}`)} />
+              <RoutePinProgress pins={pinsStatus} fromHereM={distMap} alongRouteM={alongRouteM} onOpen={(id) => router.push(`/pin/${id}`)} />
             </View>
           </>
         ) : null}
 
         <RouteHistory rows={history} />
       </KeyboardAwareScrollView>
+      {line.length > 1 && mapMode === "full" ? routeMap("full") : null}
     </View>
   );
 }

@@ -2,17 +2,11 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 
 import { Body, Button, Card, Chip, ChipRow, Field, Title } from "@/src/components/ui";
-import { ATTR_CATEGORY_HINTS, type AttractionCategory } from "@/src/lib/attractionsCatalog";
+import { ATTR_CATEGORY_HINTS, TABLE_ATTRACTION_TABS, type AttractionCategory } from "@/src/lib/attractionsCatalog";
 import { attractionSuggestions } from "@/src/lib/data";
 import { spacing } from "@/src/theme";
 
 export type DraftAttraction = { key: string; category: AttractionCategory; title: string; body: string };
-
-const TABS: { key: AttractionCategory; label: string }[] = [
-  { key: "questions", label: "Pytania" },
-  { key: "games", label: "Gry" },
-  { key: "challenges", label: "Wyzwania" },
-];
 
 /** Wybór atrakcji przy tworzeniu stołu (bez zapisu do DB). */
 export function AttractionPicker({
@@ -24,7 +18,7 @@ export function AttractionPicker({
   onChange: (next: DraftAttraction[]) => void;
   testID?: string;
 }) {
-  const [tab, setTab] = useState<AttractionCategory>("questions");
+  const [tab, setTab] = useState<AttractionCategory>("games");
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -50,7 +44,7 @@ export function AttractionPicker({
     <View style={{ gap: spacing.sm }} testID={testID}>
       <Title size={18}>Atrakcje (opcjonalnie)</Title>
       <ChipRow testID={`${testID}-tabs`}>
-        {TABS.map((t) => (
+        {TABLE_ATTRACTION_TABS.map((t) => (
           <Chip key={t.key} testID={`${testID}-tab-${t.key}`} label={t.label} selected={tab === t.key} onPress={() => setTab(t.key)} />
         ))}
       </ChipRow>

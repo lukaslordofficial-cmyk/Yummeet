@@ -5,18 +5,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Body, Button, Card, Chip, ChipRow, Field, Header, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { ATTR_CATEGORY_HINTS, type AttractionCategory } from "@/src/lib/attractionsCatalog";
+import { ATTR_CATEGORY_HINTS, TABLE_ATTRACTION_TABS, type AttractionCategory } from "@/src/lib/attractionsCatalog";
 import {
   addEventAttraction, attractionSuggestions, eventAttractions, removeEventAttraction,
 } from "@/src/lib/data";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { spacing, useTheme } from "@/src/theme";
-
-const TABS: { key: AttractionCategory; label: string }[] = [
-  { key: "questions", label: "Pytania" },
-  { key: "games", label: "Gry" },
-  { key: "challenges", label: "Wyzwania" },
-];
 
 export default function Attractions() {
   const { colors } = useTheme();
@@ -24,7 +18,7 @@ export default function Attractions() {
   const toast = useToast();
   const { session } = useAuth();
   const { event } = useLocalSearchParams<{ event?: string }>();
-  const [tab, setTab] = useState<AttractionCategory>("questions");
+  const [tab, setTab] = useState<AttractionCategory>("games");
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [mine, setMine] = useState<any[]>([]);
   const [title, setTitle] = useState("");
@@ -79,7 +73,7 @@ export default function Attractions() {
       <Header title="Atrakcje" />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
         <ChipRow testID="attractions-tabs">
-          {TABS.map((t) => (
+          {TABLE_ATTRACTION_TABS.map((t) => (
             <Chip key={t.key} testID={`attractions-tab-${t.key}`} label={t.label} selected={tab === t.key} onPress={() => setTab(t.key)} />
           ))}
         </ChipRow>

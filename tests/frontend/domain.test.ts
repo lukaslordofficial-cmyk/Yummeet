@@ -6,7 +6,8 @@ import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { distanceToPolyline, haversineM } from "../../frontend/src/lib/geo.ts";
+import { FALLBACK_ATTRACTIONS } from "../../frontend/src/lib/attractionsCatalog.ts";
+import { clampRouteBuffer, haversineM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
 test("rock-paper-scissors resolution matches server _rps_winner", () => {
@@ -71,17 +72,34 @@ test("map filters drop Wszystko and retired cuisines", () => {
   assert.equal(cuisineLabel("pizza"), "Pizza");
 });
 
-test("route band keeps pins near the line and orders them from the driver", () => {
-  const line = [{ lat: 52, lng: 21 }, { lat: 52.02, lng: 21 }];
+test("route band stays inside 3 km of the line and of the driver", () => {
+  const line = [{ lat: 52, lng: 21 }, { lat: 52.1, lng: 21 }];
   const origin = { lat: 52, lng: 21 };
-  const pins = [
-    { lat: 52.012, lng: 21.001 },
-    { lat: 52.001, lng: 21 },
-    { lat: 53.2, lng: 21 },
-  ].filter((p) => distanceToPolyline(p, line).distanceM <= 1000);
-  pins.sort((a, b) => haversineM(origin, a) - haversineM(origin, b));
-  assert.equal(pins.length, 2);
-  assert.equal(pins[0].lat, 52.001);
+  const remote = { lat: 50, lng: 19 };
+  const near = { lat: 52.009, lng: 21.0015 };
+  const ahead = { lat: 52.045, lng: 21 };
+  const off = { lat: 52.05, lng: 21.06 };
+  const side2km = { lat: 52.02, lng: 21.029 };
+  assert.equal(withinRouteReach(near, line, origin, 3000), true);
+  assert.equal(withinRouteReach(ahead, line, origin, 3000), false);
+  assert.equal(withinRouteReach(off, line, origin, 10000), false);
+  assert.equal(withinRouteReach(off, line, remote, 3000), false);
+  assert.equal(withinRouteReach(near, line, remote, 3000), true);
+  assert.equal(withinRouteReach(side2km, line, origin, 1000), false);
+  assert.equal(withinRouteReach(side2km, line, origin, 3000), true);
+  assert.equal(withinRouteReach(near, [line[0]], origin, 3000), false);
+  assert.equal(clampRouteBuffer(10000), 3000);
+  assert.equal(clampRouteBuffer(500), 500);
+  const kept = [ahead, off, near].filter((p) => withinRouteReach(p, line, origin, 3000));
+  kept.sort((a, b) => haversineM(origin, a) - haversineM(origin, b));
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0], near);
+});
+
+test("table presets do not include icebreaker questions", () => {
+  assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.category === "questions"), false);
+  assert.equal(FALLBACK_ATTRACTIONS.some((a) => /dzieciństwa|restaurację|Podróż smaków|Najdziwniejsze/i.test(a.title)), false);
+  assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.title === "Szachy"), true);
 });
 
 test("meeting catalog keeps the tasting, game and hobby shelves", () => {

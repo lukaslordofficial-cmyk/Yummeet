@@ -1,6 +1,8 @@
 import * as Linking from "expo-linking";
 import { Platform } from "react-native";
 
+import { DELIVERY_HOME, type DeliveryPlatform } from "@/src/lib/deliveryLinks";
+
 /** Zostawia + i cyfry — do tel: */
 export function normalizePhone(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -125,6 +127,32 @@ export async function openDeliveryOrWeb(rawUrl: string): Promise<void> {
   }
 
   throw new Error("open_failed");
+}
+
+const APP_SCHEME: Record<DeliveryPlatform, string> = {
+  wolt: "wolt://",
+  pyszne: "pysznepl://",
+  glovo: "glovo://",
+  uber: "ubereats://",
+};
+
+/** Link do knajpy otwiera lokal. Bez linku otwiera samą aplikację dostawcy. */
+export async function openDeliveryApp(platform: DeliveryPlatform, restaurantUrl?: string | null): Promise<void> {
+  const specific = restaurantUrl?.trim();
+  if (specific) {
+    await openDeliveryOrWeb(specific);
+    return;
+  }
+  const scheme = APP_SCHEME[platform];
+  try {
+    if (await Linking.canOpenURL(scheme)) {
+      await Linking.openURL(scheme);
+      return;
+    }
+  } catch {
+    /* strona dostawcy */
+  }
+  await openDeliveryOrWeb(DELIVERY_HOME[platform]);
 }
 
 /** Otwiera systemowy dialer z numerem (iOS + Android). */

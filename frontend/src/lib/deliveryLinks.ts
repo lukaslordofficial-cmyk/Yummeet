@@ -1,7 +1,15 @@
 export type DeliveryPlatform = "wolt" | "pyszne" | "glovo" | "uber";
 
 export const DELIVERY_SHARE_HINT =
-  "Wejdź do aplikacji dostawcy (np. Wolt), kliknij udostępnij i skopiuj link, a następnie wklej go tutaj.";
+  "Przycisk otwiera aplikację dostawcy. Wklej link udostępniony z tej aplikacji, a od tej chwili przycisk otworzy konkretną knajpę.";
+
+/** Strona startowa, gdy na pinie nie ma jeszcze linku do lokalu. */
+export const DELIVERY_HOME: Record<DeliveryPlatform, string> = {
+  wolt: "https://wolt.com/pl",
+  pyszne: "https://www.pyszne.pl/",
+  glovo: "https://glovoapp.com/",
+  uber: "https://www.ubereats.com/pl",
+};
 
 const RULES: Record<DeliveryPlatform, { label: string; test: (url: string) => boolean; error: string }> = {
   wolt: {

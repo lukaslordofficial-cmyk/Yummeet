@@ -1,5 +1,6 @@
 // Data-access layer: every Supabase call used by screens lives here (UI never builds queries itself).
 import { must, rpc } from "./api";
+import { MAX_ROUTE_BUFFER_M } from "./geo";
 import type { AttractionCategory } from "./attractionsCatalog";
 import type { TravelRouteRow } from "./routeTypes";
 import { supabase } from "./supabase";
@@ -89,7 +90,7 @@ export async function pinsAlongRoute(
 ): Promise<PinMarker[]> {
   const args: Record<string, unknown> = {
     p_path: path,
-    p_buffer_m: bufferM,
+    p_buffer_m: Math.min(MAX_ROUTE_BUFFER_M, Math.max(50, Math.round(bufferM) || 1000)),
     p_limit: 80,
     p_cuisine: cuisine ?? null,
   };
@@ -329,11 +330,12 @@ export async function attractionSuggestions(category?: import("./attractionsCata
   try {
     let q = supabase.from("attraction_suggestions").select("*").eq("is_active", true).order("sort");
     if (category) q = q.eq("category", category);
-    const rows = (await must(q)) as any[];
-    if (rows?.length) return rows;
+    const rows = ((await must(q)) as { category?: string }[] | null)?.filter((row) => row.category !== "questions") ?? [];
+    if (rows.length) return rows;
   } catch {
     /* tabela jeszcze nie istnieje — lokalne propozycje */
   }
+  if (category === "questions") return [];
   return category ? fallbackAttractions(category) : FALLBACK_ATTRACTIONS;
 }
 export async function eventAttractions(eventId: string) {

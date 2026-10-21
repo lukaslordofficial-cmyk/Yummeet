@@ -28,6 +28,26 @@ function pointToSegmentM(p: LatLng, a: LatLng, b: LatLng): { d: number; t: numbe
   return { d: haversineM(p, proj), t };
 }
 
+/** Największy pas Gastro-Trasy. Powyżej tej odległości lokal nie wchodzi na listę. */
+export const MAX_ROUTE_BUFFER_M = 3000;
+
+/** Pas trasy nigdy nie przekracza 3 km. Mniejsze chipy (500 m, 1 km) zostają. */
+export function clampRouteBuffer(bufferM: number): number {
+  if (!Number.isFinite(bufferM) || bufferM <= 0) return 1000;
+  return Math.min(MAX_ROUTE_BUFFER_M, bufferM);
+}
+
+/** W pasie od linii trasy. Gdy GPS jest przy trasie, także nie dalej niż pas od użytkownika. */
+export function withinRouteReach(pin: LatLng, line: LatLng[], origin: LatLng | null, bufferM: number): boolean {
+  const cap = clampRouteBuffer(bufferM);
+  if (line.length < 2 || cap <= 0) return false;
+  if (distanceToPolyline(pin, line).distanceM > cap + 8) return false;
+  if (!origin) return true;
+  const userOffRoute = distanceToPolyline(origin, line).distanceM;
+  if (userOffRoute <= cap + 50 && haversineM(origin, pin) > cap + 8) return false;
+  return true;
+}
+
 /** Min distance to a polyline + fractional index along it (used to order places "along the way"). */
 export function distanceToPolyline(p: LatLng, line: LatLng[]): { distanceM: number; along: number } {
   if (line.length === 0) return { distanceM: Infinity, along: 0 };
