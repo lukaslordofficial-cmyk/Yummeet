@@ -2,7 +2,6 @@ export type CuisineOpt = { key: string | null; label: string };
 
 /** Wbudowane kategorie + użytkownik może dopisać własną przy pinie. */
 export const CUISINES: CuisineOpt[] = [
-  { key: null, label: "Wszystko" },
   { key: "polish", label: "Polska" },
   { key: "italian", label: "Włoska" },
   { key: "japanese", label: "Japońska" },
@@ -25,18 +24,13 @@ export const CUISINES: CuisineOpt[] = [
   { key: "spanish", label: "Hiszpańska" },
   { key: "georgian", label: "Gruzińska" },
   { key: "middle_east", label: "Bliski Wschód" },
-  { key: "vegetarian", label: "Wegetariańska" },
   { key: "vegan", label: "Wegańska" },
   { key: "gluten_free", label: "Bez glutenu" },
   { key: "cafe", label: "Kawiarnia" },
-  { key: "bakery", label: "Piekarnia / cukiernia" },
   { key: "dessert", label: "Desery" },
   { key: "bar", label: "Bar / pub" },
   { key: "wine", label: "Wine bar" },
   { key: "fast_food", label: "Fast food" },
-  { key: "street_food", label: "Street food" },
-  { key: "food_truck", label: "Food truck" },
-  { key: "fine_dining", label: "Fine dining" },
   { key: "brunch", label: "Brunch" },
   { key: "international", label: "Międzynarodowa" },
   { key: "bakery_only", label: "Piekarnia" },
@@ -61,9 +55,18 @@ export const PIN_TAGS: { key: string; label: string }[] = [
   { key: "deser", label: "Deser" },
 ];
 
+/** Stare piny zostają na mapie, ale tych kategorii nie ma już w filtrze. */
+const RETIRED_CUISINE_LABELS: Record<string, string> = {
+  vegetarian: "Wegetariańska",
+  bakery: "Piekarnia / cukiernia",
+  street_food: "Street food",
+  food_truck: "Food truck",
+  fine_dining: "Fine dining",
+};
+
 export function cuisineLabel(key: string | null | undefined): string {
   if (!key) return "lokal";
-  return CUISINES.find((c) => c.key === key)?.label ?? key;
+  return CUISINES.find((c) => c.key === key)?.label ?? RETIRED_CUISINE_LABELS[key] ?? key;
 }
 
 export type CuisinePinStyle = { color: string; glyph: string };

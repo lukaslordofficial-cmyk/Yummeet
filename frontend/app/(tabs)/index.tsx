@@ -50,7 +50,7 @@ export default function Discover() {
   const load = useCallback(async () => {
     try {
       const v = view.current;
-      const data = await pinsInBBox(viewToBBox(v.lat, v.lng, v.zoom), cuisine, priceFilter);
+      const data = await pinsInBBox(viewToBBox(v.lat, v.lng, v.zoom), cuisine, priceFilter, v.zoom);
       setError(null);
       setPins((prev) => (prev.map((p) => p.id).join() === data.map((p) => p.id).join() ? prev : data));
     } catch (e) {
@@ -161,7 +161,7 @@ export default function Discover() {
           <View style={{ flex: 1 }}>
             <Title size={20}>Odkrywaj</Title>
             <Body muted testID="discover-pin-count">
-              {error ? error : `${pins.length} miejsc · pin tylko z GPS na miejscu`}
+              {error ? error : `${pins.length} w tym kadrze · pin tylko z GPS na miejscu`}
             </Body>
           </View>
           <IconButton testID="discover-locate-button" icon="crosshairs-gps" onPress={locate} />
@@ -169,7 +169,13 @@ export default function Discover() {
         <ChipRow testID="discover-cuisine-chips">
           <Chip testID="price-chip" label={priceChipLabel} selected={priceActive} onPress={openPrice} />
           {CUISINES.map((c) => (
-            <Chip key={c.label} testID={`cuisine-chip-${c.key ?? "all"}`} label={`${cuisinePinStyle(c.key).glyph} ${c.label}`} selected={cuisine === c.key} onPress={() => setCuisine(c.key)} />
+            <Chip
+              key={c.key ?? c.label}
+              testID={`cuisine-chip-${c.key ?? "all"}`}
+              label={`${cuisinePinStyle(c.key).glyph} ${c.label}`}
+              selected={cuisine === c.key}
+              onPress={() => setCuisine((cur) => (cur === c.key ? null : c.key))}
+            />
           ))}
         </ChipRow>
       </View>

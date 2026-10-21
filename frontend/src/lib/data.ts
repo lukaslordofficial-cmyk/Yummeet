@@ -45,20 +45,24 @@ export async function pinsInBBox(
   b: { south: number; west: number; north: number; east: number },
   cuisine: string | null,
   price?: { min?: number | null; max?: number | null } | null,
+  zoom = 13,
 ): Promise<PinMarker[]> {
-  const r = (n: number) => Math.round(n * 50) / 50; // ~2 km grid => cache hits on small pans
+  // Mały zapas wokół ekranu. Duży zapas + limit ucinał lokale, które widać w kadrze.
+  const pad = zoom >= 13 ? 0.004 : 0.012;
+  const r = (n: number) => Math.round(n * 200) / 200;
   const pMin = price?.min ?? null;
   const pMax = price?.max ?? null;
-  const key = [r(b.south), r(b.west), r(b.north), r(b.east), cuisine, pMin, pMax].join("|");
+  const limit = zoom >= 12 ? 1500 : 400;
+  const key = [r(b.south), r(b.west), r(b.north), r(b.east), cuisine, pMin, pMax, limit].join("|");
   const hit = bboxCache.get(key);
   if (hit) return hit;
   const args: Record<string, unknown> = {
-    p_south: r(b.south) - 0.02,
-    p_west: r(b.west) - 0.02,
-    p_north: r(b.north) + 0.02,
-    p_east: r(b.east) + 0.02,
+    p_south: r(b.south) - pad,
+    p_west: r(b.west) - pad,
+    p_north: r(b.north) + pad,
+    p_east: r(b.east) + pad,
     p_cuisine: cuisine,
-    p_limit: 1000,
+    p_limit: limit,
   };
   if (pMin != null || pMax != null) {
     args.p_price_min = pMin;
@@ -77,13 +81,27 @@ export async function pinsInBBox(
   return data;
 }
 export const invalidatePins = () => bboxCache.clear();
-export async function pinsAlongRoute(path: [number, number][], bufferM: number, cuisine?: string | null): Promise<PinMarker[]> {
+export async function pinsAlongRoute(
+  path: [number, number][],
+  bufferM: number,
+  cuisine?: string | null,
+  near?: { lat: number; lng: number } | null,
+): Promise<PinMarker[]> {
+  const args: Record<string, unknown> = {
+    p_path: path,
+    p_buffer_m: bufferM,
+    p_limit: 80,
+    p_cuisine: cuisine ?? null,
+  };
+  if (near) {
+    args.p_near_lat = near.lat;
+    args.p_near_lng = near.lng;
+  }
   try {
-    return await rpc<PinMarker[]>("pins_along_route", {
-      p_path: path, p_buffer_m: bufferM, p_limit: 100, p_cuisine: cuisine ?? null,
-    });
+    return await rpc<PinMarker[]>("pins_along_route", args);
   } catch {
-    const all = await rpc<PinMarker[]>("pins_along_route", { p_path: path, p_buffer_m: bufferM, p_limit: 100 });
+    const { p_near_lat: _a, p_near_lng: _b, ...legacy } = args;
+    const all = await rpc<PinMarker[]>("pins_along_route", legacy);
     return cuisine ? all.filter((p) => p.cuisine === cuisine) : all;
   }
 }

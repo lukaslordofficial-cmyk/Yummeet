@@ -12,7 +12,7 @@ export type NotifyToggleResult = { enabled: boolean; message: string };
 
 export function useActiveRoute() {
   const [active, setActiveState] = useState<ActiveRoute | null>(null);
-  const [userPos, setUserPos] = useState<LatLng | null>(null);
+  const [userPos, setUserPos] = useState<(LatLng & { heading?: number | null }) | null>(null);
   const [liveFollow, setLiveFollow] = useState(0);
   const [rerouteTick, setRerouteTick] = useState(0);
   const lastPos = useRef<LatLng | null>(null);

@@ -10,6 +10,8 @@ export interface MapMarker {
   /** Emoji / glyph for cuisine-styled teardrop pins. */
   glyph?: string;
   official?: boolean;
+  /** Compass degrees. When set, the marker is a navigation arrow instead of a teardrop. */
+  bearing?: number;
 }
 
 export type MapShape =
@@ -25,10 +27,13 @@ export interface LeafletOptions {
   polyline?: { lat: number; lng: number }[];
   shape?: MapShape | null;
   drawMode?: "circle" | "rect" | null;
+  polylineColor?: string;
   emitClicks?: boolean;
   fitBounds?: boolean;
   tileUrl?: string;
   maxZoom?: number;
+  /** Podczas jazdy: kierowca w dolnej części kadru, kamera jedzie za nim. */
+  gps?: boolean;
 }
 
 /** Payload injected into a live map without remounting the WebView. */
@@ -44,6 +49,9 @@ export type MapUpdatePayload = {
   emitClicks?: boolean;
   showUser?: boolean;
   shape?: MapShape | null;
+  polylineColor?: string;
+  /** Płynne śledzenie z kierowcą w dolnej trzeciej części mapy. */
+  gps?: boolean;
 };
 
 export function buildLeafletHtml(opts: LeafletOptions): string {
@@ -60,6 +68,8 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     fitBounds = true,
     tileUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     maxZoom = 19,
+    polylineColor = "#1A73E8",
+    gps = false,
   } = opts;
   const cfg = JSON.stringify({
     center,
@@ -73,6 +83,8 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     maxZoom,
     drawMode,
     shape,
+    polylineColor,
+    gps,
     polyline: polyline.map((p) => [Number(p.lat.toFixed(5)), Number(p.lng.toFixed(5))]),
   });
 
@@ -109,6 +121,9 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     var LABEL_ZOOM = 18;
     var map = L.map('map', { zoomControl: true, attributionControl: false, doubleClickZoom: !C.emitClicks }).setView([C.center.lat, C.center.lng], C.zoom);
     L.tileLayer(C.tileUrl, { maxZoom: C.maxZoom, subdomains: 'abc' }).addTo(map);
+    if (String(C.tileUrl).indexOf('arcgisonline.com') >= 0) {
+      L.control.attribution({ position: 'bottomright', prefix: false }).addAttribution('© Esri').addTo(map);
+    }
 
     function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
     /** Mała łezka: kolor widać z daleka, emoji dopiero przy zbliżeniu. */
@@ -125,6 +140,23 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
       return { w: w, h: h, face: face, font: font, label: z >= LABEL_ZOOM };
     }
     var iconCache = {};
+    function navArrow(bearing, color){
+      var deg = Math.round(bearing);
+      var key = 'arrow|' + color + '|' + (Math.round(deg / 10) * 10);
+      if (iconCache[key]) return iconCache[key];
+      var icon = L.divIcon({
+        className: '',
+        html: '<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center">'
+          + '<div style="width:34px;height:34px;border-radius:50%;background:rgba(26,115,232,0.22);box-shadow:0 0 0 8px rgba(26,115,232,0.12);display:flex;align-items:center;justify-content:center">'
+          + '<div style="transform:rotate('+deg+'deg);line-height:0">'
+          + '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5 L21 22 L12 16.2 L3 22 Z" fill="'+color+'" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+          + '</div></div></div>',
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
+      });
+      iconCache[key] = icon;
+      return icon;
+    }
     function pinIcon(color, label, coverUrl, showLabel, scale, glyph, official){
       var bg = color || '#E05F36';
       var sc = scale || pinScale(13);
@@ -188,26 +220,40 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
       var batch = new Array(markers.length);
       for (var i = 0; i < markers.length; i++) {
         let m = markers[i];
-        let mk = L.marker([m.lat, m.lng], {
-          icon: pinIcon(m.color, m.label, m.coverUrl, showLabel, scale, m.glyph, m.official),
-          keyboard: false,
-        });
+        let icon = (typeof m.bearing === 'number' && isFinite(m.bearing))
+          ? navArrow(m.bearing, m.color || '#1A73E8')
+          : pinIcon(m.color, m.label, m.coverUrl, showLabel, scale, m.glyph, m.official);
+        let mk = L.marker([m.lat, m.lng], { icon: icon, keyboard: false });
         if (m.title) mk.bindTooltip(m.title, { direction: 'top', opacity: 0.95 });
         mk.on('click', function(){ send({ type:'markerPress', id: m.id }); });
         batch[i] = mk;
       }
       map.removeLayer(markerLayer);
       markerLayer = L.layerGroup(batch).addTo(map);
-      [polyLayer, userLayer, shapeLayerGroup].forEach(function(group){
+      [userLayer, shapeLayerGroup].forEach(function(group){
         if (map.hasLayer(group)) { map.removeLayer(group); group.addTo(map); }
       });
     }
 
+    var routeColor = C.polylineColor || '#1A73E8';
     function renderPolyline(line){
       clearGroup(polyLayer);
       if (line && line.length > 1) {
-        polyLayer.addLayer(L.polyline(line, { color:'#E05F36', weight:5, opacity:0.85 }));
+        var casing = { weight: 11, opacity: 0.96, lineCap: 'round', lineJoin: 'round' };
+        polyLayer.addLayer(L.polyline(line, Object.assign({ color: '#ffffff' }, casing)));
+        polyLayer.addLayer(L.polyline(line, Object.assign({ color: routeColor, weight: 6, opacity: 0.95 }, { lineCap: 'round', lineJoin: 'round' })));
       }
+    }
+    function focusDriver(lat, lng, z, gps){
+      var ll = L.latLng(lat, lng);
+      var sizeY = map.getSize().y || 0;
+      if (gps && sizeY > 40) {
+        var pt = map.project(ll, z);
+        pt.y -= Math.round(sizeY * 0.22);
+        ll = map.unproject(pt, z);
+      }
+      map.stop();
+      map.setView(ll, z, { animate: !!gps, duration: 0.45 });
     }
 
     function renderUser(show, c){
@@ -287,6 +333,8 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     renderShape(C.shape);
     if (C.pickMode) ensurePickMarker(C.center.lat, C.center.lng);
 
+    if (C.gps) map.whenReady(function(){ focusDriver(C.center.lat, C.center.lng, map.getZoom(), true); });
+
     if (C.fitBounds) {
       var b = [];
       if (C.polyline && C.polyline.length > 1) b = b.concat(C.polyline);
@@ -303,6 +351,7 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
         else map.doubleClickZoom.enable();
       }
       if (U.markers) renderMarkers(U.markers);
+      if (U.polylineColor) routeColor = U.polylineColor;
       if (U.polyline) {
         var line = U.polyline.map(function(p){ return [p.lat, p.lng]; });
         renderPolyline(line);
@@ -312,7 +361,7 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
       if (pickModeOn && U.center) ensurePickMarker(U.center.lat, U.center.lng);
       if (!pickModeOn && pickMarker) { map.removeLayer(pickMarker); pickMarker = null; }
       if (U.setView && U.center) {
-        map.setView([U.center.lat, U.center.lng], U.zoom != null ? U.zoom : map.getZoom());
+        focusDriver(U.center.lat, U.center.lng, U.zoom != null ? U.zoom : map.getZoom(), !!U.gps);
       }
       if (U.fitBounds && U.markers && U.markers.length > 1) {
         try {

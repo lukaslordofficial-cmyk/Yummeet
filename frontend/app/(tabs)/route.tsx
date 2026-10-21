@@ -1,11 +1,11 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useWindowDimensions, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppMapView } from "@/src/components/map/AppMapView";
 import { RouteHistory } from "@/src/components/RouteHistory";
+import { RouteMapFrame } from "@/src/components/RouteMapFrame";
 import { RoutePinProgress } from "@/src/components/RoutePinProgress";
 import { RoutePointInput } from "@/src/components/RoutePointInput";
 import { Body, Button, Chip, ChipRow, Title, useToast } from "@/src/components/ui";
@@ -13,10 +13,10 @@ import { useActiveRoute } from "@/src/hooks/useActiveRoute";
 import { errorMessage } from "@/src/lib/api";
 import { CUISINES, cuisinePinStyle } from "@/src/lib/cuisines";
 import { myTravelRoutes, pinsAlongRoute, travelAddKm, travelRouteFinish } from "@/src/lib/data";
-import { formatDuration, formatKm, simplify } from "@/src/lib/geo";
+import { formatDuration, formatKm, haversineM, simplify } from "@/src/lib/geo";
 import { stopRouteBackground } from "@/src/lib/routeBg";
-import { filterPinsNearUser } from "@/src/lib/routePinsFilter";
-import { classifyRoutePins, userAlongRoute } from "@/src/lib/routeProgress";
+import { pinsNearestOnRoute } from "@/src/lib/routePinsFilter";
+import { labelRoutePins, userAlongRoute } from "@/src/lib/routeProgress";
 import type { ActiveRoute, TravelRouteRow } from "@/src/lib/routeTypes";
 import { routingProvider, type GeocodeResult, type TravelMode } from "@/src/lib/routing";
 import { radius, spacing, useTheme } from "@/src/theme";
@@ -26,6 +26,8 @@ export default function RoutePlanner() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const toast = useToast();
+  const { height: windowH } = useWindowDimensions();
+  const lastPinFetch = useRef<{ lat: number; lng: number } | null>(null);
   const {
     active, setActive, userPos, liveFollow, rerouteTick, startTracking, setNotify, fromHereM,
     setAlertHandler, setRerouteHandler,
@@ -65,11 +67,10 @@ export default function RoutePlanner() {
     if (rerouteTick > 0) setRouteFollow(Date.now());
   }, [rerouteTick]);
 
-  /** Korytarz API ≥ bufor „stąd”, potem filtr po dystansie od GPS. */
+  /** Pas liczony od linii trasy. SQL zwraca najbliższe wobec GPS, lista i tak sortuje lokalnie. */
   const fetchPins = async (path: typeof line, buf: number, cui: string | null) => {
-    const corridor = Math.max(buf, 2500);
-    const raw = await pinsAlongRoute(path.map((p) => [p.lng, p.lat] as [number, number]), corridor, cui);
-    return filterPinsNearUser(raw, userPos, buf);
+    const raw = await pinsAlongRoute(path.map((p) => [p.lng, p.lat] as [number, number]), buf, cui, userPos);
+    return pinsNearestOnRoute(raw, path, buf, userPos);
   };
 
   const refreshPins = async (path: typeof line, buf: number, cui: string | null) => {
@@ -130,10 +131,22 @@ export default function RoutePlanner() {
     }
   };
 
-  const visiblePins = useMemo(() => filterPinsNearUser(pins, userPos, buffer), [pins, userPos, buffer]);
+  const visiblePins = useMemo(() => pinsNearestOnRoute(pins, line, buffer, userPos), [pins, line, buffer, userPos]);
   const along = userAlongRoute(userPos, line);
-  const pinsStatus = useMemo(() => classifyRoutePins(visiblePins, along), [visiblePins, along]);
+  const pinsStatus = useMemo(() => labelRoutePins(visiblePins, along), [visiblePins, along]);
+
+  useEffect(() => {
+    if (!tracking || !userPos || line.length < 2) return;
+    const prev = lastPinFetch.current;
+    if (prev && haversineM(prev, userPos) < 500) return;
+    lastPinFetch.current = userPos;
+    void refreshPins(line, buffer, cuisine);
+  }, [tracking, userPos, line, buffer, cuisine]);
   const distMap = fromHereM(visiblePins);
+  const mapCenter = userPos ?? line[Math.floor(line.length / 2)] ?? line[0] ?? { lat: 52.23, lng: 21.01 };
+  const openPin = useCallback((id: string) => {
+    if (id.length > 2 && id !== "me") router.push(`/pin/${id}`);
+  }, [router]);
 
   const markers = useMemo(() => {
     const pinMarks = pinsStatus.map((p) => {
@@ -145,13 +158,21 @@ export default function RoutePlanner() {
         color: p.status === "passed" ? colors.muted : p.status === "next" ? style.color : colors.brandSecondary,
       };
     });
+    const heading = userPos?.heading;
     return [
-      ...(a ? [{ id: "A", lat: a.lat, lng: a.lng, label: "A", glyph: "A", color: colors.surfaceInverse }] : []),
+      ...(a && !tracking ? [{ id: "A", lat: a.lat, lng: a.lng, label: "A", glyph: "A", color: colors.surfaceInverse }] : []),
       ...(b ? [{ id: "B", lat: b.lat, lng: b.lng, label: "B", glyph: "B", color: colors.surfaceInverse }] : []),
-      ...(userPos ? [{ id: "me", lat: userPos.lat, lng: userPos.lng, label: "Ty", glyph: "📍", color: colors.success }] : []),
-      ...pinMarks,
+      ...(userPos ? [{
+        id: "me",
+        lat: userPos.lat,
+        lng: userPos.lng,
+        title: "Ty",
+        color: "#1A73E8",
+        ...(typeof heading === "number" && heading >= 0 ? { bearing: heading } : { glyph: "📍", label: "Ty" }),
+      }] : []),
+      ...(tracking ? pinMarks.slice(0, 24) : pinMarks),
     ];
-  }, [a, b, pinsStatus, userPos, colors]);
+  }, [a, b, pinsStatus, userPos, colors, tracking]);
 
   return (
     <View testID="route-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
@@ -159,6 +180,18 @@ export default function RoutePlanner() {
         <Title size={28} testID="route-title">Gastro-Trasa</Title>
         <Body muted testID="route-intro">Ustal trasę przejazdu i odkryj miejsca po drodze, w których mógłbyś zjeść.</Body>
       </View>
+      {tracking && line.length > 1 ? (
+        <RouteMapFrame
+          tall={Math.max(380, Math.round(windowH * 0.62))}
+          edgeToEdge
+          tracking
+          center={mapCenter}
+          line={line}
+          markers={markers}
+          followToken={liveFollow}
+          onMarkerPress={openPin}
+        />
+      ) : null}
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
         {active ? (
           <View style={{ marginHorizontal: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, gap: spacing.sm }}>
@@ -187,13 +220,13 @@ export default function RoutePlanner() {
             <Chip key={k} testID={`route-mode-${k}`} label={l} selected={mode === k} onPress={() => setMode(k)} />
           ))}
           {[500, 1000, 3000].map((m) => (
-            <Chip key={m} testID={`route-buffer-${m}`} label={`≤${formatKm(m)} stąd`} selected={buffer === m} onPress={() => { setBuffer(m); if (active) void refreshPins(line, m, cuisine); }} color={colors.brandSecondary} />
+            <Chip key={m} testID={`route-buffer-${m}`} label={`≤${formatKm(m)} od trasy`} selected={buffer === m} onPress={() => { setBuffer(m); if (active) void refreshPins(line, m, cuisine); }} color={colors.brandSecondary} />
           ))}
         </ChipRow>
-        <Body muted style={{ paddingHorizontal: spacing.lg }}>Promień liczony od Twojej lokalizacji GPS (nie od linii trasy).</Body>
+        <Body muted style={{ paddingHorizontal: spacing.lg }}>Pas wzdłuż trasy. Na liście 1. to lokal najbliżej Ciebie, dalej kolejne aż do krańca pasa.</Body>
         <ChipRow testID="route-cuisine-chips">
           {CUISINES.map((c) => (
-            <Chip key={c.label} testID={`route-cuisine-${c.key ?? "all"}`} label={`${cuisinePinStyle(c.key).glyph} ${c.label}`} selected={cuisine === c.key} onPress={() => { setCuisine(c.key); if (active) void refreshPins(line, buffer, c.key); }} />
+            <Chip key={c.key ?? c.label} testID={`route-cuisine-${c.key ?? "all"}`} label={`${cuisinePinStyle(c.key).glyph} ${c.label}`} selected={cuisine === c.key} onPress={() => { const next = cuisine === c.key ? null : c.key; setCuisine(next); if (active) void refreshPins(line, buffer, next); }} />
           ))}
         </ChipRow>
 
@@ -203,11 +236,20 @@ export default function RoutePlanner() {
 
         {line.length > 1 ? (
           <>
-            <View style={{ height: 280, marginHorizontal: spacing.lg, borderRadius: radius.lg, overflow: "hidden" }}>
-              <AppMapView center={userPos ?? line[0]} polyline={line} markers={markers} fitBounds={!tracking} followCenterToken={tracking ? liveFollow : routeFollow} onMarkerPress={(id) => id.length > 2 && id !== "me" && router.push(`/pin/${id}`)} />
-            </View>
+            {tracking ? null : (
+              <RouteMapFrame
+                tall={460}
+                edgeToEdge={false}
+                tracking={false}
+                center={mapCenter}
+                line={line}
+                markers={markers}
+                followToken={routeFollow}
+                onMarkerPress={openPin}
+              />
+            )}
             <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
-              <Title size={18} testID="route-summary">{active?.meta ? `${formatKm(active.meta.d)} · ${formatDuration(active.meta.t)} · ${visiblePins.length} lokali ≤${formatKm(buffer)} stąd` : ""}</Title>
+              <Title size={18} testID="route-summary">{active?.meta ? `${formatKm(active.meta.d)} · ${formatDuration(active.meta.t)} · ${visiblePins.length} lokali w pasie ≤${formatKm(buffer)}` : ""}</Title>
               {tracking ? <Body testID="route-tracked-km">Przejechano: {(active!.trackedM / 1000).toFixed(2)} km</Body> : null}
               {!tracking ? <Button testID="route-start-button" title="Start — śledź trasę" icon="play" onPress={() => void onStart()} /> : null}
               <Button testID="route-end-button" title="Zamknij trasę i zapisz" icon="flag-checkered" variant="secondary" loading={busy} onPress={() => void endTrip()} />

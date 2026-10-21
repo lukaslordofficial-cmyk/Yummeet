@@ -5,6 +5,21 @@ export type PinProgressStatus = "passed" | "next" | "ahead";
 
 export type PinWithStatus = PinMarker & { status: PinProgressStatus; index: number };
 
+/** Kolejność listy zostaje (najbliższy = 1). Status mówi, czy lokal jest już za plecami. */
+export function labelRoutePins(pins: PinMarker[], userAlong: number | null): PinWithStatus[] {
+  let markedNext = false;
+  return pins.map((p, i) => {
+    const passed = userAlong != null && (p.along ?? 0) < userAlong - 0.02;
+    let status: PinProgressStatus = "ahead";
+    if (passed) status = "passed";
+    else if (!markedNext) {
+      status = "next";
+      markedNext = true;
+    }
+    return { ...p, status, index: i };
+  });
+}
+
 /** Sort by position along route; classify vs user progress. */
 export function classifyRoutePins(pins: PinMarker[], userAlong: number | null): PinWithStatus[] {
   const sorted = [...pins].sort((a, b) => (a.along ?? 0) - (b.along ?? 0));

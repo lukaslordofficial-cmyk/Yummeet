@@ -14,6 +14,8 @@ export interface MapViewProps extends LeafletOptions {
   onAreaDrawn?: (shape: MapShape) => void;
   onViewChange?: (v: { lat: number; lng: number; zoom: number }) => void;
   followCenterToken?: number | string;
+  /** Śledzenie jak w nawigacji: kamera za kierowcą, niżej w kadrze. */
+  gpsFollow?: boolean;
 }
 
 export function handleMapMessage(data: any, h: Pick<MapViewProps, "onMarkerPress" | "onMapPress" | "onMapDblClick" | "onAreaDrawn" | "onViewChange">) {
@@ -43,18 +45,21 @@ export function AppMapView({
   fitBounds = false,
   shape = null,
   drawMode = null,
+  tileUrl,
+  polylineColor,
+  gpsFollow = false,
 }: MapViewProps) {
   const frameRef = useRef<any>(null);
   const ready = useRef(false);
   const handlerRef = useRef({ onMarkerPress, onMapPress, onMapDblClick, onAreaDrawn, onViewChange });
   handlerRef.current = { onMarkerPress, onMapPress, onMapDblClick, onAreaDrawn, onViewChange };
-  const initial = useRef({ center, zoom, pickMode, emitClicks, drawMode });
+  const initial = useRef({ center, zoom, pickMode, emitClicks, drawMode, tileUrl, gpsFollow });
   const lastFollow = useRef(followCenterToken);
 
   const html = useMemo(
     () =>
       buildLeafletHtml({
-        tileUrl: MAP_TILES.tileUrl,
+        tileUrl: initial.current.tileUrl || MAP_TILES.tileUrl,
         maxZoom: MAP_TILES.maxZoom,
         center: initial.current.center,
         zoom: initial.current.zoom,
@@ -66,6 +71,7 @@ export function AppMapView({
         drawMode: initial.current.drawMode,
         fitBounds: false,
         shape: null,
+        gps: !!initial.current.gpsFollow,
       }),
     [],
   );
@@ -84,6 +90,8 @@ export function AppMapView({
       pickMode,
       emitClicks,
       shape,
+      polylineColor,
+      gps: gpsFollow,
       setView: shouldFollow,
       fitBounds: fitBounds && ((polyline?.length ?? 0) > 1),
       ...extra,
@@ -114,7 +122,7 @@ export function AppMapView({
   useEffect(() => {
     pushUpdate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markers, polyline, center, zoom, showUser, pickMode, emitClicks, shape, fitBounds, followCenterToken]);
+  }, [markers, polyline, polylineColor, center, zoom, showUser, pickMode, emitClicks, shape, fitBounds, followCenterToken, gpsFollow]);
 
   return (
     <View style={[styles.web, style]}>

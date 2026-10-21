@@ -17,6 +17,8 @@ export interface MapViewProps extends LeafletOptions {
   onViewChange?: (v: { lat: number; lng: number; zoom: number }) => void;
   /** Bump this (e.g. Date.now()) when you want the map to fly to `center`. */
   followCenterToken?: number | string;
+  /** Śledzenie jak w nawigacji: kamera za kierowcą, niżej w kadrze. */
+  gpsFollow?: boolean;
 }
 
 export function AppMapView({
@@ -37,16 +39,19 @@ export function AppMapView({
   fitBounds = false,
   shape = null,
   drawMode = null,
+  tileUrl,
+  polylineColor,
+  gpsFollow = false,
 }: MapViewProps) {
   const webRef = useRef<WebView>(null);
   const ready = useRef(false);
-  const initial = useRef({ center, zoom, pickMode, emitClicks, drawMode, fitBounds });
+  const initial = useRef({ center, zoom, pickMode, emitClicks, drawMode, fitBounds, tileUrl, gpsFollow });
   const lastFollow = useRef(followCenterToken);
 
   const html = useMemo(
     () =>
       buildLeafletHtml({
-        tileUrl: MAP_TILES.tileUrl,
+        tileUrl: initial.current.tileUrl || MAP_TILES.tileUrl,
         maxZoom: MAP_TILES.maxZoom,
         center: initial.current.center,
         zoom: initial.current.zoom,
@@ -58,6 +63,7 @@ export function AppMapView({
         drawMode: initial.current.drawMode,
         fitBounds: false,
         shape: null,
+        gps: !!initial.current.gpsFollow,
       }),
     [],
   );
@@ -75,12 +81,14 @@ export function AppMapView({
       pickMode,
       emitClicks,
       shape,
+      polylineColor,
+      gps: gpsFollow,
       setView: shouldFollow,
       fitBounds: shouldFollow ? false : fitBounds && !!polyline?.length,
     };
     const js = `window.__updateMap && window.__updateMap(${JSON.stringify(payload)}); true;`;
     webRef.current?.injectJavaScript(js);
-  }, [markers, polyline, center, zoom, showUser, pickMode, emitClicks, shape, fitBounds, followCenterToken]);
+  }, [markers, polyline, polylineColor, center, zoom, showUser, pickMode, emitClicks, shape, fitBounds, followCenterToken, gpsFollow]);
 
   return (
     <WebView
@@ -107,6 +115,8 @@ export function AppMapView({
               pickMode,
               emitClicks,
               shape,
+              polylineColor,
+              gps: gpsFollow,
               setView: false,
               fitBounds: fitBounds && ((markers?.length ?? 0) > 1 || (polyline?.length ?? 0) > 1),
             };

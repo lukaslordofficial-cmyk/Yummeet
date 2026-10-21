@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 
-export type Coords = { lat: number; lng: number };
+export type Coords = { lat: number; lng: number; heading?: number | null };
 
 async function ensureForeground(): Promise<boolean> {
   const cur = await Location.getForegroundPermissionsAsync();
@@ -12,7 +12,7 @@ export async function getCurrentPosition(): Promise<Coords | null> {
   try {
     if (!(await ensureForeground())) return null;
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude, heading: pos.coords.heading };
   } catch {
     return null;
   }
@@ -31,7 +31,7 @@ export async function watchPosition(
         distanceInterval: opts?.distanceInterval ?? 15,
         timeInterval: opts?.timeInterval ?? 4000,
       },
-      (pos) => onUpdate({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => onUpdate({ lat: pos.coords.latitude, lng: pos.coords.longitude, heading: pos.coords.heading }),
     );
     return () => sub.remove();
   } catch {

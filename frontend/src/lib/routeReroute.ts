@@ -1,6 +1,6 @@
 import { pinsAlongRoute } from "@/src/lib/data";
 import { distanceToPolyline, simplify, type LatLng } from "@/src/lib/geo";
-import { filterPinsNearUser } from "@/src/lib/routePinsFilter";
+import { pinsNearestOnRoute } from "@/src/lib/routePinsFilter";
 import type { ActiveRoute } from "@/src/lib/routeTypes";
 import { routingProvider } from "@/src/lib/routing";
 
@@ -35,10 +35,11 @@ export async function maybeRerouteFrom(pos: LatLng, route: ActiveRoute): Promise
     const line = simplify(r.geometry, 400);
     const raw = await pinsAlongRoute(
       line.map((p) => [p.lng, p.lat] as [number, number]),
-      Math.max(route.buffer, 2500),
+      route.buffer,
       route.cuisine,
+      pos,
     );
-    const pins = filterPinsNearUser(raw, pos, route.buffer);
+    const pins = pinsNearestOnRoute(raw, line, route.buffer, pos);
     return {
       ...route,
       line,

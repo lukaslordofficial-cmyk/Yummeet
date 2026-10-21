@@ -3,7 +3,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.ts";
-import { cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
+import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
+import { distanceToPolyline, haversineM } from "../../frontend/src/lib/geo.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
 test("rock-paper-scissors resolution matches server _rps_winner", () => {
@@ -50,10 +51,35 @@ test("map teardrops stay small and are not rebuilt during pinch zoom", () => {
     fitBounds: false,
   });
   assert.match(html, /11 \+ t \* 17/);
+  assert.match(html, /weight: 11/);
+  assert.match(html, /function focusDriver/);
   assert.match(html, /map\.on\('zoomend'/);
   assert.equal(html.includes("map.on('zoom zoomend'"), false);
   assert.equal(html.includes("drop-shadow"), false);
   assert.match(html, /iconCache/);
+});
+
+test("map filters drop Wszystko and retired cuisines", () => {
+  const keys = CUISINES.map((c) => c.key);
+  assert.equal(keys.includes(null), false);
+  for (const retired of ["vegetarian", "street_food", "food_truck", "fine_dining", "bakery"]) {
+    assert.equal(keys.includes(retired), false);
+  }
+  assert.equal(cuisineLabel("vegetarian"), "Wegetariańska");
+  assert.equal(cuisineLabel("pizza"), "Pizza");
+});
+
+test("route band keeps pins near the line and orders them from the driver", () => {
+  const line = [{ lat: 52, lng: 21 }, { lat: 52.02, lng: 21 }];
+  const origin = { lat: 52, lng: 21 };
+  const pins = [
+    { lat: 52.012, lng: 21.001 },
+    { lat: 52.001, lng: 21 },
+    { lat: 53.2, lng: 21 },
+  ].filter((p) => distanceToPolyline(p, line).distanceM <= 1000);
+  pins.sort((a, b) => haversineM(origin, a) - haversineM(origin, b));
+  assert.equal(pins.length, 2);
+  assert.equal(pins[0].lat, 52.001);
 });
 
 test("bbox from view is valid and ordered", () => {
