@@ -58,7 +58,7 @@ export async function pinsInBBox(
     p_north: r(b.north) + 0.02,
     p_east: r(b.east) + 0.02,
     p_cuisine: cuisine,
-    p_limit: 200,
+    p_limit: 1000,
   };
   if (pMin != null || pMax != null) {
     args.p_price_min = pMin;
