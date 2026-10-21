@@ -1,19 +1,31 @@
 {
   "expo": {
     "name": "Yummeet",
-    "slug": "frontend",
+    "slug": "yummeet",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "yummeet",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.yummeetpreview.td2o84",
+      "bundleIdentifier": "com.yummeet.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Pokaż lokale w pobliżu, Gastro-Trasę i pojedynki",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Śledź Gastro-Trasę i powiadamiaj o knajpach także gdy aplikacja jest w tle",
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "wolt",
+          "glovo",
+          "glovoapp",
+          "pysznepl",
+          "ubereats",
+          "http",
+          "https"
+        ]
       }
     },
     "android": {
@@ -21,14 +33,17 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.emergent.yummeetpreview.td2o84",
+      "package": "com.yummeet.app",
+      "versionCode": 5,
+      "usesCleartextTraffic": true,
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION",
-        "POST_NOTIFICATIONS"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -52,6 +67,24 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-status-bar",
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsText": true,
+              "supportsWebUrlWithMaxCount": 1,
+              "supportsWebPageWithMaxCount": 1
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": ["text/*", "text/plain", "text/uri-list"],
+            "multipleShareMimeTypes": []
+          }
+        }
+      ],
       "@react-native-vector-icons/material-design-icons",
       [
         "expo-location",
@@ -78,6 +111,13 @@
     ],
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e60356be-d339-4ff3-b95a-24794b6c8c5e"
+      }
+    },
+    "owner": "ciachodlatutu"
   }
 }

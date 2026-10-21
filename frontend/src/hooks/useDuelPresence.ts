@@ -13,6 +13,7 @@ export function useDuelPresence(enabled: boolean) {
   const router = useRouter();
   const toast = useToast();
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const opened = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!enabled) return;
@@ -23,13 +24,16 @@ export function useDuelPresence(enabled: boolean) {
       if (!perm.granted) return;
       try {
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (pos.mocked) return; // Android reports mock locations: ignore them
+        if (pos.mocked) return;
         const res = await presencePing(pos.coords.latitude, pos.coords.longitude);
-        const id = res?.duels?.[0];
-        if (id && !cancelled) {
-          toast("Yummiteer w pobliżu — wchodzisz w tryb pojedynku!", "success");
-          router.push(`/duel/${id}`);
-        }
+        const duelId = res?.duels?.[0];
+        const convId = res?.conversations?.[0];
+        if (!duelId || cancelled) return;
+        if (opened.current.has(duelId)) return;
+        opened.current.add(duelId);
+        toast("Yummiteer w pobliżu — ustalcie szczegóły na czacie!", "success");
+        if (convId) router.push(`/chat/${convId}`);
+        else router.push(`/duel/${duelId}`);
       } catch {
         // network / location hiccups are ignored; next tick retries
       }

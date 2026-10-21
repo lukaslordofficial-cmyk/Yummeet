@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -18,6 +18,8 @@ export default function NewEvent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const toast = useToast();
+  const params = useLocalSearchParams<{ missionUm?: string }>();
+  const fromMission = !!params.missionUm;
   const [title, setTitle] = useState("");
   const [venue, setVenue] = useState<GeocodeResult | null>(null);
   const [kind, setKind] = useState("open_table");
@@ -47,7 +49,12 @@ export default function NewEvent() {
       for (const a of picked) {
         try { await addEventAttraction(id, a.category, a.title, a.body); } catch { /* ignore */ }
       }
-      toast("Spotkanie utworzone!", "success");
+      toast(
+        fromMission
+          ? "Spotkanie utworzone! Misja zaliczy się, gdy ktoś się zapisze i wpisze kod check-in."
+          : "Spotkanie utworzone!",
+        "success",
+      );
       router.replace(`/event/${id}`);
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -58,8 +65,13 @@ export default function NewEvent() {
 
   return (
     <View testID="new-event-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title="Nowe spotkanie" />
+      <Header title={fromMission ? "Spotkanie do misji" : "Nowe spotkanie"} />
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
+        {fromMission ? (
+          <Body style={{ paddingHorizontal: spacing.lg }}>
+            Sugerowane 4 miejsca. Misja zaliczy się automatycznie, gdy co najmniej 1 gość się zapisze i wpisze kod check-in.
+          </Body>
+        ) : null}
         <ChipRow>
           {EVENT_KINDS.map((k) => (
             <Chip key={k.key} testID={`new-event-kind-${k.key}`} label={k.label} selected={kind === k.key} onPress={() => setKind(k.key)} />

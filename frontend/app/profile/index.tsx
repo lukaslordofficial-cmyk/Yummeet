@@ -49,7 +49,7 @@ export default function ProfileTab() {
   const banner = spec?.color ?? colors.brandPrimary;
   const lp = levelProgress(profile?.xp ?? 0, levels);
   const culinary = CULINARY_LEVELS.find((l) => l.level === profile?.culinary_skill_level);
-  const unlockedSkills = (hub?.specializations ?? []).flatMap((s) => s.skills.filter((sk) => sk.status === "unlocked").map((sk) => ({ ...sk, spec: s.name })));
+  const unlockedSkills = (hub?.specializations ?? []).flatMap((s) => (s.skills ?? []).filter((sk) => sk.status === "unlocked").map((sk) => ({ ...sk, spec: s.name })));
 
   return (
     <ScrollView testID="profile-screen" style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ paddingBottom: bottomChrome + spacing.xl }}>
@@ -81,7 +81,7 @@ export default function ProfileTab() {
             <Text testID="profile-xp" style={{ fontFamily: fonts.display, color: colors.onBrand }}>{profile?.xp ?? 0} XP{lp.next ? ` / ${lp.next.min_xp}` : ""}</Text>
           </View>
           <View style={{ height: 12, borderRadius: 6, backgroundColor: colors.surfaceTertiary, overflow: "hidden", marginTop: spacing.xs }}>
-            <View style={{ width: `${lp.progress * 100}%`, height: "100%", backgroundColor: colors.brandSecondary }} />
+            <View style={{ width: `${Math.round((Number.isFinite(lp.progress) ? lp.progress : 0) * 100)}%`, height: "100%", backgroundColor: colors.brandSecondary }} />
           </View>
         </View>
       </View>
@@ -96,7 +96,7 @@ export default function ProfileTab() {
         {hub ? (
           <>
             <Title size={20}>Postęp specjalizacji</Title>
-            {hub.specializations.map((s) => (
+            {(hub.specializations ?? []).map((s) => (
               <Card key={s.code} testID={`profile-spec-progress-${s.code}`} onPress={() => router.push(`/specialization/${s.code}`)}>
                 <Title size={16}>{s.name}</Title>
                 <Body muted>PD {s.pd} · poziom {s.level} · misje {s.missions_completed}</Body>

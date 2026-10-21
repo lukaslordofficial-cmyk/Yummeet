@@ -41,12 +41,37 @@ export function invalidateSpecCache() { specCache = null; }
 
 // ---------- pins / map ----------
 const bboxCache = new Map<string, PinMarker[]>();
-export async function pinsInBBox(b: { south: number; west: number; north: number; east: number }, cuisine: string | null): Promise<PinMarker[]> {
+export async function pinsInBBox(
+  b: { south: number; west: number; north: number; east: number },
+  cuisine: string | null,
+  price?: { min?: number | null; max?: number | null } | null,
+): Promise<PinMarker[]> {
   const r = (n: number) => Math.round(n * 50) / 50; // ~2 km grid => cache hits on small pans
-  const key = [r(b.south), r(b.west), r(b.north), r(b.east), cuisine].join("|");
+  const pMin = price?.min ?? null;
+  const pMax = price?.max ?? null;
+  const key = [r(b.south), r(b.west), r(b.north), r(b.east), cuisine, pMin, pMax].join("|");
   const hit = bboxCache.get(key);
   if (hit) return hit;
-  const data = await rpc<PinMarker[]>("pins_in_bbox", { p_south: r(b.south) - 0.02, p_west: r(b.west) - 0.02, p_north: r(b.north) + 0.02, p_east: r(b.east) + 0.02, p_cuisine: cuisine, p_limit: 200 });
+  const args: Record<string, unknown> = {
+    p_south: r(b.south) - 0.02,
+    p_west: r(b.west) - 0.02,
+    p_north: r(b.north) + 0.02,
+    p_east: r(b.east) + 0.02,
+    p_cuisine: cuisine,
+    p_limit: 200,
+  };
+  if (pMin != null || pMax != null) {
+    args.p_price_min = pMin;
+    args.p_price_max = pMax;
+  }
+  let data: PinMarker[];
+  try {
+    data = await rpc<PinMarker[]>("pins_in_bbox", args);
+  } catch {
+    // stara sygnatura bez cen — filtr po stronie klienta niedostępny bez price_min w markerze
+    const { p_price_min: _a, p_price_max: _b, ...legacy } = args;
+    data = await rpc<PinMarker[]>("pins_in_bbox", legacy);
+  }
   if (bboxCache.size > 50) bboxCache.clear();
   bboxCache.set(key, data);
   return data;
@@ -77,18 +102,21 @@ export async function findNearbyPin(lat: number, lng: number, radiusM = 40): Pro
 export const createPin = (a: {
   title: string; lat: number; lng: number; description?: string; cuisine?: string | null; city?: string;
   price?: number | null; coverUrl?: string | null; address?: string | null;
-  priceMin?: number | null; priceMax?: number | null;
+  priceMin?: number | null; priceMax?: number | null; website?: string | null;
 }) =>
   rpc<string>("create_pin", {
     p_title: a.title, p_lat: a.lat, p_lng: a.lng, p_description: a.description || null, p_cuisine: a.cuisine || null,
     p_city: a.city || null, p_price_level: a.price ?? null, p_cover_url: a.coverUrl || null, p_address: a.address || null,
-    p_price_min: a.priceMin ?? null, p_price_max: a.priceMax ?? null,
+    p_price_min: a.priceMin ?? null, p_price_max: a.priceMax ?? null, p_website: a.website || null,
   });
 export const updatePin = (a: {
   pinId: string; title?: string | null; description?: string | null; cuisine?: string | null;
   city?: string | null; address?: string | null; priceMin?: number | null; priceMax?: number | null;
   menuText?: string | null; menuPhotoUrl?: string | null; menuPdfUrl?: string | null;
-  tags?: string[] | null; coverUrl?: string | null;
+  tags?: string[] | null; coverUrl?: string | null; website?: string | null;
+  phone?: string | null;
+  orderWoltUrl?: string | null; orderPyszneUrl?: string | null;
+  orderGlovoUrl?: string | null; orderUberUrl?: string | null;
 }) =>
   rpc<any>("update_pin", {
     p_pin: a.pinId,
@@ -104,7 +132,14 @@ export const updatePin = (a: {
     p_tags: a.tags ?? null,
     p_cover_url: a.coverUrl ?? null,
     p_menu_pdf_url: a.menuPdfUrl ?? null,
+    p_website: a.website ?? null,
+    p_phone: a.phone ?? null,
+    p_order_wolt_url: a.orderWoltUrl ?? null,
+    p_order_pyszne_url: a.orderPyszneUrl ?? null,
+    p_order_glovo_url: a.orderGlovoUrl ?? null,
+    p_order_uber_url: a.orderUberUrl ?? null,
   });
+export const deletePin = (pinId: string) => rpc("delete_pin", { p_pin: pinId });
 export const markVisited = (pin: string, lat: number, lng: number) => rpc("mark_visited", { p_pin: pin, p_lat: lat, p_lng: lng });
 export async function saveReview(pinId: string, r: { food: number; atmosphere: number; service: number; price_value: number; purposes: string[]; best_dish?: string; tip?: string; body?: string }) {
   const me = await uid();
@@ -121,6 +156,15 @@ export const missionCancel = (um: string) => rpc("mission_cancel", { p_um: um })
 export const missionSubmit = (um: string, kind: string, content: string, confirmer?: string | null) =>
   rpc<any>("mission_submit", { p_um: um, p_kind: kind, p_content: content, p_confirmer: confirmer ?? null });
 export const missionConfirm = (um: string, approve: boolean) => rpc<any>("mission_confirm", { p_um: um, p_approve: approve });
+export const missionCommunityReview = (um: string, approve: boolean) =>
+  rpc<any>("mission_community_review", { p_um: um, p_approve: approve });
+export type MissionReviewInboxRow = {
+  user_mission_id: string; mission_name: string; mission_code: string; owner_name: string;
+  submitted_at: string | null; review_deadline: string | null; evidence: string | null;
+  approvals?: number; approvals_needed?: number; linked_pin_id?: string | null;
+};
+export const missionReviewInbox = (limit = 30) =>
+  rpc<MissionReviewInboxRow[]>("mission_review_inbox", { p_limit: limit });
 export async function confirmRequests() {
   return must(supabase.from("user_missions").select("id,status,submitted_at,user_id,mission:mission_definitions(name),owner:profiles!user_missions_user_id_fkey(display_name)")
     .eq("confirmer_id", await uid()).eq("status", "pending_confirmation"));
@@ -157,7 +201,8 @@ export const duelForfeit = (id: string) => rpc("duel_forfeit", { p_duel: id });
 export const duelLeaderboard = (lat: number, lng: number, limit = 20) =>
   rpc<any[]>("duel_leaderboard", { p_lat: lat, p_lng: lng, p_limit: limit });
 export const setDuelMode = (on: boolean) => rpc("set_duel_mode", { p_enabled: on });
-export const presencePing = (lat: number, lng: number) => rpc<{ duels?: string[] }>("presence_ping", { p_lat: lat, p_lng: lng });
+export const presencePing = (lat: number, lng: number) =>
+  rpc<{ duels?: string[]; conversations?: string[] }>("presence_ping", { p_lat: lat, p_lng: lng });
 export const touchLocation = (lat: number, lng: number) => rpc("touch_location", { p_lat: lat, p_lng: lng });
 
 // ---------- people ----------
@@ -360,24 +405,36 @@ export async function foodOfferDetails(id: string): Promise<FoodOffer | null> {
   if (!r) return null;
   return { ...r, owner: { display_name: r.owner_name ?? "Yummiter" } };
 }
+export type CookingTipKind = "recipe" | "lifehack";
 export type CookingTip = {
   id: string; author_id: string; title: string; body: string; photo_url: string | null; created_at: string;
+  tip_kind?: CookingTipKind | null;
   author?: { display_name: string } | null; author_name?: string | null;
 };
-export async function listCookingTipsNearby(lat: number, lng: number): Promise<CookingTip[]> {
-  const rows = await rpc<any[]>("list_tips_nearby", { p_lat: lat, p_lng: lng, p_limit: 50 });
+export const TIP_KINDS: { key: CookingTipKind; label: string; hint: string }[] = [
+  { key: "recipe", label: "Przepisy", hint: "Pełny przepis na danie — składniki i kroki." },
+  { key: "lifehack", label: "Life Hacki", hint: "Szybka sztuczka kuchenna, trik albo life hack." },
+];
+export async function listCookingTipsNearby(lat: number, lng: number, kind?: CookingTipKind | null): Promise<CookingTip[]> {
+  const rows = await rpc<any[]>("list_tips_nearby", {
+    p_lat: lat, p_lng: lng, p_limit: 50, p_kind: kind ?? null,
+  });
   return (rows ?? []).map((r) => ({
     ...r,
+    tip_kind: (r.tip_kind as CookingTipKind) ?? "recipe",
     author: { display_name: r.author_name ?? "Yummiter" },
   }));
 }
-export async function createCookingTip(title: string, body: string, photoUrl: string | null, lat: number, lng: number) {
+export async function createCookingTip(
+  title: string, body: string, photoUrl: string | null, lat: number, lng: number, kind: CookingTipKind = "recipe",
+) {
   return rpc<string>("publish_cooking_tip", {
     p_title: title.trim(),
     p_body: body.trim(),
     p_photo_url: photoUrl,
     p_lat: lat,
     p_lng: lng,
+    p_kind: kind,
   });
 }
 
@@ -405,6 +462,50 @@ export const listMessages = (conv: string) =>
   must(supabase.from("messages").select("id,body,sender_id,created_at").eq("conversation_id", conv).order("created_at", { ascending: false }).limit(50)) as Promise<any[]>;
 export async function sendMessage(conv: string, body: string) {
   return must(supabase.from("messages").insert({ conversation_id: conv, body, sender_id: await uid() }));
+}
+
+// ---------- notifications ----------
+export type AppNotification = {
+  id: string;
+  kind: string;
+  title: string;
+  body: string | null;
+  data: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+};
+export async function listMyNotifications(limit = 50): Promise<AppNotification[]> {
+  return must(
+    supabase
+      .from("notifications")
+      .select("id,kind,title,body,data,read_at,created_at")
+      .eq("user_id", await uid())
+      .order("created_at", { ascending: false })
+      .limit(limit),
+  ) as Promise<AppNotification[]>;
+}
+export async function unreadNotificationsCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", await uid())
+    .is("read_at", null);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+export async function markNotificationRead(id: string) {
+  return must(
+    supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id).eq("user_id", await uid()),
+  );
+}
+export async function markAllNotificationsRead() {
+  return must(
+    supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("user_id", await uid())
+      .is("read_at", null),
+  );
 }
 
 // ---------- games ----------

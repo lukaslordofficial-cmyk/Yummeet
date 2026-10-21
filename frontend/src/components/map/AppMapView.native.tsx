@@ -86,7 +86,7 @@ export function AppMapView({
     <WebView
       ref={webRef}
       originWhitelist={["*"]}
-      source={{ html }}
+      source={{ html, baseUrl: "https://localhost" }}
       style={[styles.web, style]}
       javaScriptEnabled
       domStorageEnabled

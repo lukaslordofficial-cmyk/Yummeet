@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 
-import { Body, Button, Chip, ChipRow, Field, Title } from "@/src/components/ui";
+import { Body, Chip, ChipRow, Field, Title } from "@/src/components/ui";
 import { CUISINES, customCuisineKey } from "@/src/lib/cuisines";
 import { spacing } from "@/src/theme";
 
@@ -52,24 +52,16 @@ export function PinCategoryFields({
       />
       {isCustom ? <Body muted>Zapisane jako: {cuisine}</Body> : null}
 
-      <Title size={16}>Zakres cen dań (PLN)</Title>
-      <Body muted>Od najtańszej pozycji w menu do najdroższej.</Body>
+      <Title size={16}>Zakres cen dań (PLN) *</Title>
+      <Body muted>Wymagane: najtańsze i najdroższe danie w menu (zł).</Body>
       <View style={{ flexDirection: "row", gap: spacing.md }}>
         <View style={{ flex: 1 }}>
-          <Field testID="new-pin-price-min" label="Od (zł)" value={priceMin} onChangeText={onPriceMin} keyboardType="number-pad" placeholder="np. 18" />
+          <Field testID="new-pin-price-min" label="Najtańsze (zł) *" value={priceMin} onChangeText={onPriceMin} keyboardType="number-pad" placeholder="np. 18" />
         </View>
         <View style={{ flex: 1 }}>
-          <Field testID="new-pin-price-max" label="Do (zł)" value={priceMax} onChangeText={onPriceMax} keyboardType="number-pad" placeholder="np. 89" />
+          <Field testID="new-pin-price-max" label="Najdroższe (zł) *" value={priceMax} onChangeText={onPriceMax} keyboardType="number-pad" placeholder="np. 89" />
         </View>
       </View>
-      {priceMin && priceMax ? (
-        <Button
-          testID="new-pin-price-clear"
-          title="Wyczyść ceny"
-          variant="ghost"
-          onPress={() => { onPriceMin(""); onPriceMax(""); }}
-        />
-      ) : null}
     </View>
   );
 }

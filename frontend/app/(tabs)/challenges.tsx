@@ -7,7 +7,7 @@ import { Icon } from "@/src/components/Icon";
 import { Badge, Body, Button, Card, Chip, ChipRow, EmptyState, ErrorState, IconButton, Loading, Title, useToast } from "@/src/components/ui";
 import { DUEL_OUTCOME_LABEL, DUEL_STATUS_LABEL, MISSION_STATUS_LABEL, OPEN_DUEL_STATUSES } from "@/src/domain/rules";
 import { errorMessage } from "@/src/lib/api";
-import { cardHistory, confirmRequests, duelLeaderboard, getSpecializationHub, missionBoard, missionConfirm, missionHistory, myDuels, touchLocation, type SpecHub } from "@/src/lib/data";
+import { cardHistory, confirmRequests, duelLeaderboard, getSpecializationHub, missionBoard, missionCommunityReview, missionConfirm, missionHistory, missionReviewInbox, myDuels, touchLocation, type MissionReviewInboxRow, type SpecHub } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
 import { usesNativeTabs } from "@/src/navigation";
 import { useAuth } from "@/src/providers/AuthProvider";
@@ -35,6 +35,7 @@ export default function Challenges() {
   const [hub, setHub] = useState<SpecHub | null>(null);
   const [filter, setFilter] = useState<MissionFilter>("all");
   const [requests, setRequests] = useState<any[]>([]);
+  const [communityReviews, setCommunityReviews] = useState<MissionReviewInboxRow[]>([]);
   const [duels, setDuels] = useState<any[] | null>(null);
   const [leaders, setLeaders] = useState<any[]>([]);
   const [history, setHistory] = useState<{ missions: any[]; cards: any[] } | null>(null);
@@ -45,8 +46,13 @@ export default function Challenges() {
     try {
       setError(null);
       if (seg === "missions") {
-        const [b, r, h] = await Promise.all([missionBoard(), confirmRequests(), getSpecializationHub()]);
-        setBoard(b); setRequests(r as any[]); setHub(h);
+        const [b, r, h, inbox] = await Promise.all([
+          missionBoard(),
+          confirmRequests(),
+          getSpecializationHub(),
+          missionReviewInbox(20).catch(() => [] as MissionReviewInboxRow[]),
+        ]);
+        setBoard(b); setRequests(r as any[]); setHub(h); setCommunityReviews(inbox ?? []);
       }
       if (seg === "duels") {
         const d = await myDuels();
@@ -66,6 +72,18 @@ export default function Challenges() {
 
   const confirm = async (id: string, ok: boolean) => {
     try { await missionConfirm(id, ok); toast(ok ? "Potwierdzono wykonanie misji" : "Odrzucono", ok ? "success" : "info"); load(); } catch (e) { toast(errorMessage(e), "error"); }
+  };
+  const communityConfirm = async (id: string, ok: boolean) => {
+    try {
+      const res = await missionCommunityReview(id, ok);
+      if (!ok) toast("Odrzucono dowód misji", "info");
+      else if (res?.approved_partial) {
+        toast(`Twój głos: ${res.approvals}/${res.needed} — +${res?.reviewer_xp ?? 5} PD Detektyw`, "success");
+      } else if (ok) {
+        toast(`Misja zaliczona — +${res?.reviewer_xp ?? 5} PD Detektyw`, "success");
+      }
+      load();
+    } catch (e) { toast(errorMessage(e), "error"); }
   };
 
   const filtered = useMemo(() => {
@@ -114,6 +132,33 @@ export default function Challenges() {
           ))}
         </ChipRow>
 
+        {communityReviews.map((r) => (
+          <Card key={r.user_mission_id} testID={`community-review-${r.user_mission_id}`} accent={colors.warning}>
+            <Title size={16}>Weryfikacja społeczności</Title>
+            <Body>
+              {r.owner_name} wykonuje misję „{r.mission_name}” i przesyła dowody. Sprawdź, czy uczciwie ją wykonał(a), czy chce nas oszukać.
+            </Body>
+            <Body muted>
+              Akceptacje: {r.approvals ?? 0}/{r.approvals_needed ?? 1} (wystarczy 1)
+            </Body>
+            {r.evidence ? <Body muted numberOfLines={4}>{r.evidence}</Body> : null}
+            {r.linked_pin_id ? (
+              <Button
+                testID={`community-open-pin-${r.user_mission_id}`}
+                title="Otwórz pin na mapie"
+                variant="ghost"
+                onPress={() => router.push(`/pin/${r.linked_pin_id}`)}
+              />
+            ) : null}
+            {r.review_deadline ? (
+              <Body muted>Auto-zaliczenie: {new Date(r.review_deadline).toLocaleString("pl-PL")}</Body>
+            ) : null}
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              <Button testID={`community-approve-${r.user_mission_id}`} title="Uczciwie (+5 PD)" variant="secondary" style={{ flex: 1 }} onPress={() => communityConfirm(r.user_mission_id, true)} />
+              <Button testID={`community-reject-${r.user_mission_id}`} title="Oszustwo" variant="ghost" onPress={() => communityConfirm(r.user_mission_id, false)} />
+            </View>
+          </Card>
+        ))}
         {requests.map((r) => (
           <Card key={r.id} testID={`confirm-request-${r.id}`} accent={colors.info}>
             <Title size={16}>Prośba o potwierdzenie</Title>

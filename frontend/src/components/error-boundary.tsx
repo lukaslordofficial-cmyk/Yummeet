@@ -49,9 +49,9 @@ function ErrorFallback({ error, resetError }: { error: Error; resetError: () => 
   return (
     <View style={styles.container} testID="error-fallback">
       <View style={styles.content}>
-        <Text style={styles.title}>Something went wrong</Text>
-        <Text style={styles.message}>Please reload the app to continue.</Text>
-        {__DEV__ ? <Text style={styles.devMessage}>{error.message}</Text> : null}
+        <Text style={styles.title}>Coś poszło nie tak</Text>
+        <Text style={styles.message}>Odśwież aplikację, żeby kontynuować.</Text>
+        <Text style={styles.devMessage} selectable>{error.message}</Text>
         <Pressable
           onPress={handleReload}
           testID="error-fallback-reload"

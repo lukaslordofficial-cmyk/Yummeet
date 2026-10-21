@@ -44,6 +44,10 @@ const MESSAGES: Record<string, string> = {
   invalid_body: "Opis triku musi mieć min. 10 znaków.",
   invalid_portions: "Podaj liczbę porcji (1–200).",
   invalid_kind: "Nieprawidłowy typ oferty.",
+  pin_not_found: "Tego pinu już nie ma na mapie.",
+  website_too_long: "Adres strony jest za długi.",
+  phone_too_long: "Numer telefonu jest za długi.",
+  order_url_too_long: "Link do dostawcy jest za długi.",
 };
 
 export function errorMessage(e: unknown): string {
@@ -52,6 +56,9 @@ export function errorMessage(e: unknown): string {
   if (key) return MESSAGES[key];
   if (raw.includes("schema cache") || raw.includes("does not exist") || raw.includes("public.events")) {
     return "Baza niegotowa: w SQL Editor uruchom migracje z docs/SETUP.md (w tym 012_repair_specs_duels.sql, potem 011).";
+  }
+  if (raw === "timeout" || /network request failed|failed to fetch|aborted/i.test(raw)) {
+    return "Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.";
   }
   if (/invalid api key/i.test(raw)) {
     return "Nieprawidłowy klucz Supabase. W frontend/.env wstaw URL i anon key z tego samego projektu (Settings → API).";
@@ -65,13 +72,20 @@ export function errorMessage(e: unknown): string {
 }
 
 export async function rpc<T = unknown>(fn: string, args?: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.rpc(fn, args);
+  const call = supabase.rpc(fn, args);
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error("timeout")), 20000);
+  });
+  const { data, error } = await Promise.race([call, timeout]);
   if (error) throw new Error(error.message);
   return data as T;
 }
 
 export async function must<T>(p: PromiseLike<{ data: T | null; error: { message: string } | null }>): Promise<T> {
-  const { data, error } = await p;
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error("timeout")), 20000);
+  });
+  const { data, error } = await Promise.race([Promise.resolve(p), timeout]);
   if (error) throw new Error(error.message);
   return data as T;
 }

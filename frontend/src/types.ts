@@ -22,8 +22,8 @@ export interface Profile {
   spice_tolerance_label?: string | null;
   superpowers?: string[];
   collab_forms?: string[];
-  cooking_paid_enabled?: boolean;
-  cooking_legal_consents?: Record<string, boolean>;
+  cooking_paid_enabled?: boolean | null;
+  cooking_legal_consents?: Record<string, boolean | string>;
 }
 
 export interface Specialization { code: string; name: string; description: string; color: string; icon: string; sort: number }
@@ -43,7 +43,8 @@ export interface UserCard { id: string; status: string; acquired_at: string; sou
 export type MissionStatus = "available" | "accepted" | "in_progress" | "pending_confirmation" | "completed" | "rejected" | "cancelled" | "expired";
 export interface BoardMission {
   mission_id: string; code: string; name: string; description: string; category: string; specialization_code: string | null;
-  participation: string; difficulty: number; confirmation_method: "self" | "code" | "peer" | "organizer" | "photo" | "location";
+  participation: string; difficulty: number;
+  confirmation_method: "self" | "code" | "peer" | "organizer" | "photo" | "location" | "peer_pool" | "event_checkin" | "food_offer" | "food_tip" | "pin_peer" | "system";
   duration_hours: number; reward_xp: number; steps: string[]; safety_rules: string | null; is_primary: boolean | null;
   user_mission_id: string | null; user_status: MissionStatus; expires_at: string | null; completions: number; card_reward_count: number;
 }

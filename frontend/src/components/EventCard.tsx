@@ -14,7 +14,7 @@ export const formatDate = (iso: string) =>
 
 export function EventCard({ event, onPress }: { event: EventRow; onPress: () => void }) {
   const { colors } = useTheme();
-  const free = event.capacity - event.seats_taken;
+  const free = Number(event.capacity ?? 0) - Number(event.seats_taken ?? 0);
   return (
     <Card testID={`event-card-${event.id}`} onPress={onPress} accent={event.is_official ? colors.rarityLegendary : undefined}>
       <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>

@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,11 +8,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppMapView } from "@/src/components/map/AppMapView";
 import { PinCategoryFields } from "@/src/components/PinCategoryFields";
 import { Body, Button, Field, Header, Title, useToast } from "@/src/components/ui";
+import { useSharedDeliveryLink } from "@/src/hooks/useSharedDeliveryLink";
 import { errorMessage } from "@/src/lib/api";
 import { createPin, findNearbyPin, invalidatePins, updatePin, type NearbyPin } from "@/src/lib/data";
+import {
+  DELIVERY_SHARE_HINT,
+  firstDeliveryValidationError,
+  validateDeliveryUrl,
+} from "@/src/lib/deliveryLinks";
 import { getCurrentPosition } from "@/src/lib/location";
+import { openDeliveryOrWeb } from "@/src/lib/openExternal";
+import { resolveMenuUrl } from "@/src/lib/pinWebsite";
 import { reverseGeocode } from "@/src/lib/routing";
-import { pickMenuPdf, pickPinPhoto } from "@/src/lib/storage";
+import { pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { radius, spacing, useTheme } from "@/src/theme";
 
@@ -22,6 +30,7 @@ export default function NewPin() {
   const router = useRouter();
   const toast = useToast();
   const { session } = useAuth();
+  useLocalSearchParams<{ fromShare?: string }>();
 
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [followToken, setFollowToken] = useState(0);
@@ -29,15 +38,39 @@ export default function NewPin() {
   const [description, setDescription] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
+  const [website, setWebsite] = useState("");
+  const [phone, setPhone] = useState("");
+  const [orderWolt, setOrderWolt] = useState("");
+  const [orderPyszne, setOrderPyszne] = useState("");
+  const [orderGlovo, setOrderGlovo] = useState("");
+  const [orderUber, setOrderUber] = useState("");
   const [cuisine, setCuisine] = useState<string | null>(null);
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [menuPhoto, setMenuPhoto] = useState<string | null>(null);
-  const [menuPdf, setMenuPdf] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [nearby, setNearby] = useState<NearbyPin | null>(null);
+
+  const onSharedLink = useCallback(
+    (url: string, target: "wolt" | "pyszne" | "glovo" | "uber" | "website") => {
+      if (target === "wolt") setOrderWolt(url);
+      else if (target === "pyszne") setOrderPyszne(url);
+      else if (target === "glovo") setOrderGlovo(url);
+      else if (target === "uber") setOrderUber(url);
+      else setWebsite(url);
+
+      const label =
+        target === "wolt" ? "Wolt"
+          : target === "pyszne" ? "Pyszne.pl"
+            : target === "glovo" ? "Glovo"
+              : target === "uber" ? "Uber Eats"
+                : "strony www";
+      toast(`Link z ${label} wklejony do formularza`, "success");
+    },
+    [toast],
+  );
+  useSharedDeliveryLink(onSharedLink);
 
   useEffect(() => {
     if (!pos) { setNearby(null); return; }
@@ -45,6 +78,12 @@ export default function NewPin() {
     findNearbyPin(pos.lat, pos.lng, 40).then((hit) => { if (alive) setNearby(hit); });
     return () => { alive = false; };
   }, [pos?.lat, pos?.lng]);
+
+  const woltError = useMemo(() => validateDeliveryUrl("wolt", orderWolt), [orderWolt]);
+  const pyszneError = useMemo(() => validateDeliveryUrl("pyszne", orderPyszne), [orderPyszne]);
+  const glovoError = useMemo(() => validateDeliveryUrl("glovo", orderGlovo), [orderGlovo]);
+  const uberError = useMemo(() => validateDeliveryUrl("uber", orderUber), [orderUber]);
+  const deliveryBlocked = !!(woltError || pyszneError || glovoError || uberError);
 
   const locate = async () => {
     const p = await getCurrentPosition();
@@ -73,35 +112,28 @@ export default function NewPin() {
     }
   };
 
-  const addMenuPhoto = async (source: "gallery" | "camera") => {
-    const uid = session?.user.id;
-    if (!uid) return toast("Zaloguj się ponownie", "error");
-    setPhotoBusy(true);
-    try {
-      const url = await pickPinPhoto(uid, source);
-      if (url) setMenuPhoto(url);
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    } finally {
-      setPhotoBusy(false);
-    }
+  const previewSite = resolveMenuUrl(website);
+  const openWebsite = () => {
+    if (!previewSite) return toast("Wpisz adres strony z menu", "info");
+    void openDeliveryOrWeb(previewSite).catch(() => toast("Nie udało się otworzyć strony", "error"));
   };
 
-  const addMenuPdf = async () => {
-    const uid = session?.user.id;
-    if (!uid) return toast("Zaloguj się ponownie", "error");
-    setPhotoBusy(true);
-    try {
-      const url = await pickMenuPdf(uid);
-      if (url) setMenuPdf(url);
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    } finally {
-      setPhotoBusy(false);
-    }
-  };
+  const orderPatch = () => ({
+    phone: phone.trim() || null,
+    orderWoltUrl: orderWolt.trim() || null,
+    orderPyszneUrl: orderPyszne.trim() || null,
+    orderGlovoUrl: orderGlovo.trim() || null,
+    orderUberUrl: orderUber.trim() || null,
+  });
 
   const save = async () => {
+    const deliveryErr = firstDeliveryValidationError({
+      wolt: orderWolt,
+      pyszne: orderPyszne,
+      glovo: orderGlovo,
+      uber: orderUber,
+    });
+    if (deliveryErr) return toast(deliveryErr, "error");
     if (title.trim().length < 2) return toast("Podaj nazwę lokalu", "error");
     if (!pos) return toast("Najpierw kliknij „Dodaj Lokal”.", "error");
     if (nearby) return toast(`„${nearby.title}” jest już na mapie.`, "error");
@@ -115,7 +147,7 @@ export default function NewPin() {
     try {
       const payload = {
         title, lat: pos.lat, lng: pos.lng, description, cuisine, city, coverUrl, address,
-        priceMin: pMin, priceMax: pMax,
+        priceMin: pMin, priceMax: pMax, website: website.trim() || null,
       };
       let id: string;
       try {
@@ -125,18 +157,15 @@ export default function NewPin() {
         if (/już na mapie|pin_already_exists/i.test(msg)) throw e;
         id = await createPin({ ...payload, coverUrl: null });
         if (coverUrl) {
-          await updatePin({ pinId: id, coverUrl, priceMin: pMin, priceMax: pMax, cuisine });
+          await updatePin({ pinId: id, coverUrl, priceMin: pMin, priceMax: pMax, cuisine, website: website.trim() || null, ...orderPatch() });
         }
       }
-      if (menuPhoto || menuPdf) {
+      const orders = orderPatch();
+      if (orders.phone || orders.orderWoltUrl || orders.orderPyszneUrl || orders.orderGlovoUrl || orders.orderUberUrl) {
         try {
-          await updatePin({
-            pinId: id,
-            menuPhotoUrl: menuPhoto,
-            menuPdfUrl: menuPdf,
-          });
-        } catch (e) {
-          toast(errorMessage(e), "info");
+          await updatePin({ pinId: id, ...orders });
+        } catch {
+          /* pin już utworzony — zamówienie można dopisać w edycji */
         }
       }
       invalidatePins();
@@ -153,7 +182,7 @@ export default function NewPin() {
     <View testID="new-pin-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="Nowy pin" />
       <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
-        <Body muted style={{ marginHorizontal: spacing.lg }}>Pin tylko z GPS na miejscu — „Dodaj Lokal”. Zdjęcie lokalu i menu: po 1 na miejsce (bez limitu miesięcznego).</Body>
+        <Body muted style={{ marginHorizontal: spacing.lg }}>Pin tylko z GPS na miejscu — „Dodaj Lokal”. Menu: link do strony lokalu.</Body>
         <Button testID="new-pin-gps" title="Dodaj Lokal" icon="crosshairs-gps" onPress={() => void locate()} style={{ marginHorizontal: spacing.lg }} />
         {pos ? (
           <View style={{ height: 180, marginHorizontal: spacing.lg, borderRadius: radius.lg, overflow: "hidden" }}>
@@ -171,6 +200,24 @@ export default function NewPin() {
         ) : null}
         <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
           <Field testID="new-pin-title-input" label="Nazwa lokalu" value={title} onChangeText={setTitle} />
+
+          <Title size={16}>Strona z menu</Title>
+          <Field testID="new-pin-website-input" label="Adres www" value={website} onChangeText={setWebsite} placeholder="https://…" autoCapitalize="none" />
+          <Button testID="new-pin-open-website" title="Otwórz stronę z menu" icon="open-in-new" variant="secondary" onPress={openWebsite} disabled={!previewSite} />
+
+          <Title size={16}>Zamówienie</Title>
+          <Body muted>Opcjonalnie — puste pola nie pokażą przycisków.</Body>
+          <Body muted>{DELIVERY_SHARE_HINT}</Body>
+          <Field testID="new-pin-phone" label="Telefon" value={phone} onChangeText={setPhone} placeholder="+48 …" keyboardType="phone-pad" autoCapitalize="none" />
+          <Field testID="new-pin-wolt" label="Link Wolt" value={orderWolt} onChangeText={setOrderWolt} placeholder="https://wolt.com/…" autoCapitalize="none" />
+          {woltError ? <Body testID="new-pin-wolt-error" style={{ color: colors.error }}>{woltError}</Body> : null}
+          <Field testID="new-pin-pyszne" label="Link Pyszne.pl" value={orderPyszne} onChangeText={setOrderPyszne} placeholder="https://www.pyszne.pl/…" autoCapitalize="none" />
+          {pyszneError ? <Body testID="new-pin-pyszne-error" style={{ color: colors.error }}>{pyszneError}</Body> : null}
+          <Field testID="new-pin-glovo" label="Link Glovo" value={orderGlovo} onChangeText={setOrderGlovo} placeholder="https://glovoapp.com/…" autoCapitalize="none" />
+          {glovoError ? <Body testID="new-pin-glovo-error" style={{ color: colors.error }}>{glovoError}</Body> : null}
+          <Field testID="new-pin-uber" label="Link Uber Eats" value={orderUber} onChangeText={setOrderUber} placeholder="https://www.ubereats.com/…" autoCapitalize="none" />
+          {uberError ? <Body testID="new-pin-uber-error" style={{ color: colors.error }}>{uberError}</Body> : null}
+
           <Field testID="new-pin-description-input" label="Opis" value={description} onChangeText={setDescription} multiline style={{ minHeight: 80 }} />
           <Field testID="new-pin-city-input" label="Miasto" value={city} onChangeText={setCity} />
           <Field testID="new-pin-address-input" label="Adres" value={address} onChangeText={setAddress} />
@@ -185,17 +232,15 @@ export default function NewPin() {
             <Button testID="new-pin-cover-camera" title="Zrób zdjęcie lokalu" icon="camera" variant="secondary" loading={photoBusy} style={{ flex: 1 }} onPress={() => void addCover("camera")} />
             <Button testID="new-pin-cover-gallery" title="Wgraj zdjęcie lokalu" icon="image" variant="ghost" loading={photoBusy} style={{ flex: 1 }} onPress={() => void addCover("gallery")} />
           </View>
-
-          <Title size={16}>Menu</Title>
-          {menuPhoto ? <Image source={{ uri: menuPhoto }} style={{ width: "100%", height: 160, borderRadius: radius.md }} contentFit="cover" /> : null}
-          <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            <Button testID="new-pin-menu-camera" title="Zrób zdjęcie menu" icon="camera" variant="secondary" loading={photoBusy} style={{ flex: 1 }} onPress={() => void addMenuPhoto("camera")} />
-            <Button testID="new-pin-menu-gallery" title="Wgraj zdjęcie menu" icon="image" variant="ghost" loading={photoBusy} style={{ flex: 1 }} onPress={() => void addMenuPhoto("gallery")} />
-          </View>
-          {menuPdf ? <Body muted testID="new-pin-menu-pdf-ready">PDF menu gotowy do publikacji.</Body> : null}
-          <Button testID="new-pin-menu-pdf" title="Wgraj PDF menu" icon="file-pdf-box" variant="secondary" loading={photoBusy} onPress={() => void addMenuPdf()} />
         </View>
-        <Button testID="new-pin-save-button" title="Opublikuj pin" loading={busy} disabled={!!nearby || !pos} onPress={() => void save()} style={{ marginHorizontal: spacing.lg }} />
+        <Button
+          testID="new-pin-save-button"
+          title="Opublikuj pin"
+          loading={busy}
+          disabled={!!nearby || !pos || deliveryBlocked}
+          onPress={() => void save()}
+          style={{ marginHorizontal: spacing.lg }}
+        />
       </KeyboardAwareScrollView>
     </View>
   );

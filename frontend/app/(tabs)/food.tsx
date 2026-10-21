@@ -37,7 +37,7 @@ type Seg = "exchange" | "giveaway" | "signature" | "tips";
 const SEGMENTS: { key: Seg; label: string; kind?: FoodOfferKind }[] = [
   { key: "exchange", label: "Wymiana", kind: "exchange" },
   { key: "giveaway", label: "Oddam", kind: "giveaway" },
-  { key: "signature", label: "Popisowe", kind: "signature" },
+  { key: "signature", label: "Zamówienia", kind: "signature" },
   { key: "tips", label: "Inspiracje" },
 ];
 
@@ -189,7 +189,7 @@ export default function FoodTab() {
   const composeLabel =
     seg === "tips" ? "Dodaj inspirację"
       : seg === "giveaway" ? "Oddaj jedzenie"
-        : seg === "signature" ? "Dodaj popisowe danie"
+        : seg === "signature" ? "Dodaj zamówienie"
           : "Zaproponuj wymianę";
 
   const isOfferDetail = detail && "portions" in detail;
@@ -317,7 +317,7 @@ export default function FoodTab() {
               testID="food-offers-empty"
               icon="food"
               title="Brak ofert w 20 km"
-              text={seg === "giveaway" ? "Nikt w okolicy nie oddaje jedzenia." : seg === "signature" ? "Brak popisowych dań w okolicy." : "Zaproponuj pierwszą wymianę w okolicy."}
+              text={seg === "giveaway" ? "Nikt w okolicy nie oddaje jedzenia." : seg === "signature" ? "Brak zamówień w okolicy." : "Zaproponuj pierwszą wymianę w okolicy."}
             />
           }
           renderItem={({ item }) => (

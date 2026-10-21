@@ -48,6 +48,29 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 17. **`supabase/migrations/019_photo_slots_bootstrap.sql`** — **uruchom ten plik** (kompletny): tworzy `photo_slots`, cleanup 48 h, hooki publikacji. Działa nawet gdy 017/018 nie przeszły.
 18. **`supabase/migrations/020_signature_deal_mode.sql`** — Popisowe: tryb współpracy (`paid` / `ingredients_split`) + szczegóły oferty.
 19. **`supabase/migrations/021_organizer_reviews.sql`** — oceny organizatorów spotkań (gwiazdki + opinie).
+20. **`supabase/migrations/021_message_notify.sql`** — powiadomienie przy nowej wiadomości na czacie. (osobny plik obok `021_organizer_reviews` — uruchom oba)
+21. **`supabase/migrations/022_tips_kinds_duel_chat.sql`** — Inspiracje: Przepisy / Life Hacki; czat przy złapaniu na pojedynek (proximity).
+22. **`supabase/migrations/023_mission_book_cards.sql`** — Karty do księgi 1:1 z misjami (Smaczne Odkrycia + Gospodarz Stołu); nagroda po ukończeniu misji.
+23. **`supabase/migrations/024_mission_verify_secure.sql`** — Zabezpieczenie ukończenia misji: `verify_kind`, peer review 24 h (+5 PD Detektyw), auto-zaliczenie stołów (uczestnik + check-in) i ogłoszeń/przepisów w Jedzeniu. **Wymagane**, żeby nie dało się zaliczyć misji wpisaniem dowolnego tekstu.
+24. **`supabase/migrations/025_mission_peer2_pin_author.sql`** — Peer review: max 5 osób, **1 akceptacja**; auto-powiązanie pinu z misją; autor pinu; min. 20 znaków.
+25. **`supabase/migrations/026_repair_pin_update_journal.sql`** — **NAPRAWA** gdy edycja pinu / dziennik spotkań / 025 pada na `menu_pdf_url`. Dodaje brakujące kolumny, `update_pin`, `pin_details`, `my_meeting_journal`. Uruchom **przed ponownym 025**, jeśli 025 się wywaliło.
+26. **`supabase/migrations/027_peer1_price_filter.sql`** — 1 akceptacja społeczności; DROP+recreate `mission_review_inbox`; filtr cen w `pins_in_bbox`.
+27. **`supabase/migrations/028_fix_edit_pin_price_always.sql`** — naprawa `update_pin` / cen / inbox (gdy 024 padło).
+28. **`supabase/migrations/029_fix_pin_updated_xp_cards.sql`** — FIX edycji pinu (`pins.updated_at`), połowa XP misji, powiadomienie przy karcie.
+29. **`supabase/migrations/030_mission_auto_complete.sql`** — **Auto-misje**: wykonanie akcji (pin / oferta / tip / stół+check-in) zalicza misję i daje kartę **bez** klikania „Przyjmij”. Piny idą najpierw do peer review (1× OK).
+30. **`supabase/migrations/031_fix_create_pin_overload.sql`** — **NAPRAWA** gdy dodawanie pinu pada na `PGRST203` / „Could not choose the best candidate function” (stare przeciążenia `create_pin`).
+31. **`supabase/migrations/032_warsaw_pins_website_delete.sql`** — strona www przy pinie, `delete_pin`, próbka 27 lokali z Warszawy (bez cen; menu zostaje na stronie).
+32. **`supabase/migrations/033_krakow_pins.sql`** — 27 lokali z Krakowa (różne kuchnie) oraz zdjęcie wklejonego URL-a z opisu pinów. Przycisk menu czyta kolumnę `website`.
+33. **`supabase/migrations/034_pin_website_backfill.sql`** — `pin_details` zawsze zwraca `website`; uzupełnia brakujący URL z opisu.
+34. **`supabase/migrations/035_capitals_pins.sql`** — ~330 lokali ze stroną www w pozostałych stolicach województw (bez Warszawy i Krakowa).
+35. **`supabase/migrations/036_pin_order_phone_delivery.sql`** — telefon + linki Wolt/Pyszne/Glovo/Uber Eats przy pinie; warunkowe przyciski „Zamów”.
+
+### Szybka naprawa edycji pinu
+1. **`029_fix_pin_updated_xp_cards.sql`**
+2. Odśwież apkę
+
+### Auto-zaliczanie misji
+Uruchom **`030_mission_auto_complete.sql`** (wymaga wcześniej działającego peer review z 025/027).
 
 Powiadomienia na trasie (dźwięk) + śledzenie w tle: włącz przełącznik na aktywnej trasie.
 Pełne tło (apka zamknięta) wymaga buildu z uprawnieniem „Always” lokalizacji; w Expo Go działa foreground + lokalne powiadomienia.

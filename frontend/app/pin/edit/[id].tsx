@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Linking, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -10,7 +10,14 @@ import { Body, Button, Chip, ChipRow, Field, Header, Loading, Title, useToast } 
 import { errorMessage } from "@/src/lib/api";
 import { PIN_TAGS } from "@/src/lib/cuisines";
 import { invalidatePins, pinDetails, updatePin } from "@/src/lib/data";
-import { pickMenuPdf, pickPinPhoto } from "@/src/lib/storage";
+import {
+  DELIVERY_SHARE_HINT,
+  firstDeliveryValidationError,
+  validateDeliveryUrl,
+} from "@/src/lib/deliveryLinks";
+import { openDeliveryOrWeb, resolvePhone } from "@/src/lib/openExternal";
+import { resolveMenuUrl } from "@/src/lib/pinWebsite";
+import { pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { spacing, useTheme } from "@/src/theme";
 
@@ -27,16 +34,17 @@ export default function EditPin() {
   const [description, setDescription] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
+  const [website, setWebsite] = useState("");
+  const [phone, setPhone] = useState("");
+  const [orderWolt, setOrderWolt] = useState("");
+  const [orderPyszne, setOrderPyszne] = useState("");
+  const [orderGlovo, setOrderGlovo] = useState("");
+  const [orderUber, setOrderUber] = useState("");
   const [cuisine, setCuisine] = useState<string | null>(null);
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
-  const [menuText, setMenuText] = useState("");
-  const [menuPhoto, setMenuPhoto] = useState<string | null>(null);
-  const [menuPdf, setMenuPdf] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [hadCover, setHadCover] = useState(false);
-  const [hadMenuPhoto, setHadMenuPhoto] = useState(false);
-  const [hadMenuPdf, setHadMenuPdf] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -48,16 +56,17 @@ export default function EditPin() {
       setDescription(p.description ?? "");
       setCity(p.city ?? "");
       setAddress(p.address ?? "");
+      setWebsite(p.website ?? resolveMenuUrl(p.description) ?? "");
+      setPhone(p.phone ?? resolvePhone(p.description) ?? "");
+      setOrderWolt(p.order_wolt_url ?? "");
+      setOrderPyszne(p.order_pyszne_url ?? "");
+      setOrderGlovo(p.order_glovo_url ?? "");
+      setOrderUber(p.order_uber_url ?? "");
       setCuisine(p.cuisine ?? null);
       setPriceMin(p.price_min != null ? String(p.price_min) : "");
       setPriceMax(p.price_max != null ? String(p.price_max) : "");
-      setMenuText(p.menu_text ?? "");
-      setMenuPhoto(p.menu_photo_url ?? null);
-      setMenuPdf(p.menu_pdf_url ?? null);
       setCoverUrl(p.cover_url ?? null);
       setHadCover(!!p.cover_url);
-      setHadMenuPhoto(!!p.menu_photo_url);
-      setHadMenuPdf(!!p.menu_pdf_url);
       setTags(Array.isArray(p.tags) ? p.tags : []);
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -87,60 +96,56 @@ export default function EditPin() {
     }
   };
 
-  const addMenuPhoto = async (source: "gallery" | "camera") => {
-    if (hadMenuPhoto) return toast("Menu ma już zdjęcie — nie można dodać kolejnego.", "info");
-    const uid = session?.user.id;
-    if (!uid) return toast("Zaloguj się ponownie", "error");
-    setPhotoBusy(true);
-    try {
-      const url = await pickPinPhoto(uid, source);
-      if (url) setMenuPhoto(url);
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    } finally {
-      setPhotoBusy(false);
-    }
+  const previewSite = resolveMenuUrl(website);
+  const openWebsite = () => {
+    if (!previewSite) return toast("Wpisz adres strony z menu", "info");
+    void openDeliveryOrWeb(previewSite).catch(() => toast("Nie udało się otworzyć strony", "error"));
   };
 
-  const addMenuPdfFile = async () => {
-    if (hadMenuPdf) return toast("Menu ma już PDF — nie można dodać kolejnego.", "info");
-    const uid = session?.user.id;
-    if (!uid) return toast("Zaloguj się ponownie", "error");
-    setPhotoBusy(true);
-    try {
-      const url = await pickMenuPdf(uid);
-      if (url) setMenuPdf(url);
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    } finally {
-      setPhotoBusy(false);
-    }
-  };
+  const woltError = useMemo(() => validateDeliveryUrl("wolt", orderWolt), [orderWolt]);
+  const pyszneError = useMemo(() => validateDeliveryUrl("pyszne", orderPyszne), [orderPyszne]);
+  const glovoError = useMemo(() => validateDeliveryUrl("glovo", orderGlovo), [orderGlovo]);
+  const uberError = useMemo(() => validateDeliveryUrl("uber", orderUber), [orderUber]);
+  const deliveryBlocked = !!(woltError || pyszneError || glovoError || uberError);
 
   const save = async () => {
+    const deliveryErr = firstDeliveryValidationError({
+      wolt: orderWolt,
+      pyszne: orderPyszne,
+      glovo: orderGlovo,
+      uber: orderUber,
+    });
+    if (deliveryErr) return toast(deliveryErr, "error");
     if (title.trim().length < 2) return toast("Podaj nazwę lokalu", "error");
-    const pMin = priceMin.trim() ? Number(priceMin) : null;
-    const pMax = priceMax.trim() ? Number(priceMax) : null;
-    if ((pMin != null && !Number.isFinite(pMin)) || (pMax != null && !Number.isFinite(pMax))) {
-      return toast("Ceny muszą być liczbami", "error");
+    const priceBlank = !priceMin.trim() && !priceMax.trim();
+    if (!priceBlank && (!priceMin.trim() || !priceMax.trim())) {
+      return toast("Podaj obie ceny albo zostaw obie puste.", "error");
     }
-    if (pMin != null && pMax != null && pMax < pMin) return toast("Cena „do” nie może być niższa niż „od”.", "error");
+    const pMin = priceBlank ? null : Number(priceMin);
+    const pMax = priceBlank ? null : Number(priceMax);
+    if (!priceBlank && (pMin == null || pMax == null || !Number.isFinite(pMin) || !Number.isFinite(pMax) || pMin < 0 || pMax < 0)) {
+      return toast("Ceny muszą być liczbami ≥ 0", "error");
+    }
+    if (!priceBlank && pMin != null && pMax != null && pMax < pMin) return toast("Najdroższe nie może być niższe niż najtańsze.", "error");
     setBusy(true);
     try {
       await updatePin({
         pinId: id,
         title: title.trim(),
-        description: description.trim() || null,
+        description: description.replace(/Menu i ceny:\s*https?:\/\/\S+/gi, "Menu i ceny są na stronie lokalu.").trim() || null,
         cuisine,
         city: city.trim() || null,
         address: address.trim() || null,
         priceMin: pMin,
         priceMax: pMax,
-        menuText: menuText.trim() || null,
-        menuPhotoUrl: !hadMenuPhoto ? menuPhoto : null,
-        menuPdfUrl: !hadMenuPdf ? menuPdf : null,
         coverUrl: !hadCover ? coverUrl : null,
         tags,
+        website: website.trim(),
+        phone: phone.trim(),
+        orderWoltUrl: orderWolt.trim(),
+        orderPyszneUrl: orderPyszne.trim(),
+        orderGlovoUrl: orderGlovo.trim(),
+        orderUberUrl: orderUber.trim(),
       });
       invalidatePins();
       toast("Pin zaktualizowany", "success");
@@ -157,8 +162,26 @@ export default function EditPin() {
       <Header title="Edytuj lokal" />
       {loading ? <Loading /> : (
         <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
-          <Body muted>Każdy Yummiter może uzupełnić dane. Zdjęcie lokalu i menu: tylko jeśli jeszcze ich nie ma (1 na pin).</Body>
+          <Body muted>Najważniejsze: strona z menu. Zdjęcie lokalu tylko jeśli jeszcze go nie ma.</Body>
           <Field testID="edit-pin-title" label="Nazwa" value={title} onChangeText={setTitle} />
+
+          <Title size={16}>Strona z menu</Title>
+          <Field testID="edit-pin-website" label="Adres www" value={website} onChangeText={setWebsite} placeholder="https://…" autoCapitalize="none" />
+          <Button testID="edit-pin-open-website" title="Otwórz stronę z menu" icon="open-in-new" variant="secondary" onPress={openWebsite} disabled={!previewSite} />
+
+          <Title size={16}>Zamówienie</Title>
+          <Body muted>Puste pola nie pokażą przycisków na karcie lokalu.</Body>
+          <Body muted>{DELIVERY_SHARE_HINT}</Body>
+          <Field testID="edit-pin-phone" label="Telefon (zadzwoń i zamów)" value={phone} onChangeText={setPhone} placeholder="+48 …" keyboardType="phone-pad" autoCapitalize="none" />
+          <Field testID="edit-pin-wolt" label="Link Wolt" value={orderWolt} onChangeText={setOrderWolt} placeholder="https://wolt.com/…" autoCapitalize="none" />
+          {woltError ? <Body testID="edit-pin-wolt-error" style={{ color: colors.error }}>{woltError}</Body> : null}
+          <Field testID="edit-pin-pyszne" label="Link Pyszne.pl" value={orderPyszne} onChangeText={setOrderPyszne} placeholder="https://www.pyszne.pl/…" autoCapitalize="none" />
+          {pyszneError ? <Body testID="edit-pin-pyszne-error" style={{ color: colors.error }}>{pyszneError}</Body> : null}
+          <Field testID="edit-pin-glovo" label="Link Glovo" value={orderGlovo} onChangeText={setOrderGlovo} placeholder="https://glovoapp.com/…" autoCapitalize="none" />
+          {glovoError ? <Body testID="edit-pin-glovo-error" style={{ color: colors.error }}>{glovoError}</Body> : null}
+          <Field testID="edit-pin-uber" label="Link Uber Eats" value={orderUber} onChangeText={setOrderUber} placeholder="https://www.ubereats.com/…" autoCapitalize="none" />
+          {uberError ? <Body testID="edit-pin-uber-error" style={{ color: colors.error }}>{uberError}</Body> : null}
+
           <Field testID="edit-pin-description" label="Opis" value={description} onChangeText={setDescription} multiline />
           <Field testID="edit-pin-city" label="Miasto" value={city} onChangeText={setCity} />
           <Field testID="edit-pin-address" label="Adres" value={address} onChangeText={setAddress} />
@@ -188,26 +211,7 @@ export default function EditPin() {
             </View>
           )}
 
-          <Title size={16}>Menu</Title>
-          <Field testID="edit-pin-menu-text" label="Menu (tekst)" value={menuText} onChangeText={setMenuText} multiline placeholder="np. lunch 25 zł…" />
-          {menuPhoto ? <Image source={{ uri: menuPhoto }} style={{ width: "100%", height: 180, borderRadius: 12 }} contentFit="cover" /> : null}
-          {hadMenuPhoto ? (
-            <Body muted>Zdjęcie menu już jest — zablokowane.</Body>
-          ) : (
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <Button testID="edit-pin-menu-camera" title="Zrób zdjęcie menu" variant="secondary" loading={photoBusy} style={{ flex: 1 }} onPress={() => void addMenuPhoto("camera")} />
-              <Button testID="edit-pin-menu-gallery" title="Wgraj zdjęcie menu" variant="ghost" loading={photoBusy} style={{ flex: 1 }} onPress={() => void addMenuPhoto("gallery")} />
-            </View>
-          )}
-          {menuPdf ? (
-            <Button testID="edit-pin-open-pdf" title="Otwórz PDF menu" variant="ghost" onPress={() => void Linking.openURL(menuPdf)} />
-          ) : null}
-          {hadMenuPdf ? (
-            <Body muted>PDF menu już jest — zablokowany.</Body>
-          ) : (
-            <Button testID="edit-pin-menu-pdf" title="Wgraj PDF menu" variant="secondary" loading={photoBusy} onPress={() => void addMenuPdfFile()} />
-          )}
-          <Button testID="edit-pin-save" title="Zapisz zmiany" loading={busy} onPress={() => void save()} />
+          <Button testID="edit-pin-save" title="Zapisz zmiany" loading={busy} disabled={deliveryBlocked} onPress={() => void save()} />
         </KeyboardAwareScrollView>
       )}
     </View>
