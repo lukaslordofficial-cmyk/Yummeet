@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.ts";
 import { cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
@@ -39,6 +40,20 @@ test("cuisine teardrop pins differ by culinary style", () => {
   assert.equal(polish.glyph, "🥟");
   assert.equal(cuisinePinStyle(null).glyph, "🍽️");
   assert.ok(cuisinePinStyle("custom_xyz").color.startsWith("#"));
+});
+
+test("map teardrops stay small and are not rebuilt during pinch zoom", () => {
+  const html = buildLeafletHtml({
+    center: { lat: 52.23, lng: 21.01 },
+    zoom: 13,
+    markers: [{ id: "a", lat: 52.23, lng: 21.01, title: "A", color: "#E05F36", glyph: "🍕" }],
+    fitBounds: false,
+  });
+  assert.match(html, /11 \+ t \* 17/);
+  assert.match(html, /map\.on\('zoomend'/);
+  assert.equal(html.includes("map.on('zoom zoomend'"), false);
+  assert.equal(html.includes("drop-shadow"), false);
+  assert.match(html, /iconCache/);
 });
 
 test("bbox from view is valid and ordered", () => {
