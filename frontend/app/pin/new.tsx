@@ -1,10 +1,11 @@
 import { Image } from "expo-image";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DeliveryLinkField } from "@/src/components/DeliveryLinkField";
 import { AppMapView } from "@/src/components/map/AppMapView";
 import { PinCategoryFields } from "@/src/components/PinCategoryFields";
 import { Body, Button, Field, Header, Title, useToast } from "@/src/components/ui";
@@ -16,6 +17,7 @@ import {
   firstDeliveryValidationError,
   validateDeliveryUrl,
 } from "@/src/lib/deliveryLinks";
+import { setActivePinForm } from "@/src/lib/activePinForm";
 import { getCurrentPosition } from "@/src/lib/location";
 import { openDeliveryOrWeb } from "@/src/lib/openExternal";
 import { resolveMenuUrl } from "@/src/lib/pinWebsite";
@@ -28,6 +30,7 @@ export default function NewPin() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
   const toast = useToast();
   const { session } = useAuth();
   useLocalSearchParams<{ fromShare?: string }>();
@@ -71,6 +74,11 @@ export default function NewPin() {
     [toast],
   );
   useSharedDeliveryLink(onSharedLink);
+
+  useEffect(() => {
+    setActivePinForm(pathname);
+    return () => setActivePinForm(null);
+  }, [pathname]);
 
   useEffect(() => {
     if (!pos) { setNearby(null); return; }
@@ -206,17 +214,13 @@ export default function NewPin() {
           <Button testID="new-pin-open-website" title="Otwórz stronę z menu" icon="open-in-new" variant="secondary" onPress={openWebsite} disabled={!previewSite} />
 
           <Title size={16}>Zamówienie</Title>
-          <Body muted>Opcjonalnie — puste pola nie pokażą przycisków.</Body>
+          <Body muted>Puste pola nie pokażą przycisku na pinie.</Body>
           <Body muted>{DELIVERY_SHARE_HINT}</Body>
           <Field testID="new-pin-phone" label="Telefon" value={phone} onChangeText={setPhone} placeholder="+48 …" keyboardType="phone-pad" autoCapitalize="none" />
-          <Field testID="new-pin-wolt" label="Link Wolt" value={orderWolt} onChangeText={setOrderWolt} placeholder="https://wolt.com/…" autoCapitalize="none" />
-          {woltError ? <Body testID="new-pin-wolt-error" style={{ color: colors.error }}>{woltError}</Body> : null}
-          <Field testID="new-pin-pyszne" label="Link Pyszne.pl" value={orderPyszne} onChangeText={setOrderPyszne} placeholder="https://www.pyszne.pl/…" autoCapitalize="none" />
-          {pyszneError ? <Body testID="new-pin-pyszne-error" style={{ color: colors.error }}>{pyszneError}</Body> : null}
-          <Field testID="new-pin-glovo" label="Link Glovo" value={orderGlovo} onChangeText={setOrderGlovo} placeholder="https://glovoapp.com/…" autoCapitalize="none" />
-          {glovoError ? <Body testID="new-pin-glovo-error" style={{ color: colors.error }}>{glovoError}</Body> : null}
-          <Field testID="new-pin-uber" label="Link Uber Eats" value={orderUber} onChangeText={setOrderUber} placeholder="https://www.ubereats.com/…" autoCapitalize="none" />
-          {uberError ? <Body testID="new-pin-uber-error" style={{ color: colors.error }}>{uberError}</Body> : null}
+          <DeliveryLinkField platform="wolt" testID="new-pin-wolt" value={orderWolt} onChangeText={setOrderWolt} placeholder="https://wolt.com/…" error={woltError} />
+          <DeliveryLinkField platform="pyszne" testID="new-pin-pyszne" value={orderPyszne} onChangeText={setOrderPyszne} placeholder="https://www.pyszne.pl/…" error={pyszneError} />
+          <DeliveryLinkField platform="glovo" testID="new-pin-glovo" value={orderGlovo} onChangeText={setOrderGlovo} placeholder="https://glovoapp.com/…" error={glovoError} />
+          <DeliveryLinkField platform="uber" testID="new-pin-uber" value={orderUber} onChangeText={setOrderUber} placeholder="https://www.ubereats.com/…" error={uberError} />
 
           <Field testID="new-pin-description-input" label="Opis" value={description} onChangeText={setDescription} multiline style={{ minHeight: 80 }} />
           <Field testID="new-pin-city-input" label="Miasto" value={city} onChangeText={setCity} />

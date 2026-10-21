@@ -42,8 +42,8 @@ function ShareIntentBridge() {
         const Sharing = await import("expo-sharing");
         const payloads = Sharing.getSharedPayloads?.() ?? [];
         if (!payloads.length) return;
-        const onNewPin = segments[0] === "pin" && segments[1] === "new";
-        if (!onNewPin) router.push("/pin/new?fromShare=1");
+        const onPinForm = segments[0] === "pin" && (segments[1] === "new" || segments[1] === "edit");
+        if (!onPinForm) router.push("/pin/new?fromShare=1");
       } catch {
         /* brak natywnego share */
       }

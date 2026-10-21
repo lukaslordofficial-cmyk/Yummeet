@@ -1,13 +1,16 @@
 import { Image } from "expo-image";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DeliveryLinkField } from "@/src/components/DeliveryLinkField";
 import { PinCategoryFields } from "@/src/components/PinCategoryFields";
 import { Body, Button, Chip, ChipRow, Field, Header, Loading, Title, useToast } from "@/src/components/ui";
+import { useSharedDeliveryLink } from "@/src/hooks/useSharedDeliveryLink";
 import { errorMessage } from "@/src/lib/api";
+import { setActivePinForm } from "@/src/lib/activePinForm";
 import { PIN_TAGS } from "@/src/lib/cuisines";
 import { invalidatePins, pinDetails, updatePin } from "@/src/lib/data";
 import {
@@ -26,6 +29,7 @@ export default function EditPin() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
   const toast = useToast();
   const { session } = useAuth();
 
@@ -48,6 +52,7 @@ export default function EditPin() {
   const [tags, setTags] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const sharedRef = useRef<Partial<Record<"wolt" | "pyszne" | "glovo" | "uber" | "website", string>>>({});
 
   const load = useCallback(async () => {
     try {
@@ -56,12 +61,13 @@ export default function EditPin() {
       setDescription(p.description ?? "");
       setCity(p.city ?? "");
       setAddress(p.address ?? "");
-      setWebsite(p.website ?? resolveMenuUrl(p.description) ?? "");
+      const shared = sharedRef.current;
+      setWebsite(shared.website ?? p.website ?? resolveMenuUrl(p.description) ?? "");
       setPhone(p.phone ?? resolvePhone(p.description) ?? "");
-      setOrderWolt(p.order_wolt_url ?? "");
-      setOrderPyszne(p.order_pyszne_url ?? "");
-      setOrderGlovo(p.order_glovo_url ?? "");
-      setOrderUber(p.order_uber_url ?? "");
+      setOrderWolt(shared.wolt ?? p.order_wolt_url ?? "");
+      setOrderPyszne(shared.pyszne ?? p.order_pyszne_url ?? "");
+      setOrderGlovo(shared.glovo ?? p.order_glovo_url ?? "");
+      setOrderUber(shared.uber ?? p.order_uber_url ?? "");
       setCuisine(p.cuisine ?? null);
       setPriceMin(p.price_min != null ? String(p.price_min) : "");
       setPriceMax(p.price_max != null ? String(p.price_max) : "");
@@ -76,6 +82,23 @@ export default function EditPin() {
   }, [id, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  const onSharedLink = useCallback((url: string, target: "wolt" | "pyszne" | "glovo" | "uber" | "website") => {
+    sharedRef.current[target] = url;
+    if (target === "wolt") setOrderWolt(url);
+    else if (target === "pyszne") setOrderPyszne(url);
+    else if (target === "glovo") setOrderGlovo(url);
+    else if (target === "uber") setOrderUber(url);
+    else setWebsite(url);
+    const label = target === "wolt" ? "Wolt" : target === "pyszne" ? "Pyszne.pl" : target === "glovo" ? "Glovo" : target === "uber" ? "Uber Eats" : "strony www";
+    toast(`Link z ${label} wklejony do formularza`, "success");
+  }, [toast]);
+  useSharedDeliveryLink(onSharedLink);
+
+  useEffect(() => {
+    setActivePinForm(pathname);
+    return () => setActivePinForm(null);
+  }, [pathname]);
 
   const toggleTag = (key: string) => {
     setTags((prev) => (prev.includes(key) ? prev.filter((t) => t !== key) : prev.length >= 12 ? prev : [...prev, key]));
@@ -170,17 +193,13 @@ export default function EditPin() {
           <Button testID="edit-pin-open-website" title="Otwórz stronę z menu" icon="open-in-new" variant="secondary" onPress={openWebsite} disabled={!previewSite} />
 
           <Title size={16}>Zamówienie</Title>
-          <Body muted>Puste pola nie pokażą przycisków na karcie lokalu.</Body>
+          <Body muted>Puste pola nie pokażą przycisku na pinie.</Body>
           <Body muted>{DELIVERY_SHARE_HINT}</Body>
           <Field testID="edit-pin-phone" label="Telefon (zadzwoń i zamów)" value={phone} onChangeText={setPhone} placeholder="+48 …" keyboardType="phone-pad" autoCapitalize="none" />
-          <Field testID="edit-pin-wolt" label="Link Wolt" value={orderWolt} onChangeText={setOrderWolt} placeholder="https://wolt.com/…" autoCapitalize="none" />
-          {woltError ? <Body testID="edit-pin-wolt-error" style={{ color: colors.error }}>{woltError}</Body> : null}
-          <Field testID="edit-pin-pyszne" label="Link Pyszne.pl" value={orderPyszne} onChangeText={setOrderPyszne} placeholder="https://www.pyszne.pl/…" autoCapitalize="none" />
-          {pyszneError ? <Body testID="edit-pin-pyszne-error" style={{ color: colors.error }}>{pyszneError}</Body> : null}
-          <Field testID="edit-pin-glovo" label="Link Glovo" value={orderGlovo} onChangeText={setOrderGlovo} placeholder="https://glovoapp.com/…" autoCapitalize="none" />
-          {glovoError ? <Body testID="edit-pin-glovo-error" style={{ color: colors.error }}>{glovoError}</Body> : null}
-          <Field testID="edit-pin-uber" label="Link Uber Eats" value={orderUber} onChangeText={setOrderUber} placeholder="https://www.ubereats.com/…" autoCapitalize="none" />
-          {uberError ? <Body testID="edit-pin-uber-error" style={{ color: colors.error }}>{uberError}</Body> : null}
+          <DeliveryLinkField platform="wolt" testID="edit-pin-wolt" value={orderWolt} onChangeText={setOrderWolt} placeholder="https://wolt.com/…" error={woltError} />
+          <DeliveryLinkField platform="pyszne" testID="edit-pin-pyszne" value={orderPyszne} onChangeText={setOrderPyszne} placeholder="https://www.pyszne.pl/…" error={pyszneError} />
+          <DeliveryLinkField platform="glovo" testID="edit-pin-glovo" value={orderGlovo} onChangeText={setOrderGlovo} placeholder="https://glovoapp.com/…" error={glovoError} />
+          <DeliveryLinkField platform="uber" testID="edit-pin-uber" value={orderUber} onChangeText={setOrderUber} placeholder="https://www.ubereats.com/…" error={uberError} />
 
           <Field testID="edit-pin-description" label="Opis" value={description} onChangeText={setDescription} multiline />
           <Field testID="edit-pin-city" label="Miasto" value={city} onChangeText={setCity} />

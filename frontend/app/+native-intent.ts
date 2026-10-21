@@ -1,9 +1,11 @@
-/** Przekieruj share intent z systemu na formularz nowego pinu. */
+import { activePinForm } from "@/src/lib/activePinForm";
+
+/** Przekieruj share intent na otwarty formularz pinu albo na nowy pin. */
 export function redirectSystemPath({ path }: { path: string; initial: boolean }): string {
   try {
     const url = path.includes("://") ? new URL(path) : new URL(path, "yummeet://");
     if (url.hostname === "expo-sharing" || path.includes("expo-sharing")) {
-      return "/pin/new?fromShare=1";
+      return activePinForm() ?? "/pin/new?fromShare=1";
     }
   } catch {
     /* leave path as-is */

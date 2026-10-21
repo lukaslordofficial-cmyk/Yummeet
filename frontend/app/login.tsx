@@ -53,12 +53,16 @@ export default function Login() {
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xl, paddingHorizontal: spacing.xl, gap: spacing.lg }}>
-        <BrandMark size={84} />
-        <Title size={40} testID="login-title">Yummeet</Title>
-        <Body muted>Odkrywaj lokale na mapie, spotykaj ludzi przy stole i planuj Gastro-Trasę.</Body>
+        <View style={{ alignItems: "center", gap: spacing.md }}>
+          <BrandMark size={84} />
+          <Title size={40} testID="login-title" style={{ textAlign: "center" }}>Yummeet</Title>
+          <Body muted style={{ textAlign: "center" }}>
+            Odkrywaj i oceniaj lokale gastronomiczne. Poznawaj ludzi przy stole. Wyszukuj restauracje podczas podróży.
+          </Body>
+        </View>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <Button testID="login-mode-login" title="Logowanie" variant={mode === "login" ? "primary" : "ghost"} onPress={() => setMode("login")} style={{ flex: 1 }} />
-          <Button testID="login-mode-register" title="Rejestracja" variant={mode === "register" ? "primary" : "ghost"} onPress={() => setMode("register")} style={{ flex: 1 }} />
+          <Button testID="login-mode-login" title="Logowanie" variant={mode === "login" ? "primary" : "ghost"} onPress={() => setMode("login")} style={{ flex: 1, paddingHorizontal: spacing.sm }} />
+          <Button testID="login-mode-register" title="Rejestracja" variant={mode === "register" ? "primary" : "ghost"} onPress={() => setMode("register")} style={{ flex: 1, paddingHorizontal: spacing.sm }} />
         </View>
         {mode === "register" ? <Field testID="register-name-input" label="Imię / pseudonim" value={name} onChangeText={setName} placeholder="np. Smakosz Ala" /> : null}
         <Field testID="login-email-input" label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="ty@przyklad.pl" />

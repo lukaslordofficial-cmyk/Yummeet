@@ -1,8 +1,7 @@
 import { View } from "react-native";
 
 import { Body, Button, Card, Title, useToast } from "@/src/components/ui";
-import type { DeliveryPlatform } from "@/src/lib/deliveryLinks";
-import { dialPhone, openDeliveryApp, openDeliveryOrWeb, resolvePhone } from "@/src/lib/openExternal";
+import { dialPhone, openDeliveryOrWeb, resolvePhone } from "@/src/lib/openExternal";
 import { resolveMenuUrl } from "@/src/lib/pinWebsite";
 import { spacing } from "@/src/theme";
 
@@ -16,11 +15,11 @@ type PinOrderSource = {
   order_uber_url?: string | null;
 };
 
-const DELIVERY: { key: keyof PinOrderSource; platform: DeliveryPlatform; label: string; testID: string; icon: string }[] = [
-  { key: "order_wolt_url", platform: "wolt", label: "Wolt", testID: "pin-order-wolt", icon: "bike-fast" },
-  { key: "order_pyszne_url", platform: "pyszne", label: "Pyszne.pl", testID: "pin-order-pyszne", icon: "food" },
-  { key: "order_glovo_url", platform: "glovo", label: "Glovo", testID: "pin-order-glovo", icon: "moped" },
-  { key: "order_uber_url", platform: "uber", label: "Uber Eats", testID: "pin-order-uber", icon: "car" },
+const DELIVERY: { key: keyof PinOrderSource; label: string; testID: string; icon: string }[] = [
+  { key: "order_wolt_url", label: "Wolt", testID: "pin-order-wolt", icon: "bike-fast" },
+  { key: "order_pyszne_url", label: "Pyszne.pl", testID: "pin-order-pyszne", icon: "food" },
+  { key: "order_glovo_url", label: "Glovo", testID: "pin-order-glovo", icon: "moped" },
+  { key: "order_uber_url", label: "Uber Eats", testID: "pin-order-uber", icon: "car" },
 ];
 
 export function PinOrderActions({
@@ -34,10 +33,10 @@ export function PinOrderActions({
   const menuSite = resolveMenuUrl(pin.website, pin.description);
   const phone = resolvePhone(pin.phone, pin.description);
 
-  const delivery = DELIVERY.map((d) => {
+  const delivery = DELIVERY.flatMap((d) => {
     const raw = pin[d.key];
     const url = typeof raw === "string" ? resolveMenuUrl(raw) : null;
-    return { ...d, url };
+    return url ? [{ ...d, url }] : [];
   });
 
   const openDelivery = async (url: string, label: string) => {
@@ -59,8 +58,7 @@ export function PinOrderActions({
 
   return (
     <Card testID="pin-order-actions">
-      <Title size={18}>Zamów jedzenie</Title>
-      <Body muted>Bez linku przycisk otwiera aplikację. Po wklejeniu linku z apki otwiera tę knajpę.</Body>
+      {delivery.length > 0 ? <Title size={18}>Zamów jedzenie</Title> : null}
       <View style={{ gap: spacing.sm }}>
         {menuSite ? (
           <Button
@@ -78,11 +76,10 @@ export function PinOrderActions({
           <Button
             key={d.key}
             testID={d.testID}
-            title={d.url ? `Zamów przez ${d.label}` : `Otwórz ${d.label}`}
+            title={`Zamów przez ${d.label}`}
             icon={d.icon}
-            variant={d.url ? "primary" : "secondary"}
             onPress={() => {
-              void openDeliveryApp(d.platform, d.url).catch(() => toast(`Nie udało się otworzyć: ${d.label}`, "error"));
+              void openDelivery(d.url, d.label);
             }}
           />
         ))}

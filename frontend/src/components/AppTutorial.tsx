@@ -13,17 +13,17 @@ const STEPS = [
   {
     icon: "map-search",
     title: "Odkrywaj lokale",
-    text: "Na mapie znajdziesz restauracje jako duże łezki — jak pinezki Google Maps. Kolor i znaczek zależą od kuchni: pizza, sushi, kebab i reszta wyglądają inaczej, więc od razu wiesz, co jest w okolicy.",
+    text: "Na mapie znajdują się znaczniki lokali gastronomicznych, posortowane według kategorii. Posiadają linki do menu, zamówień online, oraz oceny użytkowników. Możesz dodawać nowe piny, oraz edytować istniejące.",
   },
   {
     icon: "account-group",
     title: "Spotkanie",
-    text: "Zakładka Spotkanie to otwarte stoły i wydarzenia. Dołącz, poznaj ludzi przy jedzeniu i po spotkaniu oceń organizatora gwiazdkami — tak samo jak lokale.",
+    text: "W zakładce spotkania możesz organizować wydarzenia tematyczne i poznawać na nich nowe osoby. Do wyboru randki, spotkania przy grach, speed friending i wiele innych.",
   },
   {
     icon: "map-marker-path",
     title: "Gastro\u2011Trasa",
-    text: "Ustal trasę przejazdu i odkryj miejsca po drodze, w których mógłbyś zjeść. Wybierz start i cel, a Yummeet pokaże knajpy w Twoim promieniu.",
+    text: "Dodaj trasę swojego przejazdu, a aplikacja pokaże ci lokale gastronomiczne w pobliżu, w których mógłbyś smacznie zjeść.",
   },
   {
     icon: "chat-processing",

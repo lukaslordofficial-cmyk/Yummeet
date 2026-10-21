@@ -36,7 +36,7 @@ export function Button({ title, onPress, variant = "primary", icon, loading, dis
     <Pressable testID={testID} accessibilityRole="button" disabled={disabled || loading} onPress={() => { haptic.tap(); onPress(); }}
       style={({ pressed }) => [{ minHeight: 48, borderRadius: radius.pill, backgroundColor: bg, borderWidth: 1, borderColor, paddingHorizontal: spacing.xl, flexDirection: "row",
         alignItems: "center", justifyContent: "center", gap: spacing.sm, opacity: disabled ? 0.45 : pressed ? 0.88 : 1 }, style]}>
-      {loading ? <ActivityIndicator color={fg} /> : <>{icon ? <Icon name={icon} size={20} color={fg} /> : null}<Text style={{ fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: fg }}>{title}</Text></>}
+      {loading ? <ActivityIndicator color={fg} /> : <>{icon ? <Icon name={icon} size={20} color={fg} /> : null}<Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ flexShrink: 1, fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: fg, textAlign: "center" }}>{title}</Text></>}
     </Pressable>
   );
 }

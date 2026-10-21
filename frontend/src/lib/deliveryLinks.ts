@@ -1,7 +1,7 @@
 export type DeliveryPlatform = "wolt" | "pyszne" | "glovo" | "uber";
 
 export const DELIVERY_SHARE_HINT =
-  "Przycisk otwiera aplikację dostawcy. Wklej link udostępniony z tej aplikacji, a od tej chwili przycisk otworzy konkretną knajpę.";
+  "Przycisk zamówienia na pinie pojawia się dopiero po wklejeniu linku. Udostępnij knajpę z aplikacji do Yummeet, a link wstawi się w odpowiednie pole.";
 
 /** Strona startowa, gdy na pinie nie ma jeszcze linku do lokalu. */
 export const DELIVERY_HOME: Record<DeliveryPlatform, string> = {

@@ -61,7 +61,11 @@ export function useSharedDeliveryLink(onLink: (url: string, target: ShareTarget)
 
     void run();
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") void run();
+      if (state !== "active") {
+        handled.current = false;
+        return;
+      }
+      void run();
     });
     return () => {
       alive = false;
