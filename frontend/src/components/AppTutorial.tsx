@@ -22,7 +22,7 @@ const STEPS = [
   },
   {
     icon: "map-marker-path",
-    title: "Gastro-Trasa",
+    title: "Gastro\u2011Trasa",
     text: "Ustal trasę przejazdu i odkryj miejsca po drodze, w których mógłbyś zjeść. Wybierz start i cel, a Yummeet pokaże knajpy w Twoim promieniu.",
   },
   {
