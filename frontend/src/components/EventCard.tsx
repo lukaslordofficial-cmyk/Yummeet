@@ -6,7 +6,7 @@ import { Icon } from "./Icon";
 import { Badge, Body, Card, Title } from "./ui";
 
 export const KIND_LABEL: Record<string, string> = {
-  open_table: "Otwarty stół", speed_friending: "Speed Friending", official: "Wydarzenie", food_exchange: "Wymiana potraw", volunteer: "Wolontariat", dinner: "Kolacja tematyczna",
+  open_table: "Otwarte spotkanie", speed_friending: "Speed Friending", official: "Wydarzenie", food_exchange: "Wymiana potraw", volunteer: "Wolontariat", dinner: "Kolacja tematyczna",
 };
 
 export const formatDate = (iso: string) =>

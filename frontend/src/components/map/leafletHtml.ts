@@ -7,6 +7,9 @@ export interface MapMarker {
   /** Optional short text shown inside the marker (e.g. "A", "B", "3"). */
   label?: string;
   coverUrl?: string;
+  /** Emoji / glyph for cuisine-styled teardrop pins. */
+  glyph?: string;
+  official?: boolean;
 }
 
 export type MapShape =
@@ -81,12 +84,16 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background:#F2E6DD; }
-    .pin-dot { background:#E05F36; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px rgba(224,95,54,0.45), 0 1px 2px rgba(0,0,0,0.25); box-sizing:border-box; }
     .pin-stack { display:flex; flex-direction:column; align-items:center; gap:2px; }
-    .pin-label { max-width:100px; min-height:14px; padding:1px 5px; border-radius:7px; border:1px solid #fff; color:#fff; font:700 9px/11px -apple-system,Segoe UI,Roboto,sans-serif; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.25); box-sizing:border-box; white-space:normal; overflow:hidden; word-break:break-word; max-height:28px; }
-    .pin-photo { border-radius:50%; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.3); object-fit:cover; background:#E05F36; display:block; box-sizing:border-box; }
-    .user-dot { background:#38A342; width:10px; height:10px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 4px rgba(56,163,66,0.25); }
-    .draw-dot { background:#FF9F43; width:12px; height:12px; border-radius:50%; border:2px solid #fff; }
+    .pin-label { max-width:110px; min-height:14px; padding:2px 6px; border-radius:8px; border:1px solid #fff; color:#fff; font:700 10px/12px -apple-system,Segoe UI,Roboto,sans-serif; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.25); box-sizing:border-box; white-space:normal; overflow:hidden; word-break:break-word; max-height:28px; }
+    .gpin { position:relative; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+    .gpin svg { display:block; }
+    .gpin-face { position:absolute; left:50%; top:14%; transform:translateX(-50%); border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.15); }
+    .gpin-face img { width:100%; height:100%; object-fit:cover; display:block; }
+    .gpin-glyph { font-size:inherit; line-height:1; }
+    .gpin-official { position:absolute; right:-2px; top:2px; width:10px; height:10px; border-radius:50%; background:#D4AF37; border:1.5px solid #fff; box-sizing:border-box; }
+    .user-dot { background:#38A342; width:14px; height:14px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 4px rgba(56,163,66,0.25); }
+    .draw-dot { background:#FF9F43; width:14px; height:14px; border-radius:50%; border:2px solid #fff; }
   </style>
 </head>
 <body>
@@ -104,36 +111,44 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     L.tileLayer(C.tileUrl, { maxZoom: C.maxZoom, subdomains: 'abc' }).addTo(map);
 
     function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-    /** Im dalej zoom, tym mniejsza kropka — zawsze zauważalna (min. ~8px). */
+    /** Łezka w stylu Google Maps — większa wraz z zoomem. */
     function pinScale(z){
-      if (z <= 5) return { dot: 8, photo: 0, label: false };
-      if (z <= 7) return { dot: 9, photo: 0, label: false };
-      if (z <= 9) return { dot: 10, photo: 0, label: false };
-      if (z <= 11) return { dot: 11, photo: 14, label: false };
-      if (z <= 13) return { dot: 12, photo: 16, label: false };
-      if (z <= 15) return { dot: 13, photo: 18, label: false };
-      if (z < LABEL_ZOOM) return { dot: 14, photo: 20, label: false };
-      return { dot: 16, photo: 26, label: true };
+      if (z <= 5) return { w: 22, h: 33, face: 10, font: 9, label: false };
+      if (z <= 7) return { w: 26, h: 39, face: 12, font: 10, label: false };
+      if (z <= 9) return { w: 32, h: 48, face: 15, font: 12, label: false };
+      if (z <= 11) return { w: 38, h: 56, face: 18, font: 14, label: false };
+      if (z <= 13) return { w: 44, h: 66, face: 22, font: 16, label: false };
+      if (z <= 15) return { w: 50, h: 74, face: 26, font: 18, label: false };
+      if (z < LABEL_ZOOM) return { w: 54, h: 80, face: 28, font: 20, label: false };
+      return { w: 58, h: 86, face: 30, font: 22, label: true };
     }
-    function pinIcon(color, label, coverUrl, showLabel, scale){
+    function pinIcon(color, label, coverUrl, showLabel, scale, glyph, official){
       var bg = color || '#E05F36';
+      var sc = scale || pinScale(13);
       var text = esc(label || '');
-      var d = scale.dot;
-      var ph = scale.photo;
-      var usePhoto = !!(coverUrl && ph > 0);
-      var head = usePhoto
-        ? '<img class="pin-photo" src="'+esc(coverUrl)+'" alt="" style="width:'+ph+'px;height:'+ph+'px;border-radius:'+(ph/2)+'px"/>'
-        : '<div class="pin-dot" style="background:'+bg+';width:'+d+'px;height:'+d+'px"></div>';
-      if (showLabel && label && scale.label) {
+      var w = sc.w, h = sc.h, face = sc.face, font = sc.font;
+      var usePhoto = !!(coverUrl && face > 12);
+      var g = esc(glyph || '');
+      var faceInner = usePhoto
+        ? '<img src="'+esc(coverUrl)+'" alt=""/>'
+        : (g ? '<span class="gpin-glyph">'+g+'</span>' : '');
+      var badge = official ? '<div class="gpin-official"></div>' : '';
+      var pinHtml = '<div class="gpin" style="width:'+w+'px;height:'+h+'px">'
+        + '<svg viewBox="0 0 24 36" width="'+w+'" height="'+h+'" aria-hidden="true">'
+        + '<path d="M12 1.4C6.7 1.4 2.4 5.7 2.4 11c0 7.4 9.6 23.2 9.6 23.2S21.6 18.4 21.6 11C21.6 5.7 17.3 1.4 12 1.4z" fill="'+bg+'" stroke="#fff" stroke-width="1.7"/>'
+        + '</svg>'
+        + '<div class="gpin-face" style="width:'+face+'px;height:'+face+'px;font-size:'+font+'px">'+faceInner+'</div>'
+        + badge
+        + '</div>';
+      if (showLabel && label && sc.label) {
         return L.divIcon({
           className: '',
-          html: '<div class="pin-stack">'+head+'<div class="pin-label" style="background:'+bg+'" title="'+text+'">'+text+'</div></div>',
-          iconSize: [100, 40],
-          iconAnchor: [50, 36],
+          html: '<div class="pin-stack">'+pinHtml+'<div class="pin-label" style="background:'+bg+'" title="'+text+'">'+text+'</div></div>',
+          iconSize: [Math.max(w, 110), h + 18],
+          iconAnchor: [Math.max(w, 110) / 2, h],
         });
       }
-      var s = usePhoto ? ph : d;
-      return L.divIcon({ className:'', html: head, iconSize:[s,s], iconAnchor:[s/2,s/2] });
+      return L.divIcon({ className:'', html: pinHtml, iconSize:[w, h], iconAnchor:[w / 2, h] });
     }
 
     var markerLayer = L.layerGroup().addTo(map);
@@ -154,7 +169,7 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
       var showLabel = z >= LABEL_ZOOM;
       clearGroup(markerLayer);
       (lastMarkers||[]).forEach(function(m){
-        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label, m.coverUrl, showLabel, scale) });
+        var mk = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.label, m.coverUrl, showLabel, scale, m.glyph, m.official) });
         if (m.title) mk.bindTooltip(m.title, { direction: 'top', opacity: 0.95 });
         mk.on('click', function(){ send({ type:'markerPress', id: m.id }); });
         markerLayer.addLayer(mk);

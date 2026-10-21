@@ -6,7 +6,7 @@ import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/src/components/Icon";
+import { Stars } from "@/src/components/Stars";
 import { Badge, Body, Button, Card, Chip, ErrorState, Field, Header, Loading, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { invalidatePins, markVisited, pinDetails, report, saveReview } from "@/src/lib/data";
@@ -14,19 +14,6 @@ import { fonts, radius, spacing, useTheme } from "@/src/theme";
 
 const PURPOSES = [["date", "Randka"], ["group", "Grupa"], ["meet", "Poznawanie ludzi"], ["work", "Praca"], ["party", "Impreza"], ["quiet", "Spokojna rozmowa"]] as const;
 const AXES = [["food", "Jedzenie"], ["atmosphere", "Atmosfera"], ["service", "Obsługa"], ["price_value", "Cena/jakość"]] as const;
-
-function Stars({ value, onChange, testID }: { value: number; onChange: (v: number) => void; testID: string }) {
-  const { colors } = useTheme();
-  return (
-    <View style={{ flexDirection: "row", gap: 2 }}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <Pressable key={n} testID={`${testID}-${n}`} onPress={() => onChange(n)} hitSlop={4} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
-          <Icon name={n <= value ? "star" : "star-outline"} size={28} color={colors.warning} />
-        </Pressable>
-      ))}
-    </View>
-  );
-}
 
 export default function PinDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();

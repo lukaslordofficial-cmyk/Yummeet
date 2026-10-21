@@ -8,14 +8,13 @@ import { usesNativeTabs } from "@/src/navigation";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, useTheme } from "@/src/theme";
 
-const TABS = [
+const VISIBLE_TABS = [
   { name: "index", label: "Odkrywaj", icon: "map-search", sf: "map.fill" },
-  { name: "tables", label: "Stoły", icon: "table-chair", sf: "fork.knife" },
-  { name: "food", label: "Jedzenie", icon: "food", sf: "takeoutbag.and.cup.and.straw.fill" },
-  { name: "challenges", label: "Misje", icon: "sword-cross", sf: "flag.checkered" },
-  { name: "chats", label: "Czaty", icon: "chat-processing", sf: "bubble.left.and.bubble.right.fill" },
-  { name: "profile", label: "Profil", icon: "account-circle", sf: "person.crop.circle.fill" },
+  { name: "tables", label: "Spotkanie", icon: "account-group", sf: "person.3.fill" },
+  { name: "route", label: "Gastro-Trasa", icon: "map-marker-path", sf: "point.topleft.down.to.point.bottomright.curvepath" },
 ] as const;
+
+const HIDDEN_TABS = ["food", "challenges"] as const;
 
 export default function TabsLayout() {
   const { colors } = useTheme();
@@ -25,11 +24,14 @@ export default function TabsLayout() {
   if (usesNativeTabs) {
     return (
       <NativeTabs tintColor={colors.brandPrimary}>
-        {TABS.map((t) => (
+        {VISIBLE_TABS.map((t) => (
           <NativeTabs.Trigger key={t.name} name={t.name}>
             <NativeTabs.Trigger.Icon sf={t.sf as any} />
             <NativeTabs.Trigger.Label>{t.label}</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
+        ))}
+        {HIDDEN_TABS.map((name) => (
+          <NativeTabs.Trigger key={name} name={name} hidden />
         ))}
       </NativeTabs>
     );
@@ -43,12 +45,15 @@ export default function TabsLayout() {
       tabBarItemStyle: { alignSelf: "center" },
       tabBarLabelStyle: { fontFamily: fonts.text, fontSize: 11 },
     }}>
-      {TABS.map((t) => (
+      {VISIBLE_TABS.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{
           title: t.label,
           tabBarButtonTestID: `tab-${t.name}`,
           tabBarIcon: ({ color }) => <Icon name={t.icon} size={24} color={color as string} />,
         }} />
+      ))}
+      {HIDDEN_TABS.map((name) => (
+        <Tabs.Screen key={name} name={name} options={{ href: null }} />
       ))}
     </Tabs>
   );

@@ -8,10 +8,10 @@ import { AppMapView } from "@/src/components/map/AppMapView";
 import { RouteHistory } from "@/src/components/RouteHistory";
 import { RoutePinProgress } from "@/src/components/RoutePinProgress";
 import { RoutePointInput } from "@/src/components/RoutePointInput";
-import { Body, Button, Chip, ChipRow, Header, Title, useToast } from "@/src/components/ui";
+import { Body, Button, Chip, ChipRow, Title, useToast } from "@/src/components/ui";
 import { useActiveRoute } from "@/src/hooks/useActiveRoute";
 import { errorMessage } from "@/src/lib/api";
-import { CUISINES } from "@/src/lib/cuisines";
+import { CUISINES, cuisinePinStyle } from "@/src/lib/cuisines";
 import { myTravelRoutes, pinsAlongRoute, travelAddKm, travelRouteFinish } from "@/src/lib/data";
 import { formatDuration, formatKm, simplify } from "@/src/lib/geo";
 import { stopRouteBackground } from "@/src/lib/routeBg";
@@ -136,22 +136,29 @@ export default function RoutePlanner() {
   const distMap = fromHereM(visiblePins);
 
   const markers = useMemo(() => {
-    const pinMarks = pinsStatus.map((p) => ({
-      id: p.id, lat: p.lat, lng: p.lng, title: p.title,
-      label: p.status === "next" ? "●" : String(p.index + 1),
-      color: p.status === "passed" ? colors.muted : p.status === "next" ? colors.brandPrimary : colors.brandSecondary,
-    }));
+    const pinMarks = pinsStatus.map((p) => {
+      const style = cuisinePinStyle(p.cuisine);
+      return {
+        id: p.id, lat: p.lat, lng: p.lng, title: p.title,
+        glyph: style.glyph,
+        official: p.is_official,
+        color: p.status === "passed" ? colors.muted : p.status === "next" ? style.color : colors.brandSecondary,
+      };
+    });
     return [
-      ...(a ? [{ id: "A", lat: a.lat, lng: a.lng, label: "A", color: colors.surfaceInverse }] : []),
-      ...(b ? [{ id: "B", lat: b.lat, lng: b.lng, label: "B", color: colors.surfaceInverse }] : []),
-      ...(userPos ? [{ id: "me", lat: userPos.lat, lng: userPos.lng, label: "Ty", color: colors.success }] : []),
+      ...(a ? [{ id: "A", lat: a.lat, lng: a.lng, label: "A", glyph: "A", color: colors.surfaceInverse }] : []),
+      ...(b ? [{ id: "B", lat: b.lat, lng: b.lng, label: "B", glyph: "B", color: colors.surfaceInverse }] : []),
+      ...(userPos ? [{ id: "me", lat: userPos.lat, lng: userPos.lng, label: "Ty", glyph: "📍", color: colors.success }] : []),
       ...pinMarks,
     ];
   }, [a, b, pinsStatus, userPos, colors]);
 
   return (
     <View testID="route-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title="Gastro-Trasa" />
+      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, gap: spacing.xs }}>
+        <Title size={28} testID="route-title">Gastro-Trasa</Title>
+        <Body muted testID="route-intro">Ustal trasę przejazdu i odkryj miejsca po drodze, w których mógłbyś zjeść.</Body>
+      </View>
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
         {active ? (
           <View style={{ marginHorizontal: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, gap: spacing.sm }}>
@@ -186,7 +193,7 @@ export default function RoutePlanner() {
         <Body muted style={{ paddingHorizontal: spacing.lg }}>Promień liczony od Twojej lokalizacji GPS (nie od linii trasy).</Body>
         <ChipRow testID="route-cuisine-chips">
           {CUISINES.map((c) => (
-            <Chip key={c.label} testID={`route-cuisine-${c.key ?? "all"}`} label={c.label} selected={cuisine === c.key} onPress={() => { setCuisine(c.key); if (active) void refreshPins(line, buffer, c.key); }} />
+            <Chip key={c.label} testID={`route-cuisine-${c.key ?? "all"}`} label={`${cuisinePinStyle(c.key).glyph} ${c.label}`} selected={cuisine === c.key} onPress={() => { setCuisine(c.key); if (active) void refreshPins(line, buffer, c.key); }} />
           ))}
         </ChipRow>
 

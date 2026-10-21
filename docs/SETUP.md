@@ -3,7 +3,7 @@
 ## Architektura
 ```
 frontend/ (Expo SDK 57, expo-router, TypeScript)
-  app/(tabs)/        5 zakładek: index=Odkrywaj, tables=Stoły, challenges=Wyzwania, chats=Czaty, profile=Profil
+  app/(tabs)/        3 zakładki MVP: index=Odkrywaj, tables=Spotkanie, route=Gastro-Trasa (czat i profil — pływające ikony; Jedzenie i Misje schowane)
   app/*              ekrany stosu: pin/[id], pin/new, route (Gastro-Trasa), mission/[id], duel/[id], duel/new,
                      cards (Księga kart), specializations, event/[id], event/new, chat/[id], settings, games, user/[id], login
   src/lib/           supabase.ts (klient), api.ts (rpc + mapowanie błędów), data.ts (warstwa dostępu do danych),
@@ -47,6 +47,7 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 16. **`supabase/migrations/018_fix_photo_slots_cleanup.sql`** — (opcjonalne) stare łatki; jeśli padało — pomiń.
 17. **`supabase/migrations/019_photo_slots_bootstrap.sql`** — **uruchom ten plik** (kompletny): tworzy `photo_slots`, cleanup 48 h, hooki publikacji. Działa nawet gdy 017/018 nie przeszły.
 18. **`supabase/migrations/020_signature_deal_mode.sql`** — Popisowe: tryb współpracy (`paid` / `ingredients_split`) + szczegóły oferty.
+19. **`supabase/migrations/021_organizer_reviews.sql`** — oceny organizatorów spotkań (gwiazdki + opinie).
 
 Powiadomienia na trasie (dźwięk) + śledzenie w tle: włącz przełącznik na aktywnej trasie.
 Pełne tło (apka zamknięta) wymaga buildu z uprawnieniem „Always” lokalizacji; w Expo Go działa foreground + lokalne powiadomienia.

@@ -47,7 +47,7 @@ export default function NewEvent() {
       for (const a of picked) {
         try { await addEventAttraction(id, a.category, a.title, a.body); } catch { /* ignore */ }
       }
-      toast("Stół utworzony!", "success");
+      toast("Spotkanie utworzone!", "success");
       router.replace(`/event/${id}`);
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -58,7 +58,7 @@ export default function NewEvent() {
 
   return (
     <View testID="new-event-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title="Nowy stół" />
+      <Header title="Nowe spotkanie" />
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
         <ChipRow>
           {EVENT_KINDS.map((k) => (

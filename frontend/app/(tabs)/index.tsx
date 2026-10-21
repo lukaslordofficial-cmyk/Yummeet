@@ -8,7 +8,7 @@ import { AppMapView } from "@/src/components/map/AppMapView";
 import { Body, Button, Chip, ChipRow, IconButton, Title, useToast } from "@/src/components/ui";
 import { viewToBBox } from "@/src/domain/rules";
 import { errorMessage } from "@/src/lib/api";
-import { CUISINES } from "@/src/lib/cuisines";
+import { CUISINES, cuisinePinStyle } from "@/src/lib/cuisines";
 import { pinsInBBox } from "@/src/lib/data";
 import { usesNativeTabs } from "@/src/navigation";
 import { radius, spacing, useTheme } from "@/src/theme";
@@ -52,16 +52,21 @@ export default function Discover() {
 
   const markers = useMemo(
     () =>
-      pins.map((p) => ({
-        id: p.id,
-        lat: p.lat,
-        lng: p.lng,
-        title: p.title,
-        label: p.title,
-        color: p.is_official ? colors.rarityLegendary : colors.brandPrimary,
-        coverUrl: p.cover_url || undefined,
-      })),
-    [pins, colors],
+      pins.map((p) => {
+        const style = cuisinePinStyle(p.cuisine);
+        return {
+          id: p.id,
+          lat: p.lat,
+          lng: p.lng,
+          title: p.title,
+          label: p.title,
+          color: style.color,
+          glyph: style.glyph,
+          official: p.is_official,
+          coverUrl: p.cover_url || undefined,
+        };
+      }),
+    [pins],
   );
 
   const locate = async () => {
@@ -96,7 +101,7 @@ export default function Discover() {
         </View>
         <ChipRow testID="discover-cuisine-chips">
           {CUISINES.map((c) => (
-            <Chip key={c.label} testID={`cuisine-chip-${c.key ?? "all"}`} label={c.label} selected={cuisine === c.key} onPress={() => setCuisine(c.key)} />
+            <Chip key={c.label} testID={`cuisine-chip-${c.key ?? "all"}`} label={`${cuisinePinStyle(c.key).glyph} ${c.label}`} selected={cuisine === c.key} onPress={() => setCuisine(c.key)} />
           ))}
         </ChipRow>
       </View>

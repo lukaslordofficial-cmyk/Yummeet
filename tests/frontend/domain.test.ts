@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
 test("rock-paper-scissors resolution matches server _rps_winner", () => {
@@ -27,6 +28,17 @@ test("level progress is configurable via level table", () => {
   assert.equal(levelProgress(150, levels).current.name, "Smakosz");
   assert.equal(levelProgress(200, levels).progress, 0.5);
   assert.equal(levelProgress(999, levels).next, null);
+});
+
+test("cuisine teardrop pins differ by culinary style", () => {
+  const pizza = cuisinePinStyle("pizza");
+  const sushi = cuisinePinStyle("sushi");
+  const polish = cuisinePinStyle("polish");
+  assert.notEqual(pizza.color, sushi.color);
+  assert.notEqual(pizza.glyph, sushi.glyph);
+  assert.equal(polish.glyph, "🥟");
+  assert.equal(cuisinePinStyle(null).glyph, "🍽️");
+  assert.ok(cuisinePinStyle("custom_xyz").color.startsWith("#"));
 });
 
 test("bbox from view is valid and ordered", () => {

@@ -199,6 +199,7 @@ export default function FoodTab() {
     <View testID="food-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
       <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, alignItems: "center", gap: spacing.sm }}>
         <Title size={28} testID="food-title">Jedzenie</Title>
+        <Body muted testID="food-mvp-note">Ta zakładka jest schowana z pierwszego MVP — wróci w przyszłości.</Body>
         <Button testID="food-compose-toggle" title={compose ? "Anuluj" : composeLabel} variant={compose ? "ghost" : "primary"} onPress={() => { setCompose((v) => !v); if (compose) resetCompose(); }} style={{ alignSelf: "stretch" }} />
       </View>
       <ChipRow testID="food-segments">

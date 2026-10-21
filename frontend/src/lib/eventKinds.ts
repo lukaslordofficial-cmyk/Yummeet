@@ -1,5 +1,5 @@
 export const EVENT_KINDS: { key: string; label: string; hint: string }[] = [
-  { key: "open_table", label: "Otwarty stół", hint: "Luźne spotkanie przy wspólnym stole — każdy może dołączyć." },
+  { key: "open_table", label: "Otwarte spotkanie", hint: "Luźne spotkanie przy wspólnym stole — każdy może dołączyć." },
   { key: "speed_friending", label: "Speed Friending", hint: "Krótkie rundy rozmów — poznajesz kilka osób po kolei." },
   { key: "dinner", label: "Kolacja tematyczna", hint: "Wspólna kolacja wokół tematu (kuchnia, kultura, hobby)." },
   { key: "food_exchange", label: "Wymiana potraw", hint: "Każdy przynosi danie — wymiana smaków i przepisów." },
