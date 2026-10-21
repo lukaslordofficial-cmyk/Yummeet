@@ -182,7 +182,7 @@ export default function RoutePlanner() {
       </View>
       {tracking && line.length > 1 ? (
         <RouteMapFrame
-          tall={Math.max(380, Math.round(windowH * 0.62))}
+          tall={Math.max(266, Math.round(windowH * 0.434))}
           edgeToEdge
           tracking
           center={mapCenter}
@@ -238,7 +238,7 @@ export default function RoutePlanner() {
           <>
             {tracking ? null : (
               <RouteMapFrame
-                tall={460}
+                tall={322}
                 edgeToEdge={false}
                 tracking={false}
                 center={mapCenter}
