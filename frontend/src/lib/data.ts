@@ -272,6 +272,32 @@ export async function addEventAttraction(eventId: string, category: AttractionCa
 export async function removeEventAttraction(id: string) {
   return must(supabase.from("event_attractions").delete().eq("id", id));
 }
+export type OrganizerReview = {
+  id: string; event_id: string; event_title?: string | null; reviewer_id: string; author?: string | null;
+  hospitality: number; organization: number; atmosphere: number; communication: number;
+  tip?: string | null; body?: string | null; created_at: string;
+};
+export type OrganizerRating = {
+  organizer_id: string;
+  summary: {
+    review_count: number; hospitality: number; organization: number; atmosphere: number; communication: number; yummeet_score: number;
+  } | null;
+  reviews: OrganizerReview[];
+};
+export const organizerRating = (userId: string) => rpc<OrganizerRating>("organizer_rating", { p_user: userId });
+export const saveOrganizerReview = (a: {
+  eventId: string; hospitality: number; organization: number; atmosphere: number; communication: number; tip?: string; body?: string;
+}) =>
+  rpc<string>("save_organizer_review", {
+    p_event: a.eventId,
+    p_hospitality: a.hospitality,
+    p_organization: a.organization,
+    p_atmosphere: a.atmosphere,
+    p_communication: a.communication,
+    p_tip: a.tip || null,
+    p_body: a.body || null,
+  });
+
 export async function eventConversationId(id: string) {
   const r = await must(supabase.from("conversations").select("id").eq("kind", "event").eq("ref_id", id).maybeSingle());
   return (r as any)?.id as string | undefined;

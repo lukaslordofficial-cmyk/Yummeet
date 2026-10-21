@@ -4,6 +4,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
+import { openTutorial } from "@/src/components/AppTutorial";
 import { Icon } from "@/src/components/Icon";
 import { Body, Button, Field, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
@@ -56,7 +57,7 @@ export default function Login() {
           <Icon name="silverware-fork" size={52} color={colors.onBrandPrimary} />
         </View>
         <Title size={40} testID="login-title">Yummeet</Title>
-        <Body muted>Odkrywaj smaki, wykonuj misje, zbieraj karty i poznawaj Yummiteerów.</Body>
+        <Body muted>Odkrywaj lokale na mapie, spotykaj ludzi przy stole i planuj Gastro-Trasę.</Body>
         <ScrollView horizontal scrollEnabled={false} contentContainerStyle={{ gap: spacing.sm }}>
           <Button testID="login-mode-login" title="Logowanie" variant={mode === "login" ? "primary" : "ghost"} onPress={() => setMode("login")} />
           <Button testID="login-mode-register" title="Rejestracja" variant={mode === "register" ? "primary" : "ghost"} onPress={() => setMode("register")} />
@@ -67,6 +68,7 @@ export default function Login() {
         <Button testID="login-submit-button" title={mode === "login" ? "Zaloguj się" : "Załóż konto"} loading={busy} onPress={submit} />
         <Body muted style={{ textAlign: "center" }}>albo</Body>
         <Button testID="login-google-button" title="Kontynuuj z Google" variant="ghost" icon="google" onPress={google} />
+        <Button testID="login-tutorial-button" title="Jak działa Yummeet?" variant="ghost" icon="play-circle-outline" onPress={() => openTutorial()} />
       </KeyboardAwareScrollView>
     </View>
   );

@@ -6,7 +6,9 @@ import { LogBox, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { AppTutorial } from "@/src/components/AppTutorial";
 import { ErrorBoundary } from "@/src/components/error-boundary";
+import { FloatingNav } from "@/src/components/FloatingNav";
 import { Loading, ToastProvider } from "@/src/components/ui";
 import "@/src/lib/routeBg";
 import { AuthProvider, useAuth } from "@/src/providers/AuthProvider";
@@ -20,13 +22,13 @@ function Gate() {
   const { colors } = useTheme();
   if (loading) return <View style={{ flex: 1, backgroundColor: colors.surface, justifyContent: "center" }}><Loading testID="app-loading" /></View>;
   return (
+    <View style={{ flex: 1 }}>
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="pin/[id]" />
         <Stack.Screen name="pin/new" />
         <Stack.Screen name="pin/edit/[id]" />
-        <Stack.Screen name="route" />
         <Stack.Screen name="mission/[id]" />
         <Stack.Screen name="duel/[id]" />
         <Stack.Screen name="duel/new" />
@@ -37,6 +39,8 @@ function Gate() {
         <Stack.Screen name="event/[id]" />
         <Stack.Screen name="event/new" />
         <Stack.Screen name="meetings" />
+        <Stack.Screen name="chats" />
+        <Stack.Screen name="profile" />
         <Stack.Screen name="chat/[id]" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="games" />
@@ -46,6 +50,9 @@ function Gate() {
         <Stack.Screen name="login" />
       </Stack.Protected>
     </Stack>
+    {session ? <FloatingNav /> : null}
+    <AppTutorial autoStart={!!session} />
+    </View>
   );
 }
 

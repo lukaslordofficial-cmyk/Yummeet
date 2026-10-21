@@ -44,7 +44,7 @@ export default function MeetingsJournal() {
           keyExtractor={(e) => e.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brandPrimary} />}
-          ListEmptyComponent={<EmptyState testID="meetings-empty" icon="notebook-outline" title="Brak spotkań" text="Dołącz do stołu albo zorganizuj własny — tu zobaczysz historię." />}
+          ListEmptyComponent={<EmptyState testID="meetings-empty" icon="notebook-outline" title="Brak spotkań" text="Dołącz do spotkania albo zorganizuj własne — tu zobaczysz historię." />}
           renderItem={({ item }) => (
             <Pressable
               testID={`meeting-${item.id}`}

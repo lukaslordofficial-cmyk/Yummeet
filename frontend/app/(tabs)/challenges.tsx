@@ -30,7 +30,7 @@ export default function Challenges() {
   const { session } = useAuth();
   const me = session?.user.id;
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
-  const [seg, setSeg] = useState<Seg>("missions");
+  const [seg, setSeg] = useState<Seg>("duels");
   const [board, setBoard] = useState<BoardMission[] | null>(null);
   const [hub, setHub] = useState<SpecHub | null>(null);
   const [filter, setFilter] = useState<MissionFilter>("all");
@@ -201,12 +201,11 @@ export default function Challenges() {
   return (
     <View testID="challenges-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
       <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-        <Title size={28} style={{ flex: 1 }}>Misje</Title>
+        <Title size={28} style={{ flex: 1 }}>Pojedynki</Title>
         <IconButton testID="challenges-cards-button" icon="cards" onPress={() => router.push("/cards")} />
         <IconButton testID="challenges-specs-button" icon="shield-star" onPress={() => router.push("/specializations")} />
       </View>
       <ChipRow testID="challenges-segments">
-        <Chip testID="seg-missions" label="Misje" selected={seg === "missions"} onPress={() => setSeg("missions")} />
         <Chip testID="seg-duels" label="Pojedynki" selected={seg === "duels"} onPress={() => setSeg("duels")} />
         <Chip testID="seg-history" label="Historia" selected={seg === "history"} onPress={() => setSeg("history")} />
       </ChipRow>

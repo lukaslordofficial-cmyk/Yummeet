@@ -88,7 +88,7 @@ export default function Settings() {
         </Card>
         <Card>
           <Title size={18}>Powiadomienia</Title>
-          {([["duels", "Pojedynki"], ["events", "Stoły i wydarzenia"], ["messages", "Wiadomości"], ["missions", "Misje"], ["rewards", "Nagrody"]] as const).map(([k, l]) => (
+          {([["duels", "Pojedynki"], ["events", "Spotkania i wydarzenia"], ["messages", "Wiadomości"], ["rewards", "Nagrody"]] as const).map(([k, l]) => (
             <Row key={k} testID={`settings-notif-${k}`} label={l} value={notif[k] !== false} onChange={(v) => run(() => updateMyProfile({ notification_prefs: { ...notif, [k]: v } }))} />
           ))}
         </Card>

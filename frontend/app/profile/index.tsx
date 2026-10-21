@@ -3,11 +3,13 @@ import { useCallback, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { openTutorial } from "@/src/components/AppTutorial";
 import { Icon } from "@/src/components/Icon";
-import { Body, Button, Card, Title } from "@/src/components/ui";
+import { Stars } from "@/src/components/Stars";
+import { Body, Button, Card, IconButton, Title } from "@/src/components/ui";
 import { levelProgress } from "@/src/domain/rules";
 import { CULINARY_LEVELS } from "@/src/lib/culinaryProfile";
-import { getLevels, getSpecializationHub, getSpecializations, myBadges, profileStats, type SpecHub } from "@/src/lib/data";
+import { getLevels, getSpecializationHub, getSpecializations, myBadges, organizerRating, profileStats, type OrganizerRating, type SpecHub } from "@/src/lib/data";
 import { usesNativeTabs } from "@/src/navigation";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
@@ -29,11 +31,17 @@ export default function ProfileTab() {
   const [hub, setHub] = useState<SpecHub | null>(null);
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [badges, setBadges] = useState<any[]>([]);
+  const [orgRating, setOrgRating] = useState<OrganizerRating | null>(null);
 
   useFocusEffect(useCallback(() => {
     refreshProfile();
-    Promise.all([getLevels(), getSpecializations(), getSpecializationHub(), session ? profileStats(session.user.id) : null, myBadges()])
-      .then(([l, s, h, st, b]) => { setLevels(l); setSpecs(s); setHub(h); setStats(st); setBadges(b); }).catch(() => {});
+    Promise.all([
+      getLevels(), getSpecializations(), getSpecializationHub(),
+      session ? profileStats(session.user.id) : null, myBadges(),
+      session ? organizerRating(session.user.id).catch(() => null) : null,
+    ]).then(([l, s, h, st, b, org]) => {
+      setLevels(l); setSpecs(s); setHub(h); setStats(st); setBadges(b); setOrgRating(org);
+    }).catch(() => {});
   }, [refreshProfile, session]));
 
   const mainCode = hub?.main && hub.main !== "__versatile__" ? hub.main : profile?.primary_specialization;
@@ -45,7 +53,8 @@ export default function ProfileTab() {
 
   return (
     <ScrollView testID="profile-screen" style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ paddingBottom: bottomChrome + spacing.xl }}>
-      <View style={{ backgroundColor: banner, paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xxl, paddingHorizontal: spacing.lg, borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg, gap: spacing.md }}>
+      <View style={{ backgroundColor: banner, paddingTop: insets.top + spacing.sm, paddingBottom: spacing.xxl, paddingHorizontal: spacing.lg, borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg, gap: spacing.md }}>
+        <IconButton testID="header-back-button" icon="arrow-left" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.lg }}>
           <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.surfaceSecondary, borderWidth: 4, borderColor: colors.rarityLegendary, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ fontFamily: fonts.display, fontSize: 34, color: banner }}>{(profile?.display_name ?? "Y").slice(0, 1).toUpperCase()}</Text>
@@ -115,6 +124,17 @@ export default function ProfileTab() {
           </Card>
         ) : null}
 
+        <Card testID="profile-organizer-rating">
+          <Title size={16}>Ocena jako organizator</Title>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+            <Text style={{ fontFamily: fonts.display, fontSize: 32, color: colors.brandPrimary }}>{orgRating?.summary?.yummeet_score ?? "–"}</Text>
+            <View>
+              <Stars testID="profile-organizer-stars" value={Number(orgRating?.summary?.yummeet_score ?? 0)} size={20} />
+              <Body muted>{orgRating?.summary?.review_count ?? 0} opinii ze spotkań</Body>
+            </View>
+          </View>
+        </Card>
+        <Button testID="profile-tutorial-button" title="Samouczek Yummeet" icon="play-circle-outline" variant="ghost" onPress={() => openTutorial()} />
         <Title size={20}>Statystyki</Title>
         <View testID="profile-stats" style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
           {STAT_LABELS.map(([k, label]) => (

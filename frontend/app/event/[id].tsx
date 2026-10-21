@@ -6,18 +6,27 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { KIND_LABEL, formatDate } from "@/src/components/EventCard";
+import { Stars } from "@/src/components/Stars";
 import { Badge, Body, Button, Card, ErrorState, Field, Header, Loading, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
   addEventPhoto, eventCheckin, eventConversationId, eventJoin, eventLeave, eventParticipants,
-  eventRevealCheckinCode, getEvent, listEventPhotos, myEventStatus, report,
+  eventRevealCheckinCode, getEvent, getProfile, listEventPhotos, myEventStatus, organizerRating,
+  report, saveOrganizerReview, type OrganizerRating,
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
 import { subscribePostgres } from "@/src/lib/realtime";
 import { FREE_PHOTO_SLOTS, pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
-import type { EventRow } from "@/src/types";
+import type { EventRow, Profile } from "@/src/types";
+
+const ORG_AXES = [
+  ["hospitality", "Gościnność"],
+  ["organization", "Organizacja"],
+  ["atmosphere", "Atmosfera"],
+  ["communication", "Kontakt"],
+] as const;
 
 function isEventDay(startsAt: string) {
   const d = new Date(startsAt);
@@ -47,18 +56,39 @@ export default function EventDetail() {
   const [busy, setBusy] = useState(false);
   const [photos, setPhotos] = useState<Array<{ id: string; photo_url: string }>>([]);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [orgProfile, setOrgProfile] = useState<Profile | null>(null);
+  const [orgRating, setOrgRating] = useState<OrganizerRating | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [orgReview, setOrgReview] = useState({ hospitality: 0, organization: 0, atmosphere: 0, communication: 0, tip: "" });
   const isOrganizer = e?.organizer_id === session?.user.id;
 
   const load = useCallback(async () => {
     try {
       const [ev, st, ps] = await Promise.all([getEvent(id), myEventStatus(id), eventParticipants(id)]);
       setE(ev); setStatus(st); setPeople(ps ?? []); setError(null);
+      if (ev?.organizer_id) {
+        const [op, rating] = await Promise.all([
+          getProfile(ev.organizer_id).catch(() => null),
+          organizerRating(ev.organizer_id).catch(() => null),
+        ]);
+        setOrgProfile(op);
+        setOrgRating(rating);
+        const mine = rating?.reviews?.find((r) => r.reviewer_id === session?.user.id && r.event_id === id);
+        if (mine) {
+          setOrgReview({
+            hospitality: mine.hospitality, organization: mine.organization,
+            atmosphere: mine.atmosphere, communication: mine.communication, tip: mine.tip ?? "",
+          });
+        }
+      } else {
+        setOrgProfile(null); setOrgRating(null);
+      }
       try {
         const ph = await listEventPhotos(id);
         setPhotos(ph ?? []);
       } catch { setPhotos([]); }
     } catch (err) { setError(errorMessage(err)); }
-  }, [id]);
+  }, [id, session?.user.id]);
   useEffect(() => { load(); }, [load]);
 
   const uploadEventPhoto = async (source: "gallery" | "camera") => {
@@ -90,6 +120,23 @@ export default function EventDetail() {
     try { await fn(); toast(ok, "success"); await load(); } catch (err) { toast(errorMessage(err), "error"); } finally { setBusy(false); }
   };
   const openChat = async () => { const c = await eventConversationId(id); if (c) router.push(`/chat/${c}`); else toast("Czat niedostępny", "info"); };
+
+  const submitOrgReview = async () => {
+    if (!orgReview.hospitality || !orgReview.organization || !orgReview.atmosphere || !orgReview.communication) {
+      return toast("Oceń wszystkie 4 kategorie", "error");
+    }
+    setBusy(true);
+    try {
+      await saveOrganizerReview({ eventId: id, ...orgReview });
+      toast("Dzięki za opinię o organizatorze!", "success");
+      setReviewOpen(false);
+      await load();
+    } catch (err) {
+      toast(errorMessage(err), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const revealCode = async (silent = false) => {
     if (!silent) setBusy(true);
@@ -135,15 +182,15 @@ export default function EventDetail() {
     }
   };
 
-  if (error) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="Stół" /><ErrorState message={error} onRetry={load} /></View>;
-  if (!e) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="Stół" /><Loading /></View>;
+  if (error) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="Spotkanie" /><ErrorState message={error} onRetry={load} /></View>;
+  if (!e) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="Spotkanie" /><Loading /></View>;
   const joined = status === "joined" || status === "attended";
   const dayOk = isEventDay(e.starts_at);
   const windowOk = withinCheckinWindow(e.starts_at);
 
   return (
     <View testID="event-detail-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title={KIND_LABEL[e.kind] ?? "Stół"} right={<Button testID="event-report-button" title="Zgłoś" variant="ghost" onPress={() => act(() => report("event", id, "event_issue"), "Zgłoszenie wysłane")} />} />
+      <Header title={KIND_LABEL[e.kind] ?? "Spotkanie"} right={<Button testID="event-report-button" title="Zgłoś" variant="ghost" onPress={() => act(() => report("event", id, "event_issue"), "Zgłoszenie wysłane")} />} />
       <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
         <Card accent={e.is_official ? colors.rarityLegendary : undefined}>
           {e.is_official ? <Badge label="OFICJALNE WYDARZENIE" color={colors.rarityLegendary} textColor={colors.onSurface} /> : null}
@@ -158,11 +205,57 @@ export default function EventDetail() {
             <Body muted>wolnych miejsc z {e.capacity}</Body>
           </View>
         </Card>
+        {e.organizer_id ? (
+          <Card testID="event-organizer-rating">
+            <Pressable onPress={() => e.organizer_id && e.organizer_id !== session?.user.id && router.push(`/user/${e.organizer_id}`)}>
+              <Title size={16}>Organizator: {orgProfile?.display_name ?? "Yummiteer"}</Title>
+            </Pressable>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+              <Text testID="organizer-yummeet-score" style={{ fontFamily: fonts.display, fontSize: 32, color: colors.brandPrimary }}>
+                {orgRating?.summary?.yummeet_score ?? "–"}
+              </Text>
+              <View>
+                <Stars testID="organizer-stars" value={Number(orgRating?.summary?.yummeet_score ?? 0)} size={20} />
+                <Body muted>{orgRating?.summary?.review_count ?? 0} ocen</Body>
+              </View>
+            </View>
+            {orgRating?.summary ? ORG_AXES.map(([k, label]) => (
+              <View key={k} style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Body>{label}</Body>
+                <Body>{(orgRating.summary as any)[k]}</Body>
+              </View>
+            )) : <Body muted>Brak ocen — bądź pierwszy po spotkaniu.</Body>}
+            {joined && !isOrganizer && new Date(e.starts_at).getTime() <= Date.now() ? (
+              <>
+                <Button testID="organizer-review-button" title={reviewOpen ? "Zamknij" : "Oceń organizatora"} icon="star" onPress={() => setReviewOpen((v) => !v)} />
+                {reviewOpen ? (
+                  <View testID="organizer-review-form" style={{ gap: spacing.sm }}>
+                    {ORG_AXES.map(([k, label]) => (
+                      <View key={k} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <Body>{label}</Body>
+                        <Stars testID={`org-review-${k}`} value={(orgReview as any)[k]} onChange={(v) => setOrgReview({ ...orgReview, [k]: v })} />
+                      </View>
+                    ))}
+                    <Field testID="org-review-tip-input" label="Opinia (opcjonalnie)" value={orgReview.tip} onChangeText={(t) => setOrgReview({ ...orgReview, tip: t })} placeholder="np. super atmosfera, punktualny start" />
+                    <Button testID="org-review-submit-button" title="Zapisz ocenę" loading={busy} onPress={() => void submitOrgReview()} />
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+            {(orgRating?.reviews ?? []).slice(0, 5).map((rv) => (
+              <View key={rv.id} testID={`org-review-${rv.id}`} style={{ gap: 2 }}>
+                <Title size={14}>{rv.author ?? "Yummiteer"}</Title>
+                <Body muted>G {rv.hospitality} · O {rv.organization} · A {rv.atmosphere} · K {rv.communication}</Body>
+                {rv.tip ? <Body>{rv.tip}</Body> : null}
+              </View>
+            ))}
+          </Card>
+        ) : null}
         {!joined ? <Button testID="event-join-button" title="Zarezerwuj miejsce" icon="seat" loading={busy} disabled={e.seats_taken >= e.capacity} onPress={() => act(() => eventJoin(id), "Miejsce zarezerwowane!")} /> : (
           <View style={{ gap: spacing.md }}>
             <Badge testID="event-joined-badge" label={status === "attended" ? "Obecność potwierdzona ✓" : "Jesteś na liście"} color={colors.success} textColor={colors.onSuccess} />
             <View style={{ flexDirection: "row", gap: spacing.md }}>
-              <Button testID="event-chat-button" title="Czat stołu" icon="chat" style={{ flex: 1 }} onPress={openChat} />
+              <Button testID="event-chat-button" title="Czat spotkania" icon="chat" style={{ flex: 1 }} onPress={openChat} />
               <Button testID="event-games-button" title="Atrakcje" icon="dice-multiple" variant="secondary" onPress={() => router.push(`/games?event=${id}`)} />
             </View>
             {!isOrganizer && status === "joined" ? <Button testID="event-leave-button" title="Zrezygnuj" variant="ghost" onPress={() => act(() => eventLeave(id), "Zrezygnowano")} /> : null}
