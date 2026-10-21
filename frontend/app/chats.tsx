@@ -4,7 +4,7 @@ import { FlatList, RefreshControl, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/src/components/Icon";
-import { Body, Card, EmptyState, ErrorState, Header, Loading } from "@/src/components/ui";
+import { Body, Card, EmptyState, ErrorState, Header, Loading, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { myConversations } from "@/src/lib/data";
 import { usesNativeTabs } from "@/src/navigation";

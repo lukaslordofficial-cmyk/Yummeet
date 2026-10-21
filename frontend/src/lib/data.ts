@@ -217,10 +217,14 @@ export const profileStats = (id: string) => rpc<Record<string, number> | null>("
 export async function myBadges() {
   const [defs, mine] = await Promise.all([
     must(supabase.from("badge_definitions").select("*").eq("is_active", true)),
-    must(supabase.from("user_badges").select("code").eq("user_id", await uid())),
+    must(supabase.from("user_badges").select("code,awarded_at").eq("user_id", await uid())),
   ]);
-  const owned = new Set((mine as any[]).map((b) => b.code));
-  return (defs as any[]).map((d) => ({ ...d, owned: owned.has(d.code) }));
+  const awarded = new Map((mine as { code: string; awarded_at: string }[]).map((b) => [b.code, b.awarded_at]));
+  return (defs as any[]).map((d) => ({
+    ...d,
+    owned: awarded.has(d.code),
+    awarded_at: awarded.get(d.code) ?? null,
+  }));
 }
 export async function blockUser(id: string) { return must(supabase.from("user_blocks").insert({ blocker_id: await uid(), blocked_id: id })); }
 export async function unblockUser(id: string) { return must(supabase.from("user_blocks").delete().eq("blocker_id", await uid()).eq("blocked_id", id)); }

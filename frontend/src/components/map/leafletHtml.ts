@@ -111,24 +111,23 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     L.tileLayer(C.tileUrl, { maxZoom: C.maxZoom, subdomains: 'abc' }).addTo(map);
 
     function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-    /** Łezka w stylu Google Maps — większa wraz z zoomem. */
+    /** Łezka jak w Google Maps: maleje przy oddaleniu, rośnie przy zbliżeniu. */
     function pinScale(z){
-      if (z <= 5) return { w: 22, h: 33, face: 10, font: 9, label: false };
-      if (z <= 7) return { w: 26, h: 39, face: 12, font: 10, label: false };
-      if (z <= 9) return { w: 32, h: 48, face: 15, font: 12, label: false };
-      if (z <= 11) return { w: 38, h: 56, face: 18, font: 14, label: false };
-      if (z <= 13) return { w: 44, h: 66, face: 22, font: 16, label: false };
-      if (z <= 15) return { w: 50, h: 74, face: 26, font: 18, label: false };
-      if (z < LABEL_ZOOM) return { w: 54, h: 80, face: 28, font: 20, label: false };
-      return { w: 58, h: 86, face: 30, font: 22, label: true };
+      var t = Math.max(0, Math.min(1, (z - 4) / 13));
+      var w = Math.round(8 + t * 50);
+      var h = Math.round(w * 1.48);
+      var face = z < 12 ? 0 : Math.round(10 + (z - 12) * 3.2);
+      if (face > w * 0.55) face = Math.round(w * 0.55);
+      var font = face ? Math.max(8, Math.round(face * 0.72)) : 0;
+      return { w: w, h: h, face: face, font: font, label: z >= LABEL_ZOOM };
     }
     function pinIcon(color, label, coverUrl, showLabel, scale, glyph, official){
       var bg = color || '#E05F36';
       var sc = scale || pinScale(13);
       var text = esc(label || '');
       var w = sc.w, h = sc.h, face = sc.face, font = sc.font;
-      var usePhoto = !!(coverUrl && face > 12);
-      var g = esc(glyph || '');
+      var usePhoto = !!(coverUrl && face >= 14);
+      var g = face > 0 ? esc(glyph || '') : '';
       var faceInner = usePhoto
         ? '<img src="'+esc(coverUrl)+'" alt=""/>'
         : (g ? '<span class="gpin-glyph">'+g+'</span>' : '');
@@ -159,12 +158,16 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     var pickModeOn = !!C.pickMode;
     var emitClicksOn = !!C.emitClicks;
     var lastMarkers = C.markers || [];
+    var lastPinZoom = null;
 
     function clearGroup(g){ g.clearLayers(); }
 
-    function renderMarkers(list){
+    function renderMarkers(list, force){
       if (list) lastMarkers = list;
       var z = map.getZoom();
+      var bucket = Math.round(z * 2) / 2;
+      if (!force && !list && lastPinZoom === bucket) return;
+      lastPinZoom = bucket;
       var scale = pinScale(z);
       var showLabel = z >= LABEL_ZOOM;
       clearGroup(markerLayer);
@@ -228,7 +231,7 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
         send({ type:'mapDblClick', lat: e.latlng.lat, lng: e.latlng.lng });
       }
     });
-    map.on('zoomend', function(){ renderMarkers(null); });
+    map.on('zoom zoomend', function(){ renderMarkers(null); });
 
     if (C.drawMode) {
       var first = null, firstMk = null, preview = null;
@@ -300,7 +303,6 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     };
 
     map.on('moveend', function(){ var c = map.getCenter(); send({ type:'view', lat: c.lat, lng: c.lng, zoom: map.getZoom() }); });
-    map.on('zoomend', function(){ renderMarkers(null); });
     send({ type:'ready' });
   </script>
 </body>

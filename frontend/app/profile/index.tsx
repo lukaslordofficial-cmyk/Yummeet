@@ -1,9 +1,10 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { openTutorial } from "@/src/components/AppTutorial";
+import { BadgeDetail, type BadgeItem } from "@/src/components/BadgeDetail";
 import { Icon } from "@/src/components/Icon";
 import { Stars } from "@/src/components/Stars";
 import { Body, Button, Card, IconButton, Title } from "@/src/components/ui";
@@ -30,7 +31,8 @@ export default function ProfileTab() {
   const [specs, setSpecs] = useState<Specialization[]>([]);
   const [hub, setHub] = useState<SpecHub | null>(null);
   const [stats, setStats] = useState<Record<string, number> | null>(null);
-  const [badges, setBadges] = useState<any[]>([]);
+  const [badges, setBadges] = useState<BadgeItem[]>([]);
+  const [openBadge, setOpenBadge] = useState<BadgeItem | null>(null);
   const [orgRating, setOrgRating] = useState<OrganizerRating | null>(null);
 
   useFocusEffect(useCallback(() => {
@@ -49,7 +51,6 @@ export default function ProfileTab() {
   const banner = spec?.color ?? colors.brandPrimary;
   const lp = levelProgress(profile?.xp ?? 0, levels);
   const culinary = CULINARY_LEVELS.find((l) => l.level === profile?.culinary_skill_level);
-  const unlockedSkills = (hub?.specializations ?? []).flatMap((s) => (s.skills ?? []).filter((sk) => sk.status === "unlocked").map((sk) => ({ ...sk, spec: s.name })));
 
   return (
     <ScrollView testID="profile-screen" style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ paddingBottom: bottomChrome + spacing.xl }}>
@@ -93,28 +94,6 @@ export default function ProfileTab() {
         </View>
         <Button testID="profile-culinary-button" title="Profil kulinarny" icon="chef-hat" variant="ghost" onPress={() => router.push("/profile/culinary")} />
 
-        {hub ? (
-          <>
-            <Title size={20}>Postęp specjalizacji</Title>
-            {(hub.specializations ?? []).map((s) => (
-              <Card key={s.code} testID={`profile-spec-progress-${s.code}`} onPress={() => router.push(`/specialization/${s.code}`)}>
-                <Title size={16}>{s.name}</Title>
-                <Body muted>PD {s.pd} · poziom {s.level} · misje {s.missions_completed}</Body>
-              </Card>
-            ))}
-            <Title size={20}>Odblokowane skille</Title>
-            {unlockedSkills.length === 0 ? <Body muted>Skille odblokują się od poziomu 2 danej specjalizacji.</Body> : unlockedSkills.map((sk) => {
-              const sc = hub?.specializations.find((s) => s.name === sk.spec);
-              return (
-                <Card key={sk.code} testID={`profile-skill-${sk.code}`} accent={sc?.color} style={sc?.color ? { backgroundColor: `${sc.color}14` } : undefined}>
-                  <Title size={15} style={sc?.color ? { color: sc.color } : undefined}>{sk.name}</Title>
-                  <Body muted>{sk.spec}</Body>
-                </Card>
-              );
-            })}
-          </>
-        ) : null}
-
         {culinary || profile?.signature_dish ? (
           <Card testID="profile-culinary-summary">
             <Title size={16}>Kuchnia Yummitera</Title>
@@ -147,14 +126,15 @@ export default function ProfileTab() {
         <Title size={20}>Odznaki</Title>
         <View testID="profile-badges" style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
           {badges.map((b) => (
-            <View key={b.code} testID={`badge-${b.code}`} style={{ width: 96, alignItems: "center", gap: spacing.xs, opacity: b.owned ? 1 : 0.35 }}>
+            <Pressable key={b.code} testID={`badge-${b.code}`} onPress={() => setOpenBadge(b)} style={{ width: 96, alignItems: "center", gap: spacing.xs, opacity: b.owned ? 1 : 0.35 }}>
               <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: b.owned ? colors.rarityLegendary : colors.surfaceTertiary, alignItems: "center", justifyContent: "center" }}>
-                <Icon name={b.icon} size={28} color={colors.onSurface} />
+                <Icon name={b.icon || "medal"} size={28} color={colors.onSurface} />
               </View>
               <Body style={{ fontSize: 12, textAlign: "center" }} numberOfLines={2}>{b.name}</Body>
-            </View>
+            </Pressable>
           ))}
         </View>
+        <BadgeDetail badge={openBadge} onClose={() => setOpenBadge(null)} />
         <Card testID="profile-settings-card" onPress={() => router.push("/settings")} style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
           <Icon name="shield-account" size={26} color={colors.brandPrimary} />
           <View style={{ flex: 1 }}><Title size={16}>Preferencje, prywatność i bezpieczeństwo</Title><Body muted>Widoczność, tryb pojedynków, blokady, dieta</Body></View>
