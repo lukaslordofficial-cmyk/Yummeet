@@ -39,8 +39,8 @@ export default function Tables() {
 
   return (
     <View testID="tables-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, alignItems: "center", gap: spacing.sm }}>
-        <Title size={28} testID="tables-title">Spotkanie</Title>
+      <View style={{ paddingTop: insets.top + spacing.lg, paddingHorizontal: spacing.lg, gap: spacing.sm }}>
+        <Title size={32} testID="tables-title">Spotkanie</Title>
         <Body muted testID="tables-intro">Dołącz do otwartego stołu albo zorganizuj własne spotkanie przy jedzeniu.</Body>
         <Button testID="tables-create-button" title="Nowe spotkanie" icon="plus" onPress={() => router.push(filter ? `/event/new?category=${filter}` : "/event/new")} style={{ alignSelf: "stretch" }} />
         <Button testID="tables-journal-button" title="Dziennik Spotkań" icon="notebook-outline" variant="secondary" onPress={() => router.push("/meetings")} style={{ alignSelf: "stretch" }} />

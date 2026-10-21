@@ -36,44 +36,47 @@ import { Appearance, StyleSheet, useColorScheme } from "react-native";
 export type ColorScheme = "light" | "dark";
 
 const light = {
-  surface: "#FFF7EE",
-  onSurface: "#352921",
-  surfaceSecondary: "#FFFFFF",
-  onSurfaceSecondary: "#352921",
-  surfaceTertiary: "#F4EBE3",
-  onSurfaceTertiary: "#352921",
-  surfaceInverse: "#352921",
-  onSurfaceInverse: "#FFF7EE",
-  brand: "#C9412A",
-  onBrand: "#FFFFFF",
-  brandPrimary: "#C9412A",
-  onBrandPrimary: "#FFFFFF",
-  brandSecondary: "#2F7D3E",
+  surface: "#100E0C",
+  onSurface: "#F6F1EA",
+  surfaceSecondary: "#1C1916",
+  onSurfaceSecondary: "#F6F1EA",
+  surfaceTertiary: "#2A2622",
+  onSurfaceTertiary: "#F6F1EA",
+  surfaceInverse: "#F7F3EE",
+  onSurfaceInverse: "#1A1612",
+  sheet: "#FFF8F1",
+  onSheet: "#1C1612",
+  sheetMuted: "#6E6258",
+  brand: "#E6A04A",
+  onBrand: "#1A120C",
+  brandPrimary: "#E6A04A",
+  onBrandPrimary: "#1A120C",
+  brandSecondary: "#1F7A45",
   onBrandSecondary: "#FFFFFF",
-  brandTertiary: "#F6D48C",
-  onBrandTertiary: "#352921",
-  success: "#2F7D3E",
-  onSuccess: "#FFFFFF",
-  warning: "#B7791F",
-  onWarning: "#352921",
-  error: "#C4321A",
+  brandTertiary: "#3A2E22",
+  onBrandTertiary: "#F6D7A8",
+  success: "#7DDEA4",
+  onSuccess: "#102116",
+  warning: "#E6A04A",
+  onWarning: "#1A120C",
+  error: "#E15A4A",
   onError: "#FFFFFF",
-  info: "#0F766E",
-  onInfo: "#FFFFFF",
-  border: "#E4D5C6",
-  borderStrong: "#D4C4B4",
-  divider: "#F0E6DC",
-  muted: "#6B5E54",
-  rarityCommon: "#8C827A",
-  rarityRare: "#2E8B57",
-  rarityEpic: "#A0153E",
-  rarityLegendary: "#D4AF37",
-  classFoodie: "#C9412A",
-  classCritic: "#352921",
-  classSommelier: "#722F37",
-  classHunter: "#2F7D3E",
-  classSocialite: "#B7791F",
-  classChef: "#A27E5D",
+  info: "#7DCEC4",
+  onInfo: "#10211F",
+  border: "#3A332C",
+  borderStrong: "#52483F",
+  divider: "#2A2622",
+  muted: "#B3A79C",
+  rarityCommon: "#A39890",
+  rarityRare: "#7DDEA4",
+  rarityEpic: "#E15A4A",
+  rarityLegendary: "#E6A04A",
+  classFoodie: "#E6A04A",
+  classCritic: "#F6F1EA",
+  classSommelier: "#E15A4A",
+  classHunter: "#7DDEA4",
+  classSocialite: "#E6A04A",
+  classChef: "#D7B899",
 };
 
 export type ThemeColors = typeof light;
@@ -116,8 +119,21 @@ export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.Name
 
 
 
+/** Window and system-nav color. Same value as `light.surface`. */
+export const windowBackground = light.surface;
+
+/** React Navigation chrome. Keys match DarkTheme.colors. */
+export const navigationColors = {
+  primary: light.brandPrimary,
+  background: light.surface,
+  card: light.surface,
+  text: light.onSurface,
+  border: light.border,
+  notification: light.error,
+};
+
 export const fonts = { display: "PlusJakartaSemi", text: "PlusJakarta" } as const;
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as const;
-export const radius = { sm: 10, md: 16, lg: 20, pill: 999 } as const;
+export const radius = { sm: 10, md: 16, lg: 24, pill: 999 } as const;
 export const rarityColor = (c: ThemeColors, r: string) =>
   r === "legendary" ? c.rarityLegendary : r === "epic" ? c.rarityEpic : r === "rare" ? c.rarityRare : c.rarityCommon;

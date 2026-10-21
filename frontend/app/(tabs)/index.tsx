@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DiscoverPlaceCard } from "@/src/components/DiscoverPlaceCard";
 import { AppMapView } from "@/src/components/map/AppMapView";
 import { Body, Button, Chip, ChipRow, Field, IconButton, Title, useToast } from "@/src/components/ui";
 import { viewToBBox } from "@/src/domain/rules";
@@ -27,6 +28,7 @@ export default function Discover() {
   const [draftMin, setDraftMin] = useState("");
   const [draftMax, setDraftMax] = useState("");
   const [pins, setPins] = useState<PinMarker[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const view = useRef({ lat: 52.2297, lng: 21.0122, zoom: 13 });
   const [center, setCenter] = useState(view.current);
@@ -70,6 +72,8 @@ export default function Discover() {
     },
     [load],
   );
+
+  const selected = pins.find((p) => p.id === selectedId) ?? null;
 
   const markers = useMemo(
     () =>
@@ -141,43 +145,33 @@ export default function Discover() {
         markers={markers}
         fitBounds={false}
         followCenterToken={followToken}
-        onMarkerPress={(id) => router.push(`/pin/${id}`)}
+        onMarkerPress={(id) => setSelectedId(id)}
         onViewChange={onViewChange}
       />
       <View style={{ pointerEvents: "box-none", position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm }}>
-        <View
-          style={{
-            marginHorizontal: spacing.lg,
-            backgroundColor: colors.surfaceSecondary,
-            borderRadius: radius.lg,
-            padding: spacing.md,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
+        <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
           <View style={{ flex: 1 }}>
-            <Title size={20}>Odkrywaj</Title>
-            <Body muted testID="discover-pin-count">
-              {error ? error : `${pins.length} w tym kadrze · pin tylko z GPS na miejscu`}
-            </Body>
+            <ChipRow testID="discover-cuisine-chips">
+              <Chip testID="price-chip" label={priceChipLabel} selected={priceActive} onPress={openPrice} />
+              {CUISINES.map((c) => (
+                <Chip
+                  key={c.key ?? c.label}
+                  testID={`cuisine-chip-${c.key ?? "all"}`}
+                  label={`${cuisinePinStyle(c.key).glyph} ${c.label}`}
+                  selected={cuisine === c.key}
+                  onPress={() => setCuisine((cur) => (cur === c.key ? null : c.key))}
+                />
+              ))}
+            </ChipRow>
+            <View style={{ alignSelf: "flex-start", marginLeft: spacing.lg, backgroundColor: colors.sheet, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
+              <Body testID="discover-pin-count" style={{ color: colors.onSheet }}>{error ? error : `${pins.length} w tym kadrze`}</Body>
+            </View>
           </View>
-          <IconButton testID="discover-locate-button" icon="crosshairs-gps" onPress={locate} />
+          <View style={{ paddingRight: spacing.lg, gap: spacing.sm }}>
+            <IconButton testID="discover-locate-button" icon="crosshairs-gps" tone="sheet" onPress={() => { setSelectedId(null); void locate(); }} />
+            <IconButton testID="discover-route-button" icon="map-marker-path" tone="sheet" onPress={() => router.push("/route")} />
+          </View>
         </View>
-        <ChipRow testID="discover-cuisine-chips">
-          <Chip testID="price-chip" label={priceChipLabel} selected={priceActive} onPress={openPrice} />
-          {CUISINES.map((c) => (
-            <Chip
-              key={c.key ?? c.label}
-              testID={`cuisine-chip-${c.key ?? "all"}`}
-              label={`${cuisinePinStyle(c.key).glyph} ${c.label}`}
-              selected={cuisine === c.key}
-              onPress={() => setCuisine((cur) => (cur === c.key ? null : c.key))}
-            />
-          ))}
-        </ChipRow>
       </View>
       <View
         style={{
@@ -185,13 +179,28 @@ export default function Discover() {
           position: "absolute",
           left: spacing.lg,
           right: spacing.lg,
-          bottom: bottomChrome + spacing.lg,
+          bottom: bottomChrome + spacing.md,
           flexDirection: "row",
+          alignItems: "flex-end",
           gap: spacing.md,
         }}
       >
-        <Button testID="discover-route-button" title="Gastro-Trasa" icon="map-marker-path" style={{ flex: 1 }} onPress={() => router.push("/route")} />
-        <Button testID="discover-add-pin-button" title="Pin" icon="map-marker-plus" variant="secondary" onPress={() => router.push("/pin/new")} />
+        {selected ? (
+          <View style={{ flex: 1 }}>
+            <DiscoverPlaceCard
+              pin={selected}
+              onFocus={() => {
+                view.current = { lat: selected.lat, lng: selected.lng, zoom: 16 };
+                setCenter(view.current);
+                setFollowToken(Date.now());
+              }}
+              onOpen={() => router.push(`/pin/${selected.id}`)}
+            />
+          </View>
+        ) : (
+          <View style={{ flex: 1 }} />
+        )}
+        <IconButton testID="discover-add-pin-button" icon="plus" tone="brand" onPress={() => router.push("/pin/new")} />
       </View>
 
       <Modal visible={priceOpen} transparent animationType="fade" onRequestClose={() => setPriceOpen(false)}>

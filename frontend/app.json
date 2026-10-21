@@ -6,7 +6,13 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "yummeet",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#100E0C",
+    "androidNavigationBar": {
+      "backgroundColor": "#100E0C",
+      "barStyle": "light-content",
+      "enforceContrast": false
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yummeet.app",
@@ -59,7 +65,7 @@
           "image": "./assets/images/splash-image.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000000"
+          "backgroundColor": "#100E0C"
         }
       ],
       "expo-font",

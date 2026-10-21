@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
-import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/src/components/Icon";
 import { useDuelPresence } from "@/src/hooks/useDuelPresence";
@@ -18,12 +18,23 @@ const HIDDEN_TABS = ["food", "challenges"] as const;
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   useDuelPresence(!!profile?.duel_mode_enabled);
+  const bottomInset = insets.bottom;
 
   if (usesNativeTabs) {
     return (
-      <NativeTabs tintColor={colors.brandPrimary}>
+      <NativeTabs
+        tintColor={colors.brandPrimary}
+        backgroundColor={colors.surface}
+        blurEffect="none"
+        iconColor={{ default: colors.muted, selected: colors.brandPrimary }}
+        labelStyle={{
+          default: { color: colors.muted, fontSize: 11 },
+          selected: { color: colors.brandPrimary, fontSize: 11 },
+        }}
+      >
         {VISIBLE_TABS.map((t) => (
           <NativeTabs.Trigger key={t.name} name={t.name}>
             <NativeTabs.Trigger.Icon sf={t.sf as any} />
@@ -37,19 +48,22 @@ export default function TabsLayout() {
     );
   }
   return (
-    <Tabs screenOptions={{
+    <Tabs
+      safeAreaInsets={{ bottom: 0 }}
+      screenOptions={{
       headerShown: false,
       tabBarActiveTintColor: colors.brandPrimary,
       tabBarInactiveTintColor: colors.muted,
       tabBarStyle: {
-        backgroundColor: colors.surfaceSecondary,
+        backgroundColor: colors.surface,
         borderTopColor: colors.border,
         borderTopWidth: 1,
-        paddingTop: 4,
-        ...(Platform.OS === "web" ? { height: 72 } : {}),
+        height: 64 + bottomInset,
+        paddingTop: 8,
+        paddingBottom: Math.max(bottomInset, 10),
       },
-      tabBarItemStyle: { alignSelf: "center" },
-      tabBarLabelStyle: { fontFamily: fonts.display, fontSize: 12 },
+      tabBarItemStyle: { paddingTop: 2 },
+      tabBarLabelStyle: { fontFamily: fonts.display, fontSize: 11 },
     }}>
       {VISIBLE_TABS.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{

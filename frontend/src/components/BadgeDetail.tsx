@@ -42,7 +42,7 @@ export function BadgeDetail({ badge, onClose }: { badge: BadgeItem | null; onClo
           }}
         >
           <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: badge?.owned ? colors.rarityLegendary : colors.surfaceTertiary, alignItems: "center", justifyContent: "center" }}>
-            <Icon name={badge?.icon || "medal"} size={34} color={colors.onSurface} />
+            <Icon name={badge?.icon || "medal"} size={34} color={badge?.owned ? colors.onBrandPrimary : colors.onSurface} />
           </View>
           <Title size={24} testID="badge-detail-name">{badge?.name}</Title>
           {badge?.description ? <Body testID="badge-detail-description">{badge.description}</Body> : null}

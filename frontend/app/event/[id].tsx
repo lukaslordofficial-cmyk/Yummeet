@@ -197,7 +197,7 @@ export default function EventDetail() {
       <Header title={kindLabel} right={<Button testID="event-report-button" title="Zgłoś" variant="ghost" onPress={() => act(() => report("event", id, "event_issue"), "Zgłoszenie wysłane")} />} />
       <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
         <Card accent={e.is_official ? colors.rarityLegendary : undefined}>
-          {e.is_official ? <Badge label="OFICJALNE WYDARZENIE" color={colors.rarityLegendary} textColor={colors.onSurface} /> : null}
+          {e.is_official ? <Badge label="OFICJALNE WYDARZENIE" color={colors.rarityLegendary} textColor={colors.onBrandPrimary} /> : null}
           <Title size={24} testID="event-title">{e.title}</Title>
           <Body>{e.place_name} · {formatDate(e.starts_at)}</Body>
           {e.description ? <Body muted>{e.description}</Body> : null}

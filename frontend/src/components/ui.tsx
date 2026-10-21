@@ -34,21 +34,23 @@ export function Button({ title, onPress, variant = "primary", icon, loading, dis
   const borderColor = variant === "primary" || variant === "danger" ? bg : colors.borderStrong;
   return (
     <Pressable testID={testID} accessibilityRole="button" disabled={disabled || loading} onPress={() => { haptic.tap(); onPress(); }}
-      style={({ pressed }) => [{ minHeight: 52, borderRadius: radius.md, backgroundColor: bg, borderWidth: 1, borderColor, paddingHorizontal: spacing.xl, flexDirection: "row",
+      style={({ pressed }) => [{ minHeight: 48, borderRadius: radius.pill, backgroundColor: bg, borderWidth: 1, borderColor, paddingHorizontal: spacing.xl, flexDirection: "row",
         alignItems: "center", justifyContent: "center", gap: spacing.sm, opacity: disabled ? 0.45 : pressed ? 0.88 : 1 }, style]}>
       {loading ? <ActivityIndicator color={fg} /> : <>{icon ? <Icon name={icon} size={20} color={fg} /> : null}<Text style={{ fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: fg }}>{title}</Text></>}
     </Pressable>
   );
 }
 
-export function IconButton({ icon, onPress, testID, tone = "surface" }: { icon: string; onPress: () => void; testID: string; tone?: "surface" | "brand" }) {
+export function IconButton({ icon, onPress, testID, tone = "surface" }: { icon: string; onPress: () => void; testID: string; tone?: "surface" | "brand" | "sheet" }) {
   const { colors } = useTheme();
+  const bg = tone === "brand" ? colors.brandPrimary : tone === "sheet" ? colors.sheet : colors.surfaceSecondary;
+  const fg = tone === "brand" ? colors.onBrandPrimary : tone === "sheet" ? colors.onSheet : colors.onSurface;
   return (
-    <Pressable testID={testID} onPress={() => { haptic.tap(); onPress(); }} hitSlop={6}
-      style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center",
-        backgroundColor: tone === "brand" ? colors.brandPrimary : colors.surfaceSecondary, borderWidth: 1, borderColor: tone === "brand" ? colors.brandPrimary : colors.border,
+    <Pressable testID={testID} accessibilityRole="button" onPress={() => { haptic.tap(); onPress(); }} hitSlop={6}
+      style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center",
+        backgroundColor: bg, borderWidth: 1, borderColor: tone === "surface" ? colors.border : bg,
         opacity: pressed ? 0.88 : 1 })}>
-      <Icon name={icon} size={22} color={tone === "brand" ? colors.onBrandPrimary : colors.onSurface} />
+      <Icon name={icon} size={22} color={fg} />
     </Pressable>
   );
 }
@@ -67,7 +69,7 @@ export function Chip({ label, selected, onPress, testID, color }: { label: strin
     <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ selected: !!selected }} onPress={() => { haptic.tap(); onPress?.(); }}
       style={{ height: 40, flexShrink: 0, borderRadius: radius.pill, paddingHorizontal: spacing.lg, justifyContent: "center",
         backgroundColor: selected ? active : colors.surfaceSecondary, borderWidth: 1, borderColor: selected ? active : colors.border }}>
-      <Text style={{ fontFamily: fonts.text, fontSize: 14, lineHeight: 18, color: selected ? colors.onBrandPrimary : colors.onSurface }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.text, fontSize: 14, lineHeight: 18, color: selected ? (color ? colors.onError : colors.onBrandPrimary) : colors.onSurface }}>{label}</Text>
     </Pressable>
   );
 }
@@ -162,13 +164,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     timer.current = setTimeout(() => Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: Platform.OS !== "web" }).start(() => setToast(null)), 3200);
   }, [opacity]);
   const bg = toast?.tone === "error" ? colors.error : toast?.tone === "success" ? colors.success : colors.surfaceInverse;
+  const fg = toast?.tone === "error" ? colors.onError : toast?.tone === "success" ? colors.onSuccess : colors.onSurfaceInverse;
   return (
     <ToastCtx.Provider value={show}>
       {children}
       {toast ? (
         <Animated.View testID="toast" style={{ pointerEvents: "none", position: "absolute", left: spacing.lg, right: spacing.lg, top: insets.top + spacing.sm, opacity,
           backgroundColor: bg, borderRadius: radius.md, padding: spacing.lg, zIndex: 1000 }}>
-          <Text testID="toast-text" style={{ fontFamily: fonts.text, fontSize: 15, color: colors.onSurfaceInverse }}>{toast.text}</Text>
+          <Text testID="toast-text" style={{ fontFamily: fonts.text, fontSize: 15, color: fg }}>{toast.text}</Text>
         </Animated.View>
       ) : null}
     </ToastCtx.Provider>

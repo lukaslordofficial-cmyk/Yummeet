@@ -1,8 +1,9 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { DarkTheme, Stack, ThemeProvider, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
 import { useEffect } from "react";
 import { AppState, LogBox, Platform, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -14,7 +15,12 @@ import { FloatingNav } from "@/src/components/FloatingNav";
 import { Loading, ToastProvider } from "@/src/components/ui";
 import { AuthProvider, useAuth } from "@/src/providers/AuthProvider";
 import { queryClient } from "@/src/query-client";
-import { useTheme } from "@/src/theme";
+import { navigationColors, useTheme, windowBackground } from "@/src/theme";
+
+const navigationTheme = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, ...navigationColors },
+};
 
 LogBox.ignoreAllLogs(true);
 
@@ -79,7 +85,7 @@ function Gate() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <ShareIntentBridge />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
         <Stack.Protected guard={!!session}>
@@ -129,24 +135,30 @@ export default function RootLayout() {
     return () => clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(windowBackground);
+  }, []);
+
   if (!fontsReady) {
-    return <View style={{ flex: 1, backgroundColor: "#FFF7EE" }} />;
+    return <View style={{ flex: 1, backgroundColor: windowBackground }} />;
   }
 
   return (
     <ErrorBoundary>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <KeyboardProvider>
-            <AuthProvider>
-              <ToastProvider>
-                <StatusBar style="dark" />
-                <Gate />
-              </ToastProvider>
-            </AuthProvider>
-          </KeyboardProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
+      <ThemeProvider value={navigationTheme}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <KeyboardProvider>
+              <AuthProvider>
+                <ToastProvider>
+                  <StatusBar style="light" />
+                  <Gate />
+                </ToastProvider>
+              </AuthProvider>
+            </KeyboardProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

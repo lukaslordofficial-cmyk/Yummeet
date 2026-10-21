@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -6,6 +5,7 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PinCover } from "@/src/components/PinCover";
 import { PinDishSection } from "@/src/components/meetings/PinDishSection";
 import { PinOrderActions } from "@/src/components/PinOrderActions";
 import { Stars } from "@/src/components/Stars";
@@ -15,7 +15,7 @@ import { cuisineLabel } from "@/src/lib/cuisines";
 import { deletePin, invalidatePins, markVisited, pinDetails, report, saveReview } from "@/src/lib/data";
 import { formatPinEditChanges } from "@/src/lib/pinEditLabels";
 import { descriptionWithoutMenuUrl } from "@/src/lib/pinWebsite";
-import { fonts, radius, spacing, useTheme } from "@/src/theme";
+import { fonts, spacing, useTheme } from "@/src/theme";
 
 const PURPOSES = [["date", "Randka"], ["group", "Grupa"], ["meet", "Poznawanie ludzi"], ["work", "Praca"], ["party", "Impreza"], ["quiet", "Spokojna rozmowa"]] as const;
 const AXES = [["food", "Jedzenie"], ["atmosphere", "Atmosfera"], ["service", "Obsługa"], ["price_value", "Cena/jakość"]] as const;
@@ -82,17 +82,20 @@ export default function PinDetail() {
 
   return (
     <View testID="pin-detail-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title={pin.title} right={<Button testID="pin-report-button" title="Zgłoś" variant="ghost" onPress={async () => { await report("pin", id, "pin_issue"); toast("Zgłoszenie wysłane", "success"); }} />} />
-      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
-        {pin.cover_url ? (
-          <Image source={{ uri: pin.cover_url }} style={{ width: "100%", height: 200, borderRadius: radius.lg }} contentFit="cover" testID="pin-cover-image" />
-        ) : null}
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}>
+        <PinCover
+          title={pin.title}
+          cuisine={pin.cuisine}
+          coverUrl={pin.cover_url}
+          right={<Button testID="pin-report-button" title="Zgłoś" variant="secondary" onPress={async () => { await report("pin", id, "pin_issue"); toast("Zgłoszenie wysłane", "success"); }} />}
+        />
+        <View style={{ padding: spacing.lg, gap: spacing.lg }}>
 
         <PinOrderActions pin={pin} onAddWebsite={() => router.push(`/pin/edit/${id}`)} />
 
         <Card>
           <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
-            {pin.is_official ? <Badge label="OFICJALNY LOKAL" color={colors.rarityLegendary} textColor={colors.onSurface} /> : null}
+            {pin.is_official ? <Badge label="OFICJALNY LOKAL" color={colors.rarityLegendary} textColor={colors.onBrandPrimary} /> : null}
             {pin.cuisine ? <Badge label={cuisineLabel(pin.cuisine)} color={colors.brandTertiary} textColor={colors.onBrandTertiary} /> : null}
             {(pin.tags ?? []).map((t: string) => <Badge key={t} label={t} color={colors.surfaceTertiary} textColor={colors.onSurfaceTertiary} />)}
             {pin.visited ? <Badge testID="pin-visited-badge" label="Odwiedzone ✓" color={colors.success} textColor={colors.onSuccess} /> : null}
@@ -179,6 +182,7 @@ export default function PinDetail() {
             {rv.tip ? <Body>{rv.tip}</Body> : null}
           </Card>
         ))}
+        </View>
       </KeyboardAwareScrollView>
     </View>
   );

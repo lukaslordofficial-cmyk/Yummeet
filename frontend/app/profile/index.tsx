@@ -128,7 +128,7 @@ export default function ProfileTab() {
           {badges.map((b) => (
             <Pressable key={b.code} testID={`badge-${b.code}`} onPress={() => setOpenBadge(b)} style={{ width: 96, alignItems: "center", gap: spacing.xs, opacity: b.owned ? 1 : 0.35 }}>
               <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: b.owned ? colors.rarityLegendary : colors.surfaceTertiary, alignItems: "center", justifyContent: "center" }}>
-                <Icon name={b.icon || "medal"} size={28} color={colors.onSurface} />
+                <Icon name={b.icon || "medal"} size={28} color={b.owned ? colors.onBrandPrimary : colors.onSurface} />
               </View>
               <Body style={{ fontSize: 12, textAlign: "center" }} numberOfLines={2}>{b.name}</Body>
             </Pressable>
