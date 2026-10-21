@@ -104,7 +104,7 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
     .gpin-face img { width:100%; height:100%; object-fit:cover; display:block; }
     .gpin-glyph { font-size:inherit; line-height:1; }
     .gpin-official { position:absolute; right:-2px; top:2px; width:10px; height:10px; border-radius:50%; background:#D4AF37; border:1.5px solid #fff; box-sizing:border-box; }
-    .user-dot { background:#38A342; width:14px; height:14px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 4px rgba(56,163,66,0.25); }
+    .user-dot { background:#2F7D3E; width:14px; height:14px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 4px rgba(47,125,62,0.25); }
     .draw-dot { background:#FF9F43; width:14px; height:14px; border-radius:50%; border:2px solid #fff; }
   </style>
 </head>
@@ -158,7 +158,7 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
       return icon;
     }
     function pinIcon(color, label, coverUrl, showLabel, scale, glyph, official){
-      var bg = color || '#E05F36';
+      var bg = color || '#C9412A';
       var sc = scale || pinScale(13);
       var text = esc(label || '');
       var w = sc.w, h = sc.h, face = sc.face, font = sc.font;

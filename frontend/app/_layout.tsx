@@ -117,8 +117,8 @@ function Gate() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    Fredoka: require("../assets/fonts/Fredoka.ttf"),
-    Nunito: require("../assets/fonts/Nunito.ttf"),
+    PlusJakarta: require("../assets/fonts/PlusJakartaSans-Regular.ttf"),
+    PlusJakartaSemi: require("../assets/fonts/PlusJakartaSans-SemiBold.ttf"),
   });
   const fontsReady = fontsLoaded || !!fontError;
 
@@ -130,7 +130,7 @@ export default function RootLayout() {
   }, []);
 
   if (!fontsReady) {
-    return <View style={{ flex: 1, backgroundColor: "#FFF8F0" }} />;
+    return <View style={{ flex: 1, backgroundColor: "#FFF7EE" }} />;
   }
 
   return (

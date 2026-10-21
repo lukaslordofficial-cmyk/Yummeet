@@ -41,9 +41,15 @@ export default function TabsLayout() {
       headerShown: false,
       tabBarActiveTintColor: colors.brandPrimary,
       tabBarInactiveTintColor: colors.muted,
-      tabBarStyle: { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border, ...(Platform.OS === "web" ? { height: 64 } : {}) },
+      tabBarStyle: {
+        backgroundColor: colors.surfaceSecondary,
+        borderTopColor: colors.border,
+        borderTopWidth: 1,
+        paddingTop: 4,
+        ...(Platform.OS === "web" ? { height: 72 } : {}),
+      },
       tabBarItemStyle: { alignSelf: "center" },
-      tabBarLabelStyle: { fontFamily: fonts.text, fontSize: 11 },
+      tabBarLabelStyle: { fontFamily: fonts.display, fontSize: 12 },
     }}>
       {VISIBLE_TABS.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{

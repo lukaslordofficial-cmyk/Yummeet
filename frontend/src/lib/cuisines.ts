@@ -112,10 +112,10 @@ const CUISINE_PINS: Record<string, CuisinePinStyle> = {
   brunch: { color: "#FB7185", glyph: "🥞" },
   international: { color: "#0D9488", glyph: "🌍" },
   food_share: { color: "#22C55E", glyph: "♻️" },
-  other: { color: "#E05F36", glyph: "🍽️" },
+  other: { color: "#C9412A", glyph: "🍽️" },
 };
 
-const FALLBACK_PIN_COLORS = ["#E05F36", "#38A342", "#14B8A6", "#F59E0B", "#722F37", "#2E8B57", "#A0153E", "#1D4ED8"];
+const FALLBACK_PIN_COLORS = ["#C9412A", "#2F7D3E", "#0F766E", "#B7791F", "#722F37", "#2E8B57", "#A0153E", "#1D4ED8"];
 
 function hashHue(key: string): string {
   let h = 0;
@@ -124,7 +124,7 @@ function hashHue(key: string): string {
 }
 
 export function cuisinePinStyle(key: string | null | undefined): CuisinePinStyle {
-  if (!key) return { color: "#E05F36", glyph: "🍽️" };
+  if (!key) return { color: "#C9412A", glyph: "🍽️" };
   return CUISINE_PINS[key] ?? { color: hashHue(key), glyph: "🍴" };
 }
 

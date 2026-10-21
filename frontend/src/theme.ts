@@ -36,43 +36,43 @@ import { Appearance, StyleSheet, useColorScheme } from "react-native";
 export type ColorScheme = "light" | "dark";
 
 const light = {
-  surface: "#FFF8F0",
-  onSurface: "#2C2520",
+  surface: "#FFF7EE",
+  onSurface: "#352921",
   surfaceSecondary: "#FFFFFF",
-  onSurfaceSecondary: "#2C2520",
-  surfaceTertiary: "#F2E6DD",
-  onSurfaceTertiary: "#4A3C31",
-  surfaceInverse: "#3D312A",
-  onSurfaceInverse: "#FFF8F0",
-  brand: "#E05F36",
+  onSurfaceSecondary: "#352921",
+  surfaceTertiary: "#F4EBE3",
+  onSurfaceTertiary: "#352921",
+  surfaceInverse: "#352921",
+  onSurfaceInverse: "#FFF7EE",
+  brand: "#C9412A",
   onBrand: "#FFFFFF",
-  brandPrimary: "#E05F36",
+  brandPrimary: "#C9412A",
   onBrandPrimary: "#FFFFFF",
-  brandSecondary: "#38A342",
+  brandSecondary: "#2F7D3E",
   onBrandSecondary: "#FFFFFF",
-  brandTertiary: "#F7C5A8",
-  onBrandTertiary: "#9A3816",
-  success: "#38A342",
+  brandTertiary: "#F6D48C",
+  onBrandTertiary: "#352921",
+  success: "#2F7D3E",
   onSuccess: "#FFFFFF",
-  warning: "#F59E0B",
-  onWarning: "#FFFFFF",
-  error: "#D9381E",
+  warning: "#B7791F",
+  onWarning: "#352921",
+  error: "#C4321A",
   onError: "#FFFFFF",
-  info: "#14B8A6",
+  info: "#0F766E",
   onInfo: "#FFFFFF",
-  border: "#E8DCD0",
-  borderStrong: "#D1BAA5",
-  divider: "#F2E6DD",
-  muted: "#8C7D70",
+  border: "#E4D5C6",
+  borderStrong: "#D4C4B4",
+  divider: "#F0E6DC",
+  muted: "#6B5E54",
   rarityCommon: "#8C827A",
   rarityRare: "#2E8B57",
   rarityEpic: "#A0153E",
   rarityLegendary: "#D4AF37",
-  classFoodie: "#E05F36",
-  classCritic: "#2C2520",
+  classFoodie: "#C9412A",
+  classCritic: "#352921",
   classSommelier: "#722F37",
-  classHunter: "#38A342",
-  classSocialite: "#F4A261",
+  classHunter: "#2F7D3E",
+  classSocialite: "#B7791F",
   classChef: "#A27E5D",
 };
 
@@ -116,8 +116,8 @@ export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.Name
 
 
 
-export const fonts = { display: "Fredoka", text: "Nunito" } as const;
+export const fonts = { display: "PlusJakartaSemi", text: "PlusJakarta" } as const;
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as const;
-export const radius = { sm: 8, md: 16, lg: 24, pill: 999 } as const;
+export const radius = { sm: 10, md: 16, lg: 20, pill: 999 } as const;
 export const rarityColor = (c: ThemeColors, r: string) =>
   r === "legendary" ? c.rarityLegendary : r === "epic" ? c.rarityEpic : r === "rare" ? c.rarityRare : c.rarityCommon;

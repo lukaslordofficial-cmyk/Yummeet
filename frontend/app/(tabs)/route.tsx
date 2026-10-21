@@ -234,7 +234,7 @@ export default function RoutePlanner() {
             <Chip key={k} testID={`route-mode-${k}`} label={l} selected={mode === k} onPress={() => setMode(k)} />
           ))}
           {[500, 1000, 3000].map((m) => (
-            <Chip key={m} testID={`route-buffer-${m}`} label={`≤${formatKm(m)} od trasy`} selected={buffer === m} onPress={() => { setBuffer(m); if (active) void refreshPins(line, m, cuisine); }} color={colors.brandSecondary} />
+            <Chip key={m} testID={`route-buffer-${m}`} label={`≤${formatKm(m)} od trasy`} selected={buffer === m} onPress={() => { setBuffer(m); if (active) void refreshPins(line, m, cuisine); }} />
           ))}
         </ChipRow>
         <Body muted style={{ paddingHorizontal: spacing.lg }}>Pas wzdłuż trasy, najwyżej 3 km. Gdy jesteś na trasie, lista też nie sięga dalej niż wybrany dystans od Ciebie. 1. to najbliższy lokal.</Body>

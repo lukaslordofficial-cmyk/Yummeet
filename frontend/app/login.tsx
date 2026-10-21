@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
 import { openTutorial } from "@/src/components/AppTutorial";
-import { Icon } from "@/src/components/Icon";
+import { BrandMark } from "@/src/components/BrandMark";
 import { Body, Button, Field, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { supabase } from "@/src/lib/supabase";
 import { useAuth } from "@/src/providers/AuthProvider";
-import { radius, spacing, useTheme } from "@/src/theme";
+import { spacing, useTheme } from "@/src/theme";
 
 const schema = z.object({ email: z.string().trim().email("Podaj poprawny e-mail"), password: z.string().min(6, "Hasło min. 6 znaków") });
 
@@ -53,15 +53,13 @@ export default function Login() {
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xl, paddingHorizontal: spacing.xl, gap: spacing.lg }}>
-        <View style={{ width: 96, height: 96, borderRadius: radius.lg, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" }}>
-          <Icon name="silverware-fork" size={52} color={colors.onBrandPrimary} />
-        </View>
+        <BrandMark size={84} />
         <Title size={40} testID="login-title">Yummeet</Title>
         <Body muted>Odkrywaj lokale na mapie, spotykaj ludzi przy stole i planuj Gastro-Trasę.</Body>
-        <ScrollView horizontal scrollEnabled={false} contentContainerStyle={{ gap: spacing.sm }}>
-          <Button testID="login-mode-login" title="Logowanie" variant={mode === "login" ? "primary" : "ghost"} onPress={() => setMode("login")} />
-          <Button testID="login-mode-register" title="Rejestracja" variant={mode === "register" ? "primary" : "ghost"} onPress={() => setMode("register")} />
-        </ScrollView>
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          <Button testID="login-mode-login" title="Logowanie" variant={mode === "login" ? "primary" : "ghost"} onPress={() => setMode("login")} style={{ flex: 1 }} />
+          <Button testID="login-mode-register" title="Rejestracja" variant={mode === "register" ? "primary" : "ghost"} onPress={() => setMode("register")} style={{ flex: 1 }} />
+        </View>
         {mode === "register" ? <Field testID="register-name-input" label="Imię / pseudonim" value={name} onChangeText={setName} placeholder="np. Smakosz Ala" /> : null}
         <Field testID="login-email-input" label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="ty@przyklad.pl" />
         <Field testID="login-password-input" label="Hasło" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••" onSubmitEditing={submit} />
