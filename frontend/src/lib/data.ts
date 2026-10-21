@@ -489,6 +489,7 @@ export async function listEventPhotos(eventId: string) {
 
 // ---------- chat ----------
 export const myConversations = () => rpc<any[]>("my_conversations");
+export const leaveConversation = (id: string) => rpc<void>("conversation_leave", { p_conv: id });
 export const openDirect = (other: string) => rpc<string>("chat_open_direct", { p_other: other });
 export const listMessages = (conv: string) =>
   must(supabase.from("messages").select("id,body,sender_id,created_at").eq("conversation_id", conv).order("created_at", { ascending: false }).limit(50)) as Promise<any[]>;

@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { useState } from "react";
 import { View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -5,7 +6,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
 import { openTutorial } from "@/src/components/AppTutorial";
-import { BrandMark } from "@/src/components/BrandMark";
 import { Body, Button, Field, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { supabase } from "@/src/lib/supabase";
@@ -54,7 +54,13 @@ export default function Login() {
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xl, paddingHorizontal: spacing.xl, gap: spacing.lg }}>
         <View style={{ alignItems: "center", gap: spacing.md }}>
-          <BrandMark size={84} />
+          <Image
+            testID="login-logo"
+            source={require("../assets/images/yummeet-logo.png")}
+            accessibilityLabel="Yummeet"
+            style={{ width: 220, height: 214 }}
+            contentFit="contain"
+          />
           <Title size={40} testID="login-title" style={{ textAlign: "center" }}>Yummeet</Title>
           <Body muted style={{ textAlign: "center" }}>
             Odkrywaj i oceniaj lokale gastronomiczne. Poznawaj ludzi przy stole. Wyszukuj restauracje podczas podróży.

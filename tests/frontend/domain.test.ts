@@ -110,6 +110,11 @@ test("meeting catalog keeps the tasting, game and hobby shelves", () => {
   assert.deepEqual(gry?.subs.map((s) => s.key), ["planszowe", "karciane", "szachy", "komputerowe", "inne"]);
   assert.deepEqual(pasje?.subs.map((s) => s.label), ["Rozmowa w językach obcych", "Wolontariat", "Wymiana ugotowanych potraw", "Inne"]);
   assert.equal(MEETING_CATEGORIES.length, 5);
+  assert.equal(categoryByKey("poznaj")?.label, "Speed Friending");
+  assert.equal(categoryByKey("randki")?.blurb, "Spotkania tylko we dwoje lub speed dating.");
+  assert.match(oceniaj?.blurb ?? "", /degustatorów/);
+  assert.match(categoryByKey("pasje")?.blurb ?? "", /wolontariat lokalny/);
+  assert.match(gry?.blurb ?? "", /pretekstem/);
   assert.equal(oceniaj?.subs.every((s) => s.format !== "standard"), true);
 });
 

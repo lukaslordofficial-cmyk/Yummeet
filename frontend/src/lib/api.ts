@@ -26,6 +26,7 @@ const MESSAGES: Record<string, string> = {
   too_early: "Kod / check-in dostępne dopiero w dniu i o godzinie wydarzenia.",
   event_closed: "Okno obecności minęło (max 4 h od startu) albo dzień się skończył.",
   not_joined: "Najpierw dołącz do wydarzenia.",
+  not_member: "Tego czatu nie ma już na Twojej liście.",
   no_venue_coords: "Brak współrzędnych miejsca — przy tworzeniu stołu wskaż lokalizację.",
   location_required: "Włącz GPS, żeby potwierdzić obecność / zobaczyć ranking w okolicy.",
   proximity_only: "Pojedynki tylko w pobliżu — włącz tryb pojedynków w ustawieniach.",

@@ -10,7 +10,7 @@ import { fonts, useTheme } from "@/src/theme";
 
 const VISIBLE_TABS = [
   { name: "index", label: "Odkrywaj", icon: "map-search", sf: "map.fill" },
-  { name: "tables", label: "Spotkanie", icon: "account-group", sf: "person.3.fill" },
+  { name: "tables", label: "Spotkania", icon: "account-group", sf: "person.3.fill" },
   { name: "route", label: "Gastro-Trasa", icon: "map-marker-path", sf: "point.topleft.down.to.point.bottomright.curvepath" },
 ] as const;
 

@@ -27,8 +27,8 @@ const STEPS = [
   },
   {
     icon: "chat-processing",
-    title: "Czat i profil z boku",
-    text: "Ikonki czatu i profilu pływają z prawej strony na każdym ekranie. Stuknij dymka, żeby pisać, albo awatar, żeby wejść w swoją kartę postaci.",
+    title: "Czat i profil",
+    text: "Jeśli chcesz porozmawiać z uczestnikami organizowanych wydarzeń i spotkań, to kliknij na dymek czatu z boku ekranu. Jeśli chcesz zobaczyć swój profil Yummitera, to kliknij boczną ikonkę profilu.",
   },
 ] as const;
 
@@ -86,24 +86,28 @@ export function AppTutorial({ force, autoStart = false, onClose }: { force?: boo
               <View key={i} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: i <= step ? colors.brandPrimary : colors.border }} />
             ))}
           </View>
-          <View style={{ flexDirection: "row", gap: spacing.md }}>
-            {step > 0 ? (
+          {last ? (
+            <View style={{ gap: spacing.sm }}>
+              <Button testID="tutorial-next" title="Zaczynamy" style={{ alignSelf: "stretch" }} onPress={() => { void close(); }} />
               <Button testID="tutorial-back" title="Wstecz" variant="ghost" onPress={() => { haptic.tap(); setStep((s) => s - 1); }} />
-            ) : (
-              <Pressable testID="tutorial-skip" onPress={() => { void close(); }} style={{ justifyContent: "center", paddingHorizontal: spacing.md }}>
-                <Body muted>Pomiń</Body>
-              </Pressable>
-            )}
-            <Button
-              testID="tutorial-next"
-              title={last ? "Zaczynamy" : "Dalej"}
-              style={{ flex: 1 }}
-              onPress={() => {
-                if (last) void close();
-                else { haptic.tap(); setStep((s) => s + 1); }
-              }}
-            />
-          </View>
+            </View>
+          ) : (
+            <View style={{ flexDirection: "row", gap: spacing.sm, alignItems: "center" }}>
+              {step > 0 ? (
+                <Button testID="tutorial-back" title="Wstecz" variant="ghost" onPress={() => { haptic.tap(); setStep((s) => s - 1); }} style={{ paddingHorizontal: spacing.md }} />
+              ) : (
+                <Pressable testID="tutorial-skip" onPress={() => { void close(); }} style={{ justifyContent: "center", paddingHorizontal: spacing.md }}>
+                  <Body muted>Pomiń</Body>
+                </Pressable>
+              )}
+              <Button
+                testID="tutorial-next"
+                title="Dalej"
+                style={{ flex: 1, paddingHorizontal: spacing.md }}
+                onPress={() => { haptic.tap(); setStep((s) => s + 1); }}
+              />
+            </View>
+          )}
         </View>
       </View>
     </Modal>

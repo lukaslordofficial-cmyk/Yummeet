@@ -3,7 +3,7 @@
 ## Architektura
 ```
 frontend/ (Expo SDK 57, expo-router, TypeScript)
-  app/(tabs)/        3 zakładki MVP: index=Odkrywaj, tables=Spotkanie, route=Gastro-Trasa (czat i profil — pływające ikony; Jedzenie i Misje schowane)
+  app/(tabs)/        3 zakładki MVP: index=Odkrywaj, tables=Spotkania, route=Gastro-Trasa (czat i profil — pływające ikony; Jedzenie i Misje schowane)
   app/*              ekrany stosu: pin/[id], pin/new, route (Gastro-Trasa), mission/[id], duel/[id], duel/new,
                      cards (Księga kart), specializations, event/[id], event/new, chat/[id], settings, games, user/[id], login
   src/lib/           supabase.ts (klient), api.ts (rpc + mapowanie błędów), data.ts (warstwa dostępu do danych),
@@ -69,6 +69,7 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 38. **`supabase/migrations/039_map_frame_and_route_order.sql`** — kadr do 1500 pinów; Gastro-Trasa sortuje lokale w pasie od najbliższego wobec GPS.
 39. **`supabase/migrations/040_meeting_categories_dishes.sql`** — kategorie spotkań oraz karty dań 1–10. Zwykła ocena lokalu (1–5) zostaje. Średnie potraw widać na pinie.
 40. **`supabase/migrations/041_remove_table_questions.sql`** — usuwa zaszyte pytania przy stole (np. „Ulubione danie z dzieciństwa?”). Gry i wyzwania zostają. Już zapisane atrakcje spotkań nie są kasowane.
+41. **`supabase/migrations/042_leave_conversation.sql`** — usuwa czat z listy użytkownika (`conversation_leave`). Rozmowa zostaje u pozostałych osób.
 
 ### Szybka naprawa edycji pinu
 1. **`029_fix_pin_updated_xp_cards.sql`**

@@ -35,7 +35,7 @@ const idea = (
 export const MEETING_CATEGORIES: MeetingCategory[] = [
   {
     key: "poznaj",
-    label: "Poznaj ludzi",
+    label: "Speed Friending",
     blurb: "Otwarte stoły i krótkie rozmowy z osobami, których jeszcze nie znasz.",
     subs: [
       {
@@ -63,7 +63,7 @@ export const MEETING_CATEGORIES: MeetingCategory[] = [
   {
     key: "randki",
     label: "Randki",
-    blurb: "Spotkania we dwoje albo krótkie rundy w miejscu publicznym.",
+    blurb: "Spotkania tylko we dwoje lub speed dating.",
     subs: [
       {
         key: "randka_w_lokalu", label: "Randka w lokalu", kind: "dinner", format: "standard",
@@ -85,7 +85,7 @@ export const MEETING_CATEGORIES: MeetingCategory[] = [
   {
     key: "oceniaj",
     label: "Oceniaj restauracje",
-    blurb: "Degustatorzy oceniają konkretne dania. Zwykła ocena lokalu zostaje osobno, dla każdego.",
+    blurb: "Zbierz grupę degustatorów i oceniajcie razem potrawy z wybranego lokalu.",
     subs: [
       {
         key: "jedno_danie", label: "Jedno danie, wiele opinii", kind: "tasting", format: "one_dish",
@@ -114,7 +114,7 @@ export const MEETING_CATEGORIES: MeetingCategory[] = [
   {
     key: "pasje",
     label: "Pasje i wspólne działanie",
-    blurb: "Języki, pomoc, wymiana jedzenia albo inny pretekst, żeby się zebrać.",
+    blurb: "Nauka języków, wymiana umiejętności lub przedmiotów, wolontariat lokalny i wiele innych.",
     subs: [
       { key: "jezyki", label: "Rozmowa w językach obcych", kind: "open_table", format: "standard", blurb: "Ćwiczenie języka przy jedzeniu. Poziom napisz w opisie.", templates: [idea("jezyk", "Stół językowy", "Jeden język, mieszane poziomy.", 8, 90, ["Język i poziom w tytule", "Krótkie pary", "Wspólna rozmowa pod koniec"])] },
       { key: "wolontariat", label: "Wolontariat", kind: "volunteer", format: "standard", blurb: "Konkretna, mała pomoc. Miejsce i zakres w opisie.", templates: [idea("akcja", "Mała akcja", "Jedno zadanie, które da się skończyć tego dnia.", 8, 150, ["Opisz, co dokładnie robicie", "Spotkanie w miejscu publicznym", "Krótki koniec: co zostało zrobione"])] },

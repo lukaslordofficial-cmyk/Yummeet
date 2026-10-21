@@ -1,36 +1,30 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, RefreshControl, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { EventCard } from "@/src/components/EventCard";
-import { Body, Button, Chip, ChipRow, EmptyState, ErrorState, Loading, Title } from "@/src/components/ui";
+import { MeetingCategoryTiles } from "@/src/components/MeetingCategoryTiles";
+import { Body, Button, ErrorState, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { listEvents } from "@/src/lib/data";
-import { MEETING_CATEGORIES, categoryByKey } from "@/src/lib/meetingCatalog";
 import { subscribePostgres } from "@/src/lib/realtime";
 import { usesNativeTabs } from "@/src/navigation";
 import { spacing, useTheme } from "@/src/theme";
 import type { EventRow } from "@/src/types";
-
-const FILTERS = [
-  { key: null, label: "Wszystkie" },
-  ...MEETING_CATEGORIES.map((c) => ({ key: c.key, label: c.label })),
-];
 
 export default function Tables() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
-  const [filter, setFilter] = useState<string | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const [rows, setRows] = useState<EventRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    try { setRows(await listEvents(filter)); setError(null); } catch (e) { setError(errorMessage(e)); }
-  }, [filter]);
+    try { setRows(await listEvents(null)); setError(null); } catch (e) { setError(errorMessage(e)); }
+  }, []);
 
   useFocusEffect(useCallback(() => {
     load();
@@ -39,23 +33,29 @@ export default function Tables() {
 
   return (
     <View testID="tables-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <View style={{ paddingTop: insets.top + spacing.lg, paddingHorizontal: spacing.lg, gap: spacing.sm }}>
-        <Title size={32} testID="tables-title">Spotkanie</Title>
-        <Body muted testID="tables-intro">Dołącz do otwartego stołu albo zorganizuj własne spotkanie przy jedzeniu.</Body>
-        <Button testID="tables-create-button" title="Nowe spotkanie" icon="plus" onPress={() => router.push(filter ? `/event/new?category=${filter}` : "/event/new")} style={{ alignSelf: "stretch" }} />
-        <Button testID="tables-journal-button" title="Dziennik Spotkań" icon="notebook-outline" variant="secondary" onPress={() => router.push("/meetings")} style={{ alignSelf: "stretch" }} />
-      </View>
-      <ChipRow testID="tables-filter-chips">
-        {FILTERS.map((f) => <Chip key={f.label} testID={`tables-filter-${f.key ?? "all"}`} label={f.label} selected={filter === f.key} onPress={() => setFilter(f.key)} />)}
-      </ChipRow>
-      {categoryByKey(filter) ? <Body muted style={{ paddingHorizontal: spacing.lg }}>{categoryByKey(filter)?.blurb}</Body> : null}
-      {error ? <ErrorState message={error} onRetry={load} /> : rows === null ? <Loading /> : (
-        <FlatList data={rows} keyExtractor={(e) => e.id}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: bottomChrome + spacing.xl, gap: spacing.lg }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brandPrimary} />}
-          ListEmptyComponent={<EmptyState testID="tables-empty" icon="table-furniture" title="Brak otwartych spotkań" text="Może założysz pierwsze?" />}
-          renderItem={({ item }) => <EventCard event={item} onPress={() => router.push(`/event/${item.id}`)} />} />
-      )}
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: bottomChrome + spacing.xl }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brandPrimary} />}
+      >
+        <View style={{ paddingTop: insets.top + spacing.lg, paddingHorizontal: spacing.lg, gap: spacing.md }}>
+          <Title size={32} testID="tables-title">Spotkania</Title>
+          <Body muted testID="tables-intro">Dołącz do otwartego stołu albo zorganizuj własne spotkanie przy jedzeniu.</Body>
+          <View style={{ flexDirection: "row", gap: spacing.md, marginTop: spacing.xl }}>
+            <Button testID="tables-create-button" title="Nowe" icon="plus" onPress={() => router.push(openKey ? `/event/new?category=${openKey}` : "/event/new")} style={{ flex: 1 }} />
+            <Button testID="tables-journal-button" title="Dziennik" icon="notebook-outline" variant="secondary" onPress={() => router.push("/meetings")} style={{ flex: 1 }} />
+          </View>
+        </View>
+        <View style={{ marginTop: spacing.xxl, paddingHorizontal: spacing.lg }}>
+          {error ? <ErrorState message={error} onRetry={load} /> : (
+            <MeetingCategoryTiles
+              openKey={openKey}
+              onToggle={(key) => setOpenKey((cur) => (cur === key ? null : key))}
+              events={rows}
+              onOpenEvent={(id) => router.push(`/event/${id}`)}
+            />
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
