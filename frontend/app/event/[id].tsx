@@ -11,11 +11,12 @@ import { Stars } from "@/src/components/Stars";
 import { Badge, Body, Button, Card, ErrorState, Field, Header, Loading, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
-  addEventPhoto, eventAttractions, eventCheckin, eventConversationId, eventJoin, eventLeave, eventParticipants,
+  addEventPhoto, eventAttractions, eventConversationId, eventJoin, eventLeave, eventParticipants,
   eventRevealCheckinCode, getEvent, getProfile, listEventPhotos, myEventStatus, organizerRating,
   report, saveOrganizerReview, type OrganizerRating,
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
+import { openMeetingCode } from "@/src/lib/meetingEntry";
 import { subcategoryLabel } from "@/src/lib/meetingCatalog";
 import { splitPlan } from "@/src/lib/meetingPlan";
 import { PlanNoteView } from "@/src/components/meetings/PlanNoteView";
@@ -38,12 +39,6 @@ function withinRevealWindow(startsAt: string) {
   const start = new Date(startsAt).getTime();
   const now = Date.now();
   return now >= start - 4 * 3600e3 && now <= start + 4 * 3600e3;
-}
-
-function withinCheckinWindow(startsAt: string) {
-  const start = new Date(startsAt).getTime();
-  const now = Date.now();
-  return now >= start && now <= start + 4 * 3600e3;
 }
 
 function PlanPreview({ rows }: { rows: Array<{ id: string; category: string; title: string; body: string }> }) {
@@ -199,13 +194,12 @@ export default function EventDetail() {
   }, [e?.id, e?.starts_at, isOrganizer, orgCode]);
 
   const guestCheckin = async () => {
+    if (!code.trim()) return toast("Wpisz kod od organizatora.", "info");
     setBusy(true);
     try {
-      const pos = await getCurrentPosition();
-      if (!pos) return toast("Włącz GPS, żeby potwierdzić obecność w lokalu.", "info");
-      await eventCheckin(id, code, pos.lat, pos.lng);
-      toast("Obecność potwierdzona! +25 XP", "success");
-      await load();
+      const eventId = await openMeetingCode(code);
+      toast("Kod przyjęty. Panel spotkania jest otwarty.", "success");
+      router.push(`/games?event=${eventId}&scanned=1`);
     } catch (err) {
       toast(errorMessage(err), "error");
     } finally {
@@ -217,7 +211,6 @@ export default function EventDetail() {
   if (!e) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="Spotkanie" /><Loading /></View>;
   const joined = status === "joined" || status === "attended";
   const revealOk = withinRevealWindow(e.starts_at);
-  const windowOk = withinCheckinWindow(e.starts_at);
   const tasting = e.category_key === "oceniaj" || e.kind === "tasting";
   const kindLabel = subcategoryLabel(e.subcategory_key) ?? KIND_LABEL[e.kind] ?? "Spotkanie";
 
@@ -319,12 +312,11 @@ export default function EventDetail() {
           </Card>
         ) : null}
 
-        {joined && status !== "attended" && !isOrganizer ? (
+        {!isOrganizer ? (
           <Card>
-            <Body muted>Wpisz kod od organizatora będąc w lokalu (GPS), od godziny startu przez max 4 godziny. Organizator nie nabija punktów za obecność gości — XP dostaje tylko gość po poprawnym check-inie.</Body>
-            {!windowOk ? <Body muted>Check-in niedostępny poza oknem czasowym wydarzenia.</Body> : null}
-            <Field testID="event-checkin-input" label="Kod obecności od organizatora" value={code} onChangeText={setCode} autoCapitalize="characters" />
-            <Button testID="event-checkin-button" title="Potwierdź obecność (GPS)" variant="secondary" loading={busy} disabled={!windowOk} onPress={() => void guestCheckin()} />
+            <Body muted>Wpisz kod od organizatora albo zeskanuj go pływającym skanerem. Otworzy się panel spotkania. Uczestnik dostaje odwiedzone spotkanie, organizator — zorganizowane.</Body>
+            <Field testID="event-checkin-input" label="Kod spotkania" value={code} onChangeText={setCode} autoCapitalize="characters" placeholder="np. AB12CD" />
+            <Button testID="event-checkin-button" title="Otwórz panel kodem" variant="secondary" loading={busy} onPress={() => void guestCheckin()} />
           </Card>
         ) : null}
 

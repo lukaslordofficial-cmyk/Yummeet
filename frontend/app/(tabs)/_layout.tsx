@@ -1,6 +1,5 @@
 import { Tabs } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/src/components/Icon";
 import { useDuelPresence } from "@/src/hooks/useDuelPresence";
@@ -18,10 +17,8 @@ const HIDDEN_TABS = ["food", "challenges"] as const;
 
 export default function TabsLayout() {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   useDuelPresence(!!profile?.duel_mode_enabled);
-  const bottomInset = insets.bottom;
 
   if (usesNativeTabs) {
     return (
@@ -58,11 +55,11 @@ export default function TabsLayout() {
         backgroundColor: colors.surface,
         borderTopColor: colors.border,
         borderTopWidth: 1,
-        height: 64 + bottomInset,
-        paddingTop: 8,
-        paddingBottom: Math.max(bottomInset, 10),
+        height: 56,
+        paddingTop: 4,
+        paddingBottom: 2,
       },
-      tabBarItemStyle: { paddingTop: 2 },
+      tabBarItemStyle: { paddingTop: 0, paddingBottom: 0 },
       tabBarLabelStyle: { fontFamily: fonts.display, fontSize: 11 },
     }}>
       {VISIBLE_TABS.map((t) => (

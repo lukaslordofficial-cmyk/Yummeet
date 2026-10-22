@@ -18,7 +18,7 @@ export function questionInstruction(limit: number) {
 
 const GAME_INSTRUCTIONS: Record<string, string> = {
   "two-truths": "Instrukcja: Każdy podaje trzy zdania o sobie. Dwie są prawdziwe, jedna zmyślona. Reszta typuje kłamstwo, a organizator może podać telefon dalej.",
-  "find-someone": "Instrukcja: Każdy typuje osobę do zdania. Wskazana osoba może odpowiedzieć „to prawda”, „to nieprawda” albo „pasuję”, ale nie musi zdradzać sekretu.",
+  "find-someone": "Instrukcja: Najpierw każdy odpowiada przy zdaniach tak albo nie i zapisuje. Gdy wszyscy zapiszą, druga tura: dopisujecie imiona osób, które waszym zdaniem odpowiedziały tak. Poprawny typ daje +1, pomyłka −1.",
   "runaway-story": "Instrukcja: Organizator wybiera zdanie startowe. Każdy dopisuje dokładnie jedno zdanie i zostawia haczyk dla kolejnej osoby. Aplikacja pilnuje kolejki.",
 };
 
