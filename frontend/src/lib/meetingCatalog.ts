@@ -36,27 +36,22 @@ export const MEETING_CATEGORIES: MeetingCategory[] = [
   {
     key: "poznaj",
     label: "Speed Friending",
-    blurb: "Otwarte stoły i krótkie rozmowy z osobami, których jeszcze nie znasz.",
+    blurb: "poznawanie nowych ludzi, poprzez rozmowy lub gry i zabawy towarzyskie",
     subs: [
       {
         key: "otwarty_stol", label: "Otwarty stół", kind: "open_table", format: "standard",
         blurb: "Luźne spotkanie przy wspólnym stole — każdy może dołączyć.",
-        templates: [idea("stol", "Stół dla nieznajomych", "Jedno miejsce, jedna godzina, bez planu rozmowy.", 6, 90, ["Ustal lokal i godzinę", "Każdy siada, gdzie jest miejsce", "Na koniec krótka runda: co zaskoczyło"])],
-      },
-      {
-        key: "speed_friending", label: "Speed friending", kind: "speed_friending", format: "standard",
-        blurb: "Krótkie rundy rozmów — poznajesz kilka osób po kolei.",
-        templates: [idea("rundy", "Cztery rundy po 7 minut", "Zmiana miejsca po sygnale organizatora.", 8, 60, ["Runda 1: skąd jesteś", "Runda 2: ostatni dobry posiłek", "Runda 3: plan na weekend", "Wspólne podsumowanie"])],
+        templates: [],
       },
       {
         key: "nowi_w_miescie", label: "Nowi w mieście", kind: "open_table", format: "standard",
         blurb: "Dla osób, które dopiero się wprowadziły i szukają towarzystwa.",
-        templates: [idea("dzielnica", "Spacer i kolacja", "Krótki spacer po okolicy, potem stół.", 5, 120, ["Spotkanie w łatwym punkcie", "20 minut spaceru", "Kolacja i wymiana miejsc, które warto znać"])],
+        templates: [],
       },
       {
         key: "kolacja_nieznajomych", label: "Kolacja dla nieznajomych", kind: "dinner", format: "standard",
         blurb: "Wspólny posiłek bez wcześniejszej znajomości.",
-        templates: [idea("kolacja", "Kolacja bez znajomych", "Każdy przychodzi sam i wychodzi z czyimś numerem albo bez.", 6, 120, ["Rezerwacja na wspólną godzinę", "Jedno pytanie na start od organizatora", "Dowolna rozmowa do końca posiłku"])],
+        templates: [],
       },
     ],
   },

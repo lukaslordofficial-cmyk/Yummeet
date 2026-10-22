@@ -2,14 +2,13 @@ import { useState } from "react";
 import { View } from "react-native";
 
 import { Body, Button, Card, Field, Title } from "@/src/components/ui";
-import { FIND_PACKS, GUESS_PROMPTS, TRUTH_HINTS, drawIndex } from "@/src/lib/meetingPlan";
+import { FIND_PACKS, TRUTH_HINTS, drawIndex } from "@/src/lib/meetingPlan";
 import { spacing } from "@/src/theme";
 
 /** Runda na jednym telefonie: prowadzący podaje aparat dalej. Tajne głosy z wielu aparatów to kolejny etap. */
 export function TableRounds({ gameId, prompts }: { gameId: string; prompts: string[] }) {
   if (gameId === "two-truths") return <TwoTruths />;
   if (gameId === "find-someone") return <FindSomeone extra={prompts} />;
-  if (gameId === "guess") return <GuessRound />;
   return null;
 }
 
@@ -80,23 +79,6 @@ function FindSomeone({ extra }: { extra: string[] }) {
       <Button testID="round-false" title="To nieprawda (−1)" variant="secondary" onPress={() => answer(-1)} />
       <Button testID="round-pass" title="Pasuję (0)" variant="ghost" onPress={() => answer(0)} />
       <Body testID="round-find-score">Wynik na tym telefonie: {score}</Body>
-    </View>
-  );
-}
-
-function GuessRound() {
-  const [index, setIndex] = useState(0);
-  const [guess, setGuess] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [shown, setShown] = useState(false);
-  return (
-    <View style={{ gap: spacing.sm }} testID="round-guess">
-      <Title size={16}>{GUESS_PROMPTS[index]}</Title>
-      <Field testID="round-guess-input" label="Zgadywana odpowiedź" value={guess} onChangeText={setGuess} editable={!shown} />
-      {shown ? <Field testID="round-answer-input" label="Prawdziwa odpowiedź i krótkie dlaczego" value={answer} onChangeText={setAnswer} multiline style={{ minHeight: 70 }} /> : (
-        <Button testID="round-guess-lock" title="Najpierw zgadywanie, potem prawda" disabled={guess.trim().length < 1} onPress={() => setShown(true)} />
-      )}
-      <Button testID="round-guess-next" title="Następne pytanie" variant="ghost" onPress={() => { setIndex((i) => (i + 1) % GUESS_PROMPTS.length); setGuess(""); setAnswer(""); setShown(false); }} />
     </View>
   );
 }

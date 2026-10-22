@@ -6,7 +6,8 @@ import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOCIAL_GAMES, STORY_STARTERS, splitPlan, storyTurnIndex } from "../../frontend/src/lib/meetingPlan.ts";
+import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOCIAL_GAMES, STORY_STARTERS, addCustomQuestion, splitPlan, storyTurnIndex, syncPlanNote, toggleGame, toggleQuestion } from "../../frontend/src/lib/meetingPlan.ts";
+import { subcategoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
 import { clampRouteBuffer, haversineM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
@@ -100,7 +101,15 @@ test("meeting plan has the question pool and social games", () => {
   assert.equal(BUILTIN_QUESTIONS.length, 20);
   assert.equal(BUILTIN_QUESTIONS[0], "Jaką najgłupszą rzecz zrobiłeś/aś, próbując komuś zaimponować?");
   assert.match(BUILTIN_QUESTIONS[19], /święto narodowe/);
-  assert.deepEqual(SOCIAL_GAMES.map((g) => g.id), ["two-truths", "find-someone", "runaway-story", "guess"]);
+  assert.deepEqual(SOCIAL_GAMES.map((g) => g.id), ["two-truths", "find-someone", "runaway-story"]);
+  assert.equal(SOCIAL_GAMES.some((g) => g.title === "Zgadnij, co wybrałem"), false);
+  const picked = syncPlanNote(toggleGame(toggleQuestion([], BUILTIN_QUESTIONS[0]), SOCIAL_GAMES[0]));
+  const note = splitPlan(picked).note?.body ?? "";
+  assert.match(note, new RegExp(ACTIVITY_LINE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(note, /Jaką najgłupszą/);
+  assert.match(note, /Dwie prawdy/);
+  const local = syncPlanNote(addCustomQuestion([], "Czy lubisz deszcz?"));
+  assert.match(splitPlan(local).note?.body ?? "", /Czy lubisz deszcz/);
   assert.equal(STORY_STARTERS.length, 16);
   assert.equal(FIND_PACKS.length, 6);
   assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.category === "challenges" || a.title === "Szachy"), false);
@@ -131,6 +140,11 @@ test("meeting catalog keeps the tasting, game and hobby shelves", () => {
   assert.deepEqual(pasje?.subs.map((s) => s.label), ["Rozmowa w językach obcych", "Wolontariat", "Wymiana ugotowanych potraw", "Inne"]);
   assert.equal(MEETING_CATEGORIES.length, 5);
   assert.equal(categoryByKey("poznaj")?.label, "Speed Friending");
+  assert.equal(categoryByKey("poznaj")?.blurb, "poznawanie nowych ludzi, poprzez rozmowy lub gry i zabawy towarzyskie");
+  assert.deepEqual(categoryByKey("poznaj")?.subs.map((s) => s.key), ["otwarty_stol", "nowi_w_miescie", "kolacja_nieznajomych"]);
+  assert.equal(subcategoryByKey("poznaj", "otwarty_stol")?.templates.length, 0);
+  assert.equal(subcategoryByKey("poznaj", "nowi_w_miescie")?.templates.length, 0);
+  assert.equal(subcategoryByKey("poznaj", "kolacja_nieznajomych")?.templates.length, 0);
   assert.equal(categoryByKey("randki")?.blurb, "Spotkania tylko we dwoje lub speed dating.");
   assert.match(oceniaj?.blurb ?? "", /degustatorów/);
   assert.match(categoryByKey("pasje")?.blurb ?? "", /wolontariat lokalny/);

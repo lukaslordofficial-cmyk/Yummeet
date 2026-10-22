@@ -4,7 +4,9 @@ export const PLAN_NOTE_TITLE = "Notatka organizatora";
 export const PLAN_LIMIT_TITLE = "Pytania na osobę";
 export const CUSTOM_PROMPT_PREFIX = "Znajdź kogoś: ";
 export const QUESTION_RULES =
-  "Organizator dodaje pytania do wspólnej puli. Każdy uczestnik losuje po jednym pytaniu, na które musi odpowiedzieć. Organizator ustala, ile pytań może wylosować każda osoba.";
+  "Organizator dodaje pytania do wspólnej puli. Każdy uczestnik losuje po jednym pytaniu, na które może odpowiedzieć. Organizator ustala, ile pytań może wylosować każda osoba.";
+
+export const ACTIVITY_LINE = "Organizator przeprowadzi dla uczestników Zabawę w pytania.";
 
 export const BUILTIN_QUESTIONS = [
   "Jaką najgłupszą rzecz zrobiłeś/aś, próbując komuś zaimponować?",
@@ -49,12 +51,6 @@ export const SOCIAL_GAMES: SocialGame[] = [
     title: "Historia, która wymknęła się spod kontroli",
     blurb: "Jedna wspólna opowieść. Każde zdanie zostawia haczyk dla kolejnej osoby.",
     rules: "Grupa tworzy jedną historię. Organizator wybiera albo losuje zdanie startowe. Każdy dopisuje dokładnie jedno zdanie: rozwija to, co było, i zostawia haczyk, czyli początek myśli dla następnej osoby. Nie wolno unieważniać wcześniejszych wydarzeń. Można pokazać, że znaczyły coś innego. Nie planujemy zakończenia. Po rundzie grupa może nadać historii tytuł.\n\nDopisz ciąg dalszy, ale nie zostawiaj następnej osobie pustej kartki. Zostaw jej haczyk. W tej wersji zdania wpisujecie ręcznie. Aplikacja pilnuje kolejki, zapisuje historię i oznacza kolorem, kto co dopisał. Dyktowanie będzie w wersji premium.",
-  },
-  {
-    id: "guess",
-    title: "Zgadnij, co wybrałem",
-    blurb: "Jedna osoba odpowiada w myślach, druga zgaduje, potem pada prawdziwa odpowiedź.",
-    rules: "Jedna osoba wybiera pytanie i odpowiada na nie w myślach. Druga zgaduje. Dopiero potem pada prawdziwa odpowiedź i krótkie uzasadnienie. Przykłady: co zrobię z nagłymi 10 000 zł, co mnie najszybciej zirytuje, impreza do rana czy spokojny wieczór, jakie zwierzę opisuje mój charakter, co zamówię jako pierwsze.",
   },
 ];
 
@@ -121,14 +117,6 @@ export const FIND_PACKS: PromptPack[] = [
       "…najłatwiej wybacza innym błędy, ale sobie przypomina je przez następne dziesięć lat.",
     ],
   },
-];
-
-export const GUESS_PROMPTS = [
-  "Co najprawdopodobniej zrobię, jeśli nagle dostanę 10 000 zł?",
-  "Jakie zachowanie najszybciej mnie zirytuje?",
-  "Co wybrałbym: imprezę do rana czy spokojny wieczór?",
-  "Jakie zwierzę najlepiej opisuje mój charakter?",
-  "Co zamówię jako pierwsze w restauracji?",
 ];
 
 export const TRUTH_HINTS = [
@@ -254,6 +242,22 @@ export function addCustomPrompt(items: PlanItem[], prompt: string): PlanItem[] {
   const title = `${CUSTOM_PROMPT_PREFIX}${clean}`.slice(0, 200);
   if (items.some((i) => i.title === title)) return items;
   return [...items, { key: `prompt:${clean}`, category: "games", title, body: clean }];
+}
+
+/** Wybrane pytania i zabawy trafiają do notatki. Wolny tekst organizatora zostaje. */
+export function syncPlanNote(items: PlanItem[]): PlanItem[] {
+  const plan = splitPlan(items);
+  const selected = [
+    ...plan.questions.map((q) => `• ${q.title}`),
+    ...plan.prompts.map((p) => `• ${p.body || p.title}`),
+    ...plan.games.map((g) => `• ${g.title}`),
+  ];
+  const extra = (plan.note?.body ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && line !== ACTIVITY_LINE && !line.startsWith("• "));
+  if (!selected.length) return setPlanNote(items, extra.join("\n"));
+  return setPlanNote(items, [...extra, ACTIVITY_LINE, ...selected].join("\n"));
 }
 
 export const FALLBACK_ATTRACTIONS: AttractionSuggestion[] = [

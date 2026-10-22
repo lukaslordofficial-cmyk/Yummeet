@@ -142,7 +142,7 @@ export default function NewEvent() {
               testID="meeting-idea"
               items={[
                 ...sub.templates.map((t) => ({ key: t.key, title: t.name, text: t.blurb })),
-                { key: "blank", title: "Puste spotkanie", text: "Tylko tytuł, miejsce i godzina. Resztę dopiszesz później." },
+                { key: "blank", title: "Zaplanuj Spotkanie", text: "Ustal datę, godzinę, miejsce, oraz plan spotkania, widoczny dla innych Yummiterów." },
               ]}
               onPick={applyTemplate}
             />
