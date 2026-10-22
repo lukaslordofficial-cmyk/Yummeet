@@ -6,7 +6,7 @@ import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { FALLBACK_ATTRACTIONS } from "../../frontend/src/lib/attractionsCatalog.ts";
+import { BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOCIAL_GAMES, STORY_STARTERS, splitPlan, storyTurnIndex } from "../../frontend/src/lib/meetingPlan.ts";
 import { clampRouteBuffer, haversineM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
@@ -96,10 +96,30 @@ test("route band stays inside 3 km of the line and of the driver", () => {
   assert.equal(kept[0], near);
 });
 
-test("table presets do not include icebreaker questions", () => {
-  assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.category === "questions"), false);
-  assert.equal(FALLBACK_ATTRACTIONS.some((a) => /dzieciństwa|restaurację|Podróż smaków|Najdziwniejsze/i.test(a.title)), false);
-  assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.title === "Szachy"), true);
+test("meeting plan has the question pool and social games", () => {
+  assert.equal(BUILTIN_QUESTIONS.length, 20);
+  assert.equal(BUILTIN_QUESTIONS[0], "Jaką najgłupszą rzecz zrobiłeś/aś, próbując komuś zaimponować?");
+  assert.match(BUILTIN_QUESTIONS[19], /święto narodowe/);
+  assert.deepEqual(SOCIAL_GAMES.map((g) => g.id), ["two-truths", "find-someone", "runaway-story", "guess"]);
+  assert.equal(STORY_STARTERS.length, 16);
+  assert.equal(FIND_PACKS.length, 6);
+  assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.category === "challenges" || a.title === "Szachy"), false);
+  assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.title === "Dwie prawdy i jedno kłamstwo"), true);
+  const plan = splitPlan([
+    { category: "questions", title: "Notatka organizatora", body: "Kawa na koszt autora rundy." },
+    { category: "questions", title: "Pytania na osobę", body: "3" },
+    { category: "questions", title: BUILTIN_QUESTIONS[0], body: "" },
+    { category: "games", title: "Znajdź kogoś: …pamięta wszystkie zamówienia.", body: "…pamięta wszystkie zamówienia." },
+    { category: "challenges", title: "20 pompek", body: "stare" },
+  ]);
+  assert.equal(plan.limit, 3);
+  assert.equal(plan.questions.length, 1);
+  assert.equal(plan.prompts.length, 1);
+  assert.equal(plan.games.length, 0);
+  assert.equal(plan.legacy.length, 1);
+  assert.equal(storyTurnIndex(0, 4), 0);
+  assert.equal(storyTurnIndex(4, 4), 0);
+  assert.equal(storyTurnIndex(5, 4), 1);
 });
 
 test("meeting catalog keeps the tasting, game and hobby shelves", () => {

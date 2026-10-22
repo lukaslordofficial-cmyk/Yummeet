@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
 import { openTutorial } from "@/src/components/AppTutorial";
-import { Body, Button, Field, Title, useToast } from "@/src/components/ui";
+import { Body, Button, Field, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { supabase } from "@/src/lib/supabase";
 import { useAuth } from "@/src/providers/AuthProvider";
@@ -61,7 +61,6 @@ export default function Login() {
             style={{ width: 220, height: 214 }}
             contentFit="contain"
           />
-          <Title size={40} testID="login-title" style={{ textAlign: "center" }}>Yummeet</Title>
           <Body muted style={{ textAlign: "center" }}>
             Odkrywaj i oceniaj lokale gastronomiczne. Poznawaj ludzi przy stole. Wyszukuj restauracje podczas podróży.
           </Body>

@@ -1,125 +1,98 @@
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Body, Button, Card, Chip, ChipRow, Field, Header, Title, useToast } from "@/src/components/ui";
+import { PlanEditor } from "@/src/components/meetings/PlanEditor";
+import { StoryTable } from "@/src/components/meetings/StoryTable";
+import { Body, Header, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { ATTR_CATEGORY_HINTS, TABLE_ATTRACTION_TABS, type AttractionCategory } from "@/src/lib/attractionsCatalog";
-import {
-  addEventAttraction, attractionSuggestions, eventAttractions, removeEventAttraction,
-} from "@/src/lib/data";
+import type { AttractionCategory } from "@/src/lib/attractionsCatalog";
+import { addEventAttraction, eventAttractions, getEvent, myEventStatus, removeEventAttraction } from "@/src/lib/data";
+import { SOCIAL_GAMES, type PlanItem } from "@/src/lib/meetingPlan";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { spacing, useTheme } from "@/src/theme";
 
-export default function Attractions() {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default function MeetingPlan() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { session } = useAuth();
   const { event } = useLocalSearchParams<{ event?: string }>();
-  const [tab, setTab] = useState<AttractionCategory>("games");
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [mine, setMine] = useState<any[]>([]);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [items, setItems] = useState<PlanItem[]>([]);
   const [organizerId, setOrganizerId] = useState<string | null>(null);
+  const [joined, setJoined] = useState(false);
+  const saving = useRef(false);
 
   const load = useCallback(async () => {
+    if (!event) return;
     try {
-      const [sug, rows] = await Promise.all([
-        attractionSuggestions(tab),
-        event ? eventAttractions(event) : Promise.resolve([]),
+      const [rows, status, ev] = await Promise.all([
+        eventAttractions(event),
+        myEventStatus(event).catch(() => undefined),
+        getEvent(event),
       ]);
-      setSuggestions((sug as any[]) || []);
-      setMine(((rows as any[]) || []).filter((r) => r.category === tab));
-      if (event) {
-        const { getEvent } = await import("@/src/lib/data");
-        setOrganizerId((await getEvent(event))?.organizer_id ?? null);
-      }
+      setItems(((rows as Array<{ id: string; category: string; title: string; body: string | null }>) || [])
+        .filter((r) => r.category === "questions" || r.category === "games")
+        .map((r) => ({ key: r.id, category: r.category as AttractionCategory, title: r.title, body: r.body ?? "" })));
+      setJoined(status === "joined" || status === "attended" || ev?.organizer_id === session?.user.id);
+      setOrganizerId(ev?.organizer_id ?? null);
     } catch (e) {
       toast(errorMessage(e), "error");
     }
-  }, [tab, event, toast]);
+  }, [event, toast, session?.user.id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const isOrganizer = !!event && organizerId === session?.user.id;
+  const storyOn = items.some((i) => i.title === SOCIAL_GAMES.find((g) => g.id === "runaway-story")?.title);
 
-  const addCustom = async () => {
-    if (!event || !isOrganizer) return toast("Tylko organizator dodaje atrakcje do stołu.", "info");
-    if (title.trim().length < 2) return toast("Podaj tytuł", "error");
-    setBusy(true);
+  const persist = async (next: PlanItem[]) => {
+    if (!event || !isOrganizer || saving.current) return;
+    saving.current = true;
+    const removed = items.filter((c) => !next.some((n) => n.key === c.key));
+    const added = next.filter((n) => !items.some((c) => c.key === n.key));
+    const edited = next.filter((n) => {
+      const prev = items.find((c) => c.key === n.key);
+      return prev && (prev.body !== n.body || prev.title !== n.title);
+    });
     try {
-      await addEventAttraction(event, tab, title, body);
-      setTitle(""); setBody(""); toast("Dodano!", "success"); load();
-    } catch (e) { toast(errorMessage(e), "error"); }
-    finally { setBusy(false); }
-  };
-
-  const addFromSuggestion = async (s: any) => {
-    if (!event || !isOrganizer) return toast("Otwórz Atrakcje ze stołu jako organizator.", "info");
-    setBusy(true);
-    try {
-      await addEventAttraction(event, tab, s.title, s.body);
-      toast("Dodano propozycję do stołu", "success"); load();
-    } catch (e) { toast(errorMessage(e), "error"); }
-    finally { setBusy(false); }
+      for (const row of removed) if (UUID.test(row.key)) await removeEventAttraction(row.key);
+      for (const row of edited) {
+        if (!UUID.test(row.key)) continue;
+        await removeEventAttraction(row.key);
+        await addEventAttraction(event, row.category === "challenges" ? "games" : row.category, row.title, row.body);
+      }
+      for (const row of added) {
+        await addEventAttraction(event, row.category === "challenges" ? "games" : row.category, row.title, row.body);
+      }
+      await load();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      saving.current = false;
+    }
   };
 
   return (
     <View testID="games-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title="Atrakcje" />
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
-        <ChipRow testID="attractions-tabs">
-          {TABLE_ATTRACTION_TABS.map((t) => (
-            <Chip key={t.key} testID={`attractions-tab-${t.key}`} label={t.label} selected={tab === t.key} onPress={() => setTab(t.key)} />
-          ))}
-        </ChipRow>
-        <Body muted style={{ paddingHorizontal: spacing.lg }} testID="attractions-hint">{ATTR_CATEGORY_HINTS[tab]}</Body>
-
-        {event && isOrganizer ? (
-          <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
-            <Title size={18}>Twoje kafelki przy stole</Title>
-            {mine.length === 0 ? <Body muted>Brak — dodaj z propozycji lub stwórz własne.</Body> : null}
-            {mine.map((m) => (
-              <Card key={m.id} testID={`attraction-mine-${m.id}`}>
-                <Title size={16}>{m.title}</Title>
-                {m.body ? <Body muted>{m.body}</Body> : null}
-                <Button testID={`attraction-delete-${m.id}`} title="Usuń" variant="ghost" onPress={async () => { await removeEventAttraction(m.id); load(); }} />
-              </Card>
-            ))}
-            <Title size={18}>Stwórz własne</Title>
-            <Field testID="attraction-title" label="Tytuł" value={title} onChangeText={setTitle} placeholder="np. 20 pompek" />
-            <Field testID="attraction-body" label="Opis" value={body} onChangeText={setBody} multiline style={{ minHeight: 70 }} />
-            <Button testID="attraction-add" title="Dodaj do stołu" loading={busy} onPress={() => void addCustom()} />
-          </View>
-        ) : event ? (
-          <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
-            <Title size={18}>Atrakcje tego stołu</Title>
-            {mine.length === 0 ? <Body muted>Organizator jeszcze nic nie dodał.</Body> : null}
-            {mine.map((m) => (
-              <Card key={m.id}><Title size={16}>{m.title}</Title>{m.body ? <Body muted>{m.body}</Body> : null}</Card>
-            ))}
-          </View>
-        ) : (
-          <Body muted style={{ paddingHorizontal: spacing.lg }}>Otwórz Atrakcje ze szczegółów stołu, żeby przypisać je do wydarzenia.</Body>
-        )}
-
-        <Title size={18} style={{ paddingHorizontal: spacing.lg }}>Propozycje pomocnicze</Title>
-        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
-          {suggestions.length === 0 ? <Body muted>Brak propozycji.</Body> : null}
-          {suggestions.map((s) => (
-            <Card key={s.id} testID={`attraction-sug-${s.id}`}>
-              <Title size={16}>{s.title}</Title>
-              <Body muted>{s.body}</Body>
-              {event && isOrganizer ? (
-                <Button testID={`attraction-use-${s.id}`} title="Dodaj do stołu" variant="secondary" loading={busy} onPress={() => void addFromSuggestion(s)} />
-              ) : null}
-            </Card>
-          ))}
-        </View>
+      <Header title="Plan spotkania" />
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
+        {!event ? (
+          <Body muted>Plan ustawia organizator przy tworzeniu spotkania albo tutaj, po otwarciu go ze szczegółów spotkania. Goście widzą pulę pytań przed dołączeniem.</Body>
+        ) : null}
+        <PlanEditor
+          items={items}
+          canEdit={isOrganizer}
+          browse={!event}
+          play={isOrganizer || joined}
+          noteCommit="button"
+          onChange={isOrganizer ? (next) => void persist(next) : undefined}
+        />
+        {event && storyOn && (isOrganizer || joined) ? <StoryTable eventId={event} canClose={isOrganizer} /> : null}
+        {event && storyOn && !isOrganizer && !joined ? <Body muted>Dołącz do spotkania, żeby dopisywać wspólną historię.</Body> : null}
       </ScrollView>
     </View>
   );

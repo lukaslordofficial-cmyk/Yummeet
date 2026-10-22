@@ -5,16 +5,12 @@ import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { KIND_LABEL, formatDate } from "@/src/components/EventCard";
-import { Body, EmptyState, ErrorState, Header, Loading, Title } from "@/src/components/ui";
+import { Icon } from "@/src/components/Icon";
+import { Body, Button, EmptyState, ErrorState, Header, Loading, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { myMeetingJournal, type MeetingJournalEntry } from "@/src/lib/data";
+import { splitPlan, storyColorKey } from "@/src/lib/meetingPlan";
 import { radius, spacing, useTheme } from "@/src/theme";
-
-const CAT: Record<string, string> = {
-  questions: "Pytania",
-  games: "Gry",
-  challenges: "Wyzwania",
-};
 
 export default function MeetingsJournal() {
   const { colors } = useTheme();
@@ -23,6 +19,7 @@ export default function MeetingsJournal() {
   const [rows, setRows] = useState<MeetingJournalEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -42,36 +39,67 @@ export default function MeetingsJournal() {
         <FlatList
           data={rows}
           keyExtractor={(e) => e.id}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brandPrimary} />}
           ListEmptyComponent={<EmptyState testID="meetings-empty" icon="notebook-outline" title="Brak spotkań" text="Dołącz do spotkania albo zorganizuj własne — tu zobaczysz historię." />}
-          renderItem={({ item }) => (
-            <Pressable
-              testID={`meeting-${item.id}`}
-              onPress={() => router.push(`/event/${item.id}`)}
-              style={{ gap: spacing.sm, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border }}
-            >
-              <Title size={18}>{item.title}</Title>
-              <Body muted>{KIND_LABEL[item.kind] ?? item.kind} · {formatDate(item.starts_at)} · {item.place_name}</Body>
-              {item.description ? <Body numberOfLines={4}>{item.description}</Body> : null}
-              {item.theme ? <Body muted>Temat: {item.theme}</Body> : null}
-              {item.attractions?.filter((a) => a.category !== "questions").length ? (
-                <View style={{ gap: 4 }}>
-                  <Body muted>Atrakcje</Body>
-                  {item.attractions.filter((a) => a.category !== "questions").slice(0, 6).map((a) => (
-                    <Body key={a.id}>• [{CAT[a.category] ?? a.category}] {a.title}{a.body ? ` — ${a.body}` : ""}</Body>
-                  ))}
-                </View>
-              ) : null}
-              {item.photos?.length ? (
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  {item.photos.slice(0, 6).map((p) => (
-                    <Image key={p.id} source={{ uri: p.photo_url }} style={{ width: 72, height: 72, borderRadius: radius.sm }} contentFit="cover" />
-                  ))}
-                </View>
-              ) : null}
-            </Pressable>
-          )}
+          renderItem={({ item }) => {
+            const open = openId === item.id;
+            const plan = splitPlan(item.attractions ?? []);
+            return (
+              <View testID={`meeting-${item.id}`} style={{ borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.md, gap: spacing.sm }}>
+                <Pressable
+                  testID={`meeting-toggle-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: open }}
+                  onPress={() => setOpenId(open ? null : item.id)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
+                >
+                  <Title size={18} style={{ flex: 1 }}>{item.title}</Title>
+                  <Icon name={open ? "chevron-up" : "chevron-down"} size={22} color={colors.muted} />
+                </Pressable>
+                {open ? (
+                  <View style={{ gap: spacing.sm }}>
+                    <Body muted>{KIND_LABEL[item.kind] ?? item.kind} · {formatDate(item.starts_at)} · {item.place_name}</Body>
+                    {item.description ? <Body>{item.description}</Body> : null}
+                    {item.theme ? <Body muted>Temat: {item.theme}</Body> : null}
+                    {plan.note?.body ? <Body>Notatka: {plan.note.body}</Body> : null}
+                    {plan.questions.length ? (
+                      <View style={{ gap: 4 }}>
+                        <Body muted>Pula pytań · {plan.limit} na osobę</Body>
+                        {plan.questions.map((q) => <Body key={q.id ?? q.title}>• {q.title}</Body>)}
+                      </View>
+                    ) : null}
+                    {plan.games.length ? (
+                      <View style={{ gap: 4 }}>
+                        <Body muted>Gry</Body>
+                        {plan.games.map((g) => <Body key={g.id ?? g.title}>• {g.title}</Body>)}
+                      </View>
+                    ) : null}
+                    {plan.legacy.length ? plan.legacy.map((g) => <Body key={g.id ?? g.title}>• {g.title}</Body>) : null}
+                    {item.story?.length ? (
+                      <View style={{ gap: 4 }}>
+                        <Body muted>Historia</Body>
+                        {item.story.map((line) => (
+                          <Body key={line.id} style={{ color: colors[storyColorKey(line.author_id)] }}>{line.author}: {line.body}</Body>
+                        ))}
+                      </View>
+                    ) : null}
+                    {item.photos?.length ? (
+                      <View style={{ gap: spacing.sm }}>
+                        <Body muted>Wspólne zdjęcia</Body>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                          {item.photos.slice(0, 6).map((p) => (
+                            <Image key={p.id} source={{ uri: p.photo_url }} style={{ width: 72, height: 72, borderRadius: radius.sm }} contentFit="cover" />
+                          ))}
+                        </View>
+                      </View>
+                    ) : null}
+                    <Button testID={`meeting-open-${item.id}`} title="Otwórz spotkanie" variant="secondary" onPress={() => router.push(`/event/${item.id}`)} />
+                  </View>
+                ) : null}
+              </View>
+            );
+          }}
         />
       )}
     </View>

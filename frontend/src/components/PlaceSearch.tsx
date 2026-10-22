@@ -71,8 +71,8 @@ export function PlaceSearch({
         autoCorrect={false}
       />
       {value ? (
-        <Body muted numberOfLines={2} testID={`${testID}-selected`}>
-          ✓ {value.title}
+        <Body muted testID={`${testID}-selected`}>
+          ✓ {value.title}{"\n"}GPS zapisane: {value.lat.toFixed(5)}, {value.lng.toFixed(5)}. W dniu spotkania sprawdzimy, czy zapisani goście są na miejscu.
         </Body>
       ) : null}
       {busy ? <Body muted>Szukam…</Body> : null}

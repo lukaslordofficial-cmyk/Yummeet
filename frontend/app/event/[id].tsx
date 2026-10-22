@@ -11,12 +11,13 @@ import { Stars } from "@/src/components/Stars";
 import { Badge, Body, Button, Card, ErrorState, Field, Header, Loading, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
-  addEventPhoto, eventCheckin, eventConversationId, eventJoin, eventLeave, eventParticipants,
+  addEventPhoto, eventAttractions, eventCheckin, eventConversationId, eventJoin, eventLeave, eventParticipants,
   eventRevealCheckinCode, getEvent, getProfile, listEventPhotos, myEventStatus, organizerRating,
   report, saveOrganizerReview, type OrganizerRating,
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
 import { subcategoryLabel } from "@/src/lib/meetingCatalog";
+import { QUESTION_RULES, splitPlan } from "@/src/lib/meetingPlan";
 import { subscribePostgres } from "@/src/lib/realtime";
 import { FREE_PHOTO_SLOTS, pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
@@ -42,6 +43,22 @@ function withinCheckinWindow(startsAt: string) {
   return now >= start && now <= start + 4 * 3600e3;
 }
 
+function PlanPreview({ rows }: { rows: Array<{ id: string; category: string; title: string; body: string }> }) {
+  const plan = splitPlan(rows);
+  const empty = !plan.note?.body && plan.questions.length === 0 && plan.games.length === 0;
+  return (
+    <Card testID="event-plan">
+      <Title size={18}>Plan spotkania</Title>
+      {plan.note?.body ? <Body>{plan.note.body}</Body> : null}
+      <Body muted>{QUESTION_RULES}</Body>
+      <Body>Pytań na osobę: {plan.limit}</Body>
+      {plan.questions.map((q) => <Body key={q.id}>• {q.title}</Body>)}
+      {plan.games.map((g) => <Body key={g.id}>• {g.title}</Body>)}
+      {empty ? <Body muted>Organizator jeszcze nie ustawił planu.</Body> : null}
+    </Card>
+  );
+}
+
 export default function EventDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
@@ -62,6 +79,7 @@ export default function EventDetail() {
   const [orgRating, setOrgRating] = useState<OrganizerRating | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [orgReview, setOrgReview] = useState({ hospitality: 0, organization: 0, atmosphere: 0, communication: 0, tip: "" });
+  const [planRows, setPlanRows] = useState<Array<{ id: string; category: string; title: string; body: string }>>([]);
   const isOrganizer = e?.organizer_id === session?.user.id;
 
   const load = useCallback(async () => {
@@ -89,6 +107,10 @@ export default function EventDetail() {
         const ph = await listEventPhotos(id);
         setPhotos(ph ?? []);
       } catch { setPhotos([]); }
+      try {
+        const attrs = await eventAttractions(id);
+        setPlanRows((attrs as Array<{ id: string; category: string; title: string; body: string }> | null) ?? []);
+      } catch { setPlanRows([]); }
     } catch (err) { setError(errorMessage(err)); }
   }, [id, session?.user.id]);
   useEffect(() => { load(); }, [load]);
@@ -200,6 +222,9 @@ export default function EventDetail() {
           {e.is_official ? <Badge label="OFICJALNE WYDARZENIE" color={colors.rarityLegendary} textColor={colors.onBrandPrimary} /> : null}
           <Title size={24} testID="event-title">{e.title}</Title>
           <Body>{e.place_name} · {formatDate(e.starts_at)}</Body>
+          {e.place_lat != null && e.place_lng != null ? (
+            <Body muted testID="event-place-gps">GPS miejsca: {e.place_lat.toFixed(5)}, {e.place_lng.toFixed(5)}. W dniu spotkania sprawdzimy, czy zapisani goście są na miejscu.</Body>
+          ) : null}
           {e.description ? <Body muted>{e.description}</Body> : null}
           {e.theme ? <Body>Temat: {e.theme}</Body> : null}
           {e.budget_per_person != null ? <Body>Budżet: {e.budget_per_person} zł / os.</Body> : null}
@@ -256,12 +281,14 @@ export default function EventDetail() {
             ))}
           </Card>
         ) : null}
+        <PlanPreview rows={planRows} />
+        {!joined ? <Button testID="event-plan-open" title="Cały plan spotkania" variant="secondary" onPress={() => router.push(`/games?event=${id}`)} /> : null}
         {!joined ? <Button testID="event-join-button" title="Zarezerwuj miejsce" icon="seat" loading={busy} disabled={e.seats_taken >= e.capacity} onPress={() => act(() => eventJoin(id), "Miejsce zarezerwowane!")} /> : (
           <View style={{ gap: spacing.md }}>
             <Badge testID="event-joined-badge" label={status === "attended" ? "Obecność potwierdzona ✓" : "Jesteś na liście"} color={colors.success} textColor={colors.onSuccess} />
             <View style={{ flexDirection: "row", gap: spacing.md }}>
               <Button testID="event-chat-button" title="Czat spotkania" icon="chat" style={{ flex: 1 }} onPress={openChat} />
-              <Button testID="event-games-button" title="Atrakcje" icon="dice-multiple" variant="secondary" onPress={() => router.push(`/games?event=${id}`)} />
+              <Button testID="event-games-button" title="Plan spotkania" icon="dice-multiple" variant="secondary" onPress={() => router.push(`/games?event=${id}`)} />
             </View>
             {!isOrganizer && status === "joined" ? <Button testID="event-leave-button" title="Zrezygnuj" variant="ghost" onPress={() => act(() => eventLeave(id), "Zrezygnowano")} /> : null}
           </View>
