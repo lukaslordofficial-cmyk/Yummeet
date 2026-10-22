@@ -129,22 +129,40 @@ export function placeQueryVariants(query: string): string[] {
   return out;
 }
 
-/** Prefer names that start with the typed prefix, then alphabetical. */
+/** Krótka podpowiedź: „Kraków Rynek Główny 16”. */
+export function placeSuggestionTitle(parts: { city?: string; street?: string; house?: string; name?: string; fallback?: string }): string {
+  const road = [parts.street, parts.house].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  const name = parts.name && parts.name !== parts.city && parts.name !== road ? parts.name.trim() : "";
+  const line = [parts.city, road || name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  return line || parts.fallback || "";
+}
+
+const STREET_WORD = /^(ul|ulica|os|osiedle|al|aleja|pl|plac)$/;
+
+function queryTokens(query: string): string[] {
+  return polishFold(query).split(/[^a-z0-9]+/).filter((token) => token.length >= 2 && !STREET_WORD.test(token));
+}
+
+function placeScore(row: GeocodeResult, query: string): number {
+  const tokens = queryTokens(query);
+  if (!tokens.length) return 0;
+  const key = polishFold(`${row.title} ${row.city ?? ""} ${row.street ?? ""}`);
+  return tokens.reduce((sum, token) => sum + (key.includes(token) ? 1 : 0), 0);
+}
+
+/** Prefer names that contain the typed words, city and street before a loose match. */
 function sortByPrefix(results: GeocodeResult[], query: string): GeocodeResult[] {
-  const q = polishFold(query.trim());
   return [...results].sort((a, b) => {
-    const ka = polishFold(a.sortKey || a.title);
-    const kb = polishFold(b.sortKey || b.title);
-    const pa = ka.startsWith(q) ? 0 : ka.includes(q) ? 1 : 2;
-    const pb = kb.startsWith(q) ? 0 : kb.includes(q) ? 1 : 2;
-    if (pa !== pb) return pa - pb;
-    return ka.localeCompare(kb, "pl");
+    const sa = placeScore(a, query);
+    const sb = placeScore(b, query);
+    if (sa !== sb) return sb - sa;
+    return polishFold(a.title).localeCompare(polishFold(b.title), "pl");
   });
 }
 
-async function geocodePhoton(query: string, lang: string): Promise<GeocodeResult[]> {
+async function geocodePhoton(query: string, _lang: string): Promise<GeocodeResult[]> {
   const url =
-    `https://photon.komoot.io/api/?limit=12&lang=${encodeURIComponent(lang)}` +
+    `https://photon.komoot.io/api/?limit=12&lang=default` +
     `&bbox=14.07,49.00,24.15,54.84&lat=52.1&lon=19.4` +
     `&q=${encodeURIComponent(query)}`;
   const res = await fetch(url, { headers: { Accept: "application/json" } });
@@ -159,13 +177,15 @@ async function geocodePhoton(query: string, lang: string): Promise<GeocodeResult
     if (p.country && !/polska|poland/i.test(String(p.country)) && p.countrycode && p.countrycode !== "PL") continue;
     const name = p.name || p.street || p.city || p.district || "";
     const city = p.city || p.town || p.village || p.county || "";
-    const street = [p.street, p.housenumber].filter(Boolean).join(" ");
+    const street = p.street || "";
     const country = p.country || "Polska";
-    const title = formatAddressLabel(
-      { country, city, road: p.street, house_number: p.housenumber, suburb: p.district },
-      [name, street, city, country].filter(Boolean).join(" — "),
-      name || undefined,
-    );
+    const title = placeSuggestionTitle({
+      city,
+      street,
+      house: p.housenumber,
+      name,
+      fallback: name || [city, country].filter(Boolean).join(" "),
+    });
     out.push({
       title,
       lat: Number(lat),
@@ -189,9 +209,14 @@ async function geocodeNominatim(query: string, lang: string): Promise<GeocodeRes
   return (data ?? []).map((r: any) => {
     const poiName = r.namedetails?.name || r.name || undefined;
     const city = r.address?.city || r.address?.town || r.address?.village;
-    const street = [r.address?.road, r.address?.house_number].filter(Boolean).join(" ") || undefined;
+    const street = r.address?.road || undefined;
     return {
-      title: formatAddressLabel(r.address, r.display_name as string, poiName),
+      title: placeSuggestionTitle({
+        city,
+        street,
+        house: r.address?.house_number,
+        fallback: formatAddressLabel(r.address, r.display_name as string, poiName),
+      }),
       lat: parseFloat(r.lat),
       lng: parseFloat(r.lon),
       country: r.address?.country,
@@ -212,9 +237,14 @@ async function geocodeNominatimStreet(street: string, lang: string): Promise<Geo
   return (data ?? []).map((r: any) => {
     const poiName = r.namedetails?.name || r.name || undefined;
     const city = r.address?.city || r.address?.town || r.address?.village;
-    const streetName = [r.address?.road, r.address?.house_number].filter(Boolean).join(" ") || undefined;
+    const streetName = r.address?.road || undefined;
     return {
-      title: formatAddressLabel(r.address, r.display_name as string, poiName),
+      title: placeSuggestionTitle({
+        city,
+        street: streetName,
+        house: r.address?.house_number,
+        fallback: formatAddressLabel(r.address, r.display_name as string, poiName),
+      }),
       lat: parseFloat(r.lat),
       lng: parseFloat(r.lon),
       country: r.address?.country,
@@ -237,6 +267,48 @@ function dedupePlaces(results: GeocodeResult[]): GeocodeResult[] {
   return out;
 }
 
+async function geocodeNominatimCityStreet(query: string, lang: string): Promise<GeocodeResult[]> {
+  const parts = query.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return [];
+  const attempts = [
+    [parts[0], parts.slice(1).join(" ")],
+    [parts[parts.length - 1], parts.slice(0, -1).join(" ")],
+  ];
+  const bags = await Promise.all(attempts.map(async ([city, street]) => {
+    if (!city || !street || city.length < 2 || street.length < 2) return [];
+    const url =
+      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&namedetails=1&limit=6` +
+      `&countrycodes=pl&accept-language=${encodeURIComponent(lang)}` +
+      `&city=${encodeURIComponent(city)}&street=${encodeURIComponent(street)}`;
+    try {
+      const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data ?? []).map((r: any) => {
+        const cityName = r.address?.city || r.address?.town || r.address?.village;
+        const road = r.address?.road || undefined;
+        return {
+          title: placeSuggestionTitle({
+            city: cityName,
+            street: road,
+            house: r.address?.house_number,
+            fallback: formatAddressLabel(r.address, r.display_name as string, r.name),
+          }),
+          lat: parseFloat(r.lat),
+          lng: parseFloat(r.lon),
+          country: r.address?.country,
+          city: cityName,
+          street: [road, r.address?.house_number].filter(Boolean).join(" ") || undefined,
+          sortKey: [cityName, road].filter(Boolean).join(" "),
+        } as GeocodeResult;
+      });
+    } catch {
+      return [];
+    }
+  }));
+  return bags.flat();
+}
+
 /** Autocomplete: skróty ulicy i osiedla, potem Photon (Polska) i ulice Nominatim. */
 export async function geocode(query: string, lang = "pl"): Promise<GeocodeResult[]> {
   const variants = placeQueryVariants(query);
@@ -252,7 +324,14 @@ export async function geocode(query: string, lang = "pl"): Promise<GeocodeResult
   if (street.length >= 3) {
     try { bags.push(await geocodeNominatimStreet(street, lang)); } catch { /* ignore */ }
   }
-  return sortByPrefix(dedupePlaces(bags.flat()), variants[0]).slice(0, 8);
+  try { bags.push(await geocodeNominatimCityStreet(query, lang)); } catch { /* ignore */ }
+  if (street !== query.trim()) {
+    try { bags.push(await geocodeNominatimCityStreet(street, lang)); } catch { /* ignore */ }
+  }
+  const ranked = sortByPrefix(dedupePlaces(bags.flat()), variants[0]);
+  const best = ranked.length ? placeScore(ranked[0], variants[0]) : 0;
+  const tight = best > 0 ? ranked.filter((row) => placeScore(row, variants[0]) === best) : ranked;
+  return tight.slice(0, 8);
 }
 
 /** Reverse geocode for a map tap. */

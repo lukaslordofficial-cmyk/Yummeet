@@ -17,7 +17,7 @@ import { fonts, radius, spacing, useTheme } from "@/src/theme";
 import type { LevelDef, Specialization } from "@/src/types";
 
 const STAT_LABELS: [string, string][] = [
-  ["missions_completed", "Misje"], ["visited_places", "Odwiedzone lokale"], ["events_attended", "Spotkania"], ["meals_exchanged", "Wymienione posiłki"],
+  ["missions_completed", "Misje"], ["visited_places", "Odwiedzone lokale"], ["events_visited", "Odwiedzone spotkania"], ["events_organized", "Zorganizowane spotkania"], ["meals_exchanged", "Wymienione posiłki"],
   ["cards_owned", "Karty"], ["duels_won", "Wygrane pojedynki"], ["duels_lost", "Przegrane"], ["pins_created", "Piny"], ["travel_km", "Km podróży"],
 ];
 

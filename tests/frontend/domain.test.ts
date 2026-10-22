@@ -7,10 +7,10 @@ import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
 import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOCIAL_GAMES, STORY_STARTERS, addCustomQuestion, gameActivityLine, questionInstruction, setPlanLimit, splitPlan, storyTurnIndex, syncPlanNote, toggleGame, toggleQuestion } from "../../frontend/src/lib/meetingPlan.ts";
-import { placeQueryVariants } from "../../frontend/src/lib/routing.ts";
+import { placeQueryVariants, placeSuggestionTitle } from "../../frontend/src/lib/routing.ts";
 import { subcategoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
 import { clampRouteBuffer, filterPinsByPrice, haversineM, withinRadiusM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
-import { eventQrValue, parseEventQr } from "../../frontend/src/lib/eventQr.ts";
+import { eventQrValue, parseEntryCode, parseEventQr } from "../../frontend/src/lib/eventQr.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
 test("rock-paper-scissors resolution matches server _rps_winner", () => {
@@ -121,6 +121,9 @@ test("meeting plan has the question pool and social games", () => {
   assert.equal((splitPlan(local).note?.body ?? "").includes("Czy lubisz deszcz"), false);
   assert.deepEqual(placeQueryVariants("ul Komandorska"), ["ul Komandorska", "ulica Komandorska", "Komandorska"]);
   assert.deepEqual(placeQueryVariants("os. Słoneczne"), ["os. Słoneczne", "osiedle Słoneczne", "Słoneczne"]);
+  assert.deepEqual(placeQueryVariants("al. Jana"), ["al. Jana", "aleja Jana", "Jana"]);
+  assert.deepEqual(placeQueryVariants("ulica Floriańska"), ["ulica Floriańska", "Floriańska"]);
+  assert.equal(placeSuggestionTitle({ city: "Kraków", street: "Rynek", house: "16" }), "Kraków Rynek 16");
   assert.deepEqual(filterPinsByPrice([
     { price_min: 90, price_max: 120 },
     { price_min: 20, price_max: 30 },
@@ -163,6 +166,7 @@ test("meeting catalog keeps the tasting, game and hobby shelves", () => {
   const eventId = "11111111-1111-1111-1111-111111111111";
   assert.deepEqual(parseEventQr(eventQrValue(eventId, "AB12CD")), { eventId, code: "AB12CD" });
   assert.equal(parseEventQr("nie-kod"), null);
+  assert.deepEqual(parseEntryCode("ab12cd"), { code: "AB12CD" });
   assert.deepEqual(categoryByKey("poznaj")?.subs.map((s) => s.key), ["otwarty_stol", "nowi_w_miescie", "kolacja_nieznajomych"]);
   assert.equal(subcategoryByKey("poznaj", "otwarty_stol")?.templates.length, 0);
   assert.equal(subcategoryByKey("poznaj", "nowi_w_miescie")?.templates.length, 0);

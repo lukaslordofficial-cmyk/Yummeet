@@ -11,3 +11,12 @@ export function parseEventQr(raw: string): { eventId: string; code?: string } | 
   if (/^[0-9a-f-]{36}$/i.test(text)) return { eventId: text };
   return null;
 }
+
+/** Kod QR albo sam sześcioznakowy kod wpisany ręcznie. */
+export function parseEntryCode(raw: string): { eventId?: string; code?: string } | null {
+  const qr = parseEventQr(raw);
+  if (qr) return qr;
+  const code = raw.trim().toUpperCase().replace(/\s+/g, "");
+  if (/^[A-Z0-9]{4,8}$/.test(code)) return { code };
+  return null;
+}

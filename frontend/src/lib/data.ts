@@ -304,6 +304,8 @@ export const eventCheckin = (id: string, code: string, lat: number, lng: number)
   rpc("event_checkin", { p_event: id, p_code: code, p_lat: lat, p_lng: lng });
 export const eventRevealCheckinCode = (id: string, lat: number, lng: number) =>
   rpc<{ code: string; notified: boolean }>("event_reveal_checkin_code", { p_event: id, p_lat: lat, p_lng: lng });
+export const eventClaimCode = (code: string, eventId?: string) =>
+  rpc<{ event_id: string; kind: "visited" | "organized" }>("event_claim_code", { p_code: code, p_event: eventId ?? null });
 export const travelAddKm = (km: number) => rpc<number>("travel_add_km", { p_km: km });
 
 export const travelRouteFinish = (a: {

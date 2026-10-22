@@ -154,7 +154,7 @@ export default function NewEvent() {
             <Body muted style={{ paddingHorizontal: spacing.lg }} testID="new-event-kind-hint">{cat?.label} · {sub.label}. {sub.blurb}</Body>
             <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
               <Field testID="new-event-title-input" label="Tytuł" value={title} onChangeText={setTitle} placeholder="np. Ramen dla nieznajomych" />
-              <PlaceSearch testID="new-event-place" label="Miejsce (publiczne)" value={venue} onPick={setVenue} placeholder="np. War… / Jag… / Dworzec PKP" />
+              <PlaceSearch testID="new-event-place" label="Miejsce (publiczne)" value={venue} onPick={setVenue} placeholder="np. Kraków Rynek 16 albo ul. Floriańska" />
               <Field testID="new-event-theme-input" label="Temat (opcjonalnie)" value={theme} onChangeText={setTheme} />
               <Field testID="new-event-description-input" label="Opis" value={description} onChangeText={setDescription} multiline style={{ minHeight: 80 }} />
               {tasting ? <Field testID="new-event-budget" label="Budżet na osobę, zł (opcjonalnie)" value={budget} onChangeText={setBudget} keyboardType="number-pad" /> : null}

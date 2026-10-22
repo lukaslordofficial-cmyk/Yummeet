@@ -74,6 +74,7 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 43. **`supabase/migrations/044_plan_note_length.sql`** — notatka planu może mieć do 8000 znaków, żeby pomieścić pytania i osobne akapity zabaw.
 44. **`supabase/migrations/045_route_pin_prices.sql`** — Gastro-Trasa dostaje przy pinach `price_min` i `price_max`, żeby kafelki ceny mogły je sortować.
 45. **`supabase/migrations/046_play_qr_window.sql`** — kod QR od 4 godzin przed startem do 4 godzin po starcie (GPS do 400 m) oraz panel zabaw: start organizatora, kolejka pytań i „znajdź kogoś”. Bez tego pliku kod się nie pojawi w szerszym oknie, a zabawy po skanie nie wystartują.
+46. **`supabase/migrations/047_find_rounds_presence.sql`** — organizator przełącza zabawy ręcznie. „Znajdź kogoś” ma turę tak/nie, potem turę imion i punkty. Wpisany albo zeskanowany kod dolicza uczestnikowi odwiedzone spotkanie, a organizatorowi zorganizowane. Uruchom po 046.
 
 ### Szybka naprawa edycji pinu
 1. **`029_fix_pin_updated_xp_cards.sql`**

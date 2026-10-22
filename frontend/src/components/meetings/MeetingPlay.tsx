@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { SOCIAL_GAMES, type PlanItem } from "@/src/lib/meetingPlan";
-import { eventFindSave, eventPlayAnswered, eventPlayBoard, eventPlayDraw, eventPlayStart, type PlayBoard } from "@/src/lib/play";
-import { fonts, radius, spacing, useTheme } from "@/src/theme";
+import { eventPlayAnswered, eventPlayBoard, eventPlayDraw, eventPlayStart, type PlayBoard } from "@/src/lib/play";
+import { spacing } from "@/src/theme";
 
+import { FindRound } from "./FindRound";
 import { StoryTable } from "./StoryTable";
 import { TableRounds } from "./TableRounds";
 
@@ -38,11 +39,9 @@ export function MeetingPlay({
   isOrganizer: boolean;
   scanned: boolean;
 }) {
-  const { colors } = useTheme();
   const [board, setBoard] = useState<PlayBoard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [openPrompt, setOpenPrompt] = useState<string | null>(null);
   const keys = selectedKeys(items);
   const labels = keys.map((key) => LABELS[key] ?? key);
 
@@ -81,24 +80,30 @@ export function MeetingPlay({
         {labels.length ? labels.map((label) => (
           <Card key={label}><Title size={16} style={{ textAlign: "center" }}>{label}</Title></Card>
         )) : <Body muted style={{ textAlign: "center" }}>Organizator nie wybrał jeszcze zabaw.</Body>}
-        <Body muted style={{ textAlign: "center" }}>Zeskanuj kod QR wydarzenia, żeby wejść do zabawy.</Body>
+        <Body muted style={{ textAlign: "center" }}>Zeskanuj kod QR albo wpisz go w skanerze, żeby wejść do zabawy.</Body>
       </View>
     );
   }
 
   const live = board?.status === "live" ? board.game_key : null;
-  const namesFor = (prompt: string) => board?.my_picks.find((pick) => pick.prompt === prompt)?.names ?? [];
 
   return (
     <View style={{ gap: spacing.lg }} testID="meeting-play">
       {error ? <Body testID="meeting-play-error">{error}</Body> : null}
       {board?.notice ? <Card><Title size={16} style={{ textAlign: "center" }} testID="meeting-play-notice">{board.notice}</Title></Card> : null}
 
-      {isOrganizer && live == null ? (
+      {isOrganizer ? (
         <View style={{ gap: spacing.md }}>
-          <Title size={18} style={{ textAlign: "center" }}>Wystartuj zabawę</Title>
+          <Title size={18} style={{ textAlign: "center" }}>Przełącz zabawę</Title>
           {keys.map((key) => (
-            <Button key={key} testID={`meeting-play-start-${key}`} title={LABELS[key] ?? key} onPress={() => void run(() => eventPlayStart(eventId, key))} loading={busy} />
+            <Button
+              key={key}
+              testID={`meeting-play-start-${key}`}
+              title={LABELS[key] ?? key}
+              variant={live === key ? "primary" : "secondary"}
+              onPress={() => { if (live !== key) void run(() => eventPlayStart(eventId, key)); }}
+              loading={busy}
+            />
           ))}
         </View>
       ) : null}
@@ -136,39 +141,15 @@ export function MeetingPlay({
       {live === "find-someone" ? (
         <View style={{ gap: spacing.md }} testID="meeting-play-find">
           <Title size={22} style={{ textAlign: "center" }}>Znajdź kogoś, kto…</Title>
-          <Body style={{ textAlign: "center" }}>Do każdego zdania dodaj imię innego Yummitera. Przy jednym zdaniu możesz dopisać kilka osób.</Body>
-          {(board?.prompts ?? []).map((prompt) => {
-            const names = namesFor(prompt);
-            const open = openPrompt === prompt;
-            return (
-              <Card key={prompt}>
-                <Title size={16}>{prompt}</Title>
-                {names.map((name) => (
-                  <View key={name} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
-                    <Body>{name}</Body>
-                    <Button
-                      testID={`find-remove-${name}`}
-                      title="−"
-                      variant="ghost"
-                      style={{ minWidth: 48, paddingHorizontal: spacing.md }}
-                      onPress={() => void run(() => eventFindSave(eventId, prompt, names.filter((item) => item !== name)))}
-                    />
-                  </View>
-                ))}
-                <Button testID={`find-add-${prompt.slice(0, 16)}`} title="+" onPress={() => setOpenPrompt(open ? null : prompt)} />
-                {open ? (board?.participants ?? []).filter((person) => !names.includes(person.name)).map((person) => (
-                  <Pressable
-                    key={person.id}
-                    testID={`find-person-${person.id}`}
-                    onPress={() => void run(() => eventFindSave(eventId, prompt, [...names, person.name]))}
-                    style={{ backgroundColor: colors.brandPrimary, borderRadius: radius.md, padding: spacing.md }}
-                  >
-                    <Title size={16} style={{ color: colors.onBrandPrimary, textAlign: "center", fontFamily: fonts.display }}>{person.name}</Title>
-                  </Pressable>
-                )) : null}
-              </Card>
-            );
-          })}
+          {(board?.prompts ?? []).length === 0 ? <Body style={{ textAlign: "center" }}>Organizator nie dodał zdań do tej zabawy.</Body> : (
+            <FindRound
+              eventId={eventId}
+              prompts={board?.prompts ?? []}
+              participants={board?.participants ?? []}
+              find={board?.find}
+              onBoard={(next) => { setBoard(next); setError(null); }}
+            />
+          )}
         </View>
       ) : null}
 
