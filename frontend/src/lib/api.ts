@@ -23,8 +23,10 @@ const MESSAGES: Record<string, string> = {
   organizer_cannot_checkin: "Organizator nie wpisuje kodu — pokaż go gościom na miejscu.",
   invalid_specialization: "Nieznana specjalizacja.",
   not_allowed: "Brak uprawnień.",
-  too_early: "Kod / check-in dostępne dopiero w dniu i o godzinie wydarzenia.",
-  event_closed: "Okno obecności minęło (max 4 h od startu) albo dzień się skończył.",
+  too_early: "Kod QR jest dostępny od 4 godzin przed startem do 4 godzin po starcie.",
+  event_closed: "Okno kodu minęło (4 godziny po starcie).",
+  play_not_live: "Ta zabawa jeszcze nie jest uruchomiona.",
+  no_questions_left: "Nie ma już nowych pytań w puli.",
   not_joined: "Najpierw dołącz do wydarzenia.",
   not_member: "Tego czatu nie ma już na Twojej liście.",
   no_venue_coords: "Brak współrzędnych miejsca — przy tworzeniu stołu wskaż lokalizację.",
@@ -35,7 +37,7 @@ const MESSAGES: Record<string, string> = {
   story_members_only: "Dołącz do spotkania, żeby dopisywać historię.",
   location_required: "Włącz GPS, żeby potwierdzić obecność / zobaczyć ranking w okolicy.",
   proximity_only: "Pojedynki tylko w pobliżu — włącz tryb pojedynków w ustawieniach.",
-  use_reveal_with_gps: "Kod pojawi się po wykryciu GPS na miejscu w dniu wydarzenia.",
+  use_reveal_with_gps: "Kod QR pojawi się od 4 godzin przed startem, gdy GPS widzi Cię przy miejscu spotkania.",
   photo_quota_exceeded: "Brak wolnych slotów na zdjęcia (max 3 aktywne). Poczekaj 48 h po zakończeniu oferty/misji.",
   photo_slots_full: "Masz już 3 aktywne zdjęcia (dania / misje). Po zakończeniu oferty lub misji slot zwolni się po 48 h.",
   cannot_review_self: "Nie możesz ocenić własnego spotkania.",
@@ -64,6 +66,9 @@ export function errorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as any).message) : String(e);
   const key = Object.keys(MESSAGES).find((k) => raw.includes(k));
   if (key) return MESSAGES[key];
+  if (raw.includes("event_play") || raw.includes("event_find_save") || raw.includes("event_find_picks")) {
+    return "Panel zabaw wymaga migracji 046_play_qr_window.sql w SQL Editorze Supabase.";
+  }
   if (raw.includes("event_story")) {
     return "Wspólna historia wymaga migracji 043_meeting_plan_story.sql w SQL Editorze Supabase.";
   }

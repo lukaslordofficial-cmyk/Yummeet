@@ -19,6 +19,8 @@ import { getCurrentPosition } from "@/src/lib/location";
 import { subcategoryLabel } from "@/src/lib/meetingCatalog";
 import { splitPlan } from "@/src/lib/meetingPlan";
 import { PlanNoteView } from "@/src/components/meetings/PlanNoteView";
+import { QrMark } from "@/src/components/meetings/QrMark";
+import { eventQrValue } from "@/src/lib/eventQr";
 import { subscribePostgres } from "@/src/lib/realtime";
 import { FREE_PHOTO_SLOTS, pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
@@ -32,10 +34,10 @@ const ORG_AXES = [
   ["communication", "Kontakt"],
 ] as const;
 
-function isEventDay(startsAt: string) {
-  const d = new Date(startsAt);
-  const n = new Date();
-  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+function withinRevealWindow(startsAt: string) {
+  const start = new Date(startsAt).getTime();
+  const now = Date.now();
+  return now >= start - 4 * 3600e3 && now <= start + 4 * 3600e3;
 }
 
 function withinCheckinWindow(startsAt: string) {
@@ -48,8 +50,8 @@ function PlanPreview({ rows }: { rows: Array<{ id: string; category: string; tit
   const plan = splitPlan(rows);
   const empty = !plan.note?.body && plan.questions.length === 0 && plan.games.length === 0;
   return (
-    <Card testID="event-plan">
-      <Title size={18} style={{ textAlign: "center", width: "100%" }}>Plan spotkania</Title>
+    <Card testID="event-plan" style={{ gap: spacing.lg, paddingTop: spacing.xl }}>
+      <Title size={18} style={{ textAlign: "center", width: "100%", marginBottom: spacing.sm }}>Plan spotkania</Title>
       {plan.note?.body ? <PlanNoteView testID="event-plan-note" body={plan.note.body} /> : null}
       {plan.questions.length ? (
         <View style={{ gap: spacing.xs }}>
@@ -73,6 +75,7 @@ export default function EventDetail() {
   const [people, setPeople] = useState<any[]>([]);
   const [code, setCode] = useState("");
   const [orgCode, setOrgCode] = useState<string | null>(null);
+  const [revealHint, setRevealHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [photos, setPhotos] = useState<Array<{ id: string; photo_url: string }>>([]);
@@ -174,10 +177,13 @@ export default function EventDetail() {
       }
       const res = await eventRevealCheckinCode(id, pos.lat, pos.lng);
       setOrgCode(res.code);
-      if (res.notified) toast("Otrzymałeś kod wydarzenia — podaj go gościom od razu gdy przyjdą.", "success");
-      else if (!silent) toast("Kod dostępny", "success");
+      setRevealHint(null);
+      if (res.notified) toast("Kod QR jest gotowy. Pokaż go gościom, gdy przyjdą.", "success");
+      else if (!silent) toast("Kod QR dostępny", "success");
     } catch (err) {
-      if (!silent) toast(errorMessage(err), "error");
+      const message = errorMessage(err);
+      setRevealHint(message);
+      if (!silent) toast(message, "error");
     } finally {
       if (!silent) setBusy(false);
     }
@@ -185,8 +191,7 @@ export default function EventDetail() {
 
   // Organizer: when on-site on event day, auto-reveal code + notify.
   useEffect(() => {
-    if (!e || !isOrganizer || orgCode || !isEventDay(e.starts_at)) return;
-    if (!withinCheckinWindow(e.starts_at) && Date.now() < new Date(e.starts_at).getTime() - 30 * 60e3) return;
+    if (!e || !isOrganizer || orgCode || !withinRevealWindow(e.starts_at)) return;
     void revealCode(true);
     const t = setInterval(() => { if (!orgCode) void revealCode(true); }, 45000);
     return () => clearInterval(t);
@@ -211,7 +216,7 @@ export default function EventDetail() {
   if (error) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="Spotkanie" /><ErrorState message={error} onRetry={load} /></View>;
   if (!e) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="Spotkanie" /><Loading /></View>;
   const joined = status === "joined" || status === "attended";
-  const dayOk = isEventDay(e.starts_at);
+  const revealOk = withinRevealWindow(e.starts_at);
   const windowOk = withinCheckinWindow(e.starts_at);
   const tasting = e.category_key === "oceniaj" || e.kind === "tasting";
   const kindLabel = subcategoryLabel(e.subcategory_key) ?? KIND_LABEL[e.kind] ?? "Spotkanie";
@@ -284,13 +289,13 @@ export default function EventDetail() {
           </Card>
         ) : null}
         <PlanPreview rows={planRows} />
-        {!joined ? <Button testID="event-plan-open" title="Cały plan spotkania" variant="secondary" onPress={() => router.push(`/games?event=${id}`)} /> : null}
+        {!joined ? <Button testID="event-plan-open" title="Panel spotkania" variant="secondary" onPress={() => router.push(`/games?event=${id}`)} /> : null}
         {!joined ? <Button testID="event-join-button" title="Zarezerwuj miejsce" icon="seat" loading={busy} disabled={e.seats_taken >= e.capacity} onPress={() => act(() => eventJoin(id), "Miejsce zarezerwowane!")} /> : (
           <View style={{ gap: spacing.md }}>
             <Badge testID="event-joined-badge" label={status === "attended" ? "Obecność potwierdzona ✓" : "Jesteś na liście"} color={colors.success} textColor={colors.onSuccess} />
             <View style={{ flexDirection: "row", gap: spacing.md }}>
               <Button testID="event-chat-button" title="Czat spotkania" icon="chat" style={{ flex: 1 }} onPress={openChat} />
-              <Button testID="event-games-button" title="Plan spotkania" icon="dice-multiple" variant="secondary" onPress={() => router.push(`/games?event=${id}`)} />
+              <Button testID="event-games-button" title="Panel spotkania" icon="dice-multiple" variant="secondary" onPress={() => router.push(`/games?event=${id}`)} />
             </View>
             {!isOrganizer && status === "joined" ? <Button testID="event-leave-button" title="Zrezygnuj" variant="ghost" onPress={() => act(() => eventLeave(id), "Zrezygnowano")} /> : null}
           </View>
@@ -298,13 +303,19 @@ export default function EventDetail() {
 
         {isOrganizer ? (
           <Card testID="event-organizer-code">
-            <Title size={16}>Kod obecności</Title>
-            <Body muted>Dostępny w dniu wydarzenia, dopiero gdy GPS wykryje Cię w lokalu. Podaj gośćom od razu po przyjściu (okno 4 h od startu).</Body>
-            {!dayOk ? <Body muted>Dziś nie ma wydarzenia — kod będzie tu w dniu spotkania.</Body> : null}
-            {dayOk && !orgCode ? (
-              <Button testID="event-reveal-code" title="Pokaż kod (GPS na miejscu)" loading={busy} onPress={() => void revealCode()} />
+            <Title size={16}>Kod QR spotkania</Title>
+            <Body muted>Pojawia się od 4 godzin przed startem do 4 godzin po starcie, gdy GPS widzi Cię przy miejscu spotkania. Goście skanują go pływającym skanerem i wchodzą do panelu zabaw.</Body>
+            {!revealOk ? <Body muted>Poza tym oknem kod jeszcze się nie pokaże.</Body> : null}
+            {revealOk && !orgCode ? (
+              <Button testID="event-reveal-code" title="Pokaż kod QR (GPS na miejscu)" loading={busy} onPress={() => void revealCode()} />
             ) : null}
-            {orgCode ? <Text style={{ fontFamily: fonts.display, fontSize: 32, color: colors.brandPrimary, letterSpacing: 4 }}>{orgCode}</Text> : null}
+            {revealHint && !orgCode ? <Body testID="event-reveal-hint">{revealHint}</Body> : null}
+            {orgCode ? (
+              <View style={{ alignItems: "center", gap: spacing.md }}>
+                <QrMark testID="event-qr" value={eventQrValue(id, orgCode)} />
+                <Text style={{ fontFamily: fonts.display, fontSize: 32, color: colors.brandPrimary, letterSpacing: 4 }}>{orgCode}</Text>
+              </View>
+            ) : null}
           </Card>
         ) : null}
 

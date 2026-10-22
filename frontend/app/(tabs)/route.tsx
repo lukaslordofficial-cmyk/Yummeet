@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useWindowDimensions, View } from "react-native";
+import { Modal, Pressable, useWindowDimensions, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -8,7 +8,7 @@ import { RouteHistory } from "@/src/components/RouteHistory";
 import { RouteMapPane, type RouteMapMode } from "@/src/components/RouteMapPane";
 import { RoutePinProgress } from "@/src/components/RoutePinProgress";
 import { RoutePointInput } from "@/src/components/RoutePointInput";
-import { Body, Button, Chip, ChipRow, Title, useToast } from "@/src/components/ui";
+import { Body, Button, Chip, ChipRow, Field, Title, useToast } from "@/src/components/ui";
 import { useActiveRoute } from "@/src/hooks/useActiveRoute";
 import { errorMessage } from "@/src/lib/api";
 import { CUISINES, cuisinePinStyle } from "@/src/lib/cuisines";
@@ -21,13 +21,6 @@ import { labelRoutePins, userAlongRoute } from "@/src/lib/routeProgress";
 import type { ActiveRoute, TravelRouteRow } from "@/src/lib/routeTypes";
 import { routingProvider, type GeocodeResult, type TravelMode } from "@/src/lib/routing";
 import { radius, spacing, useTheme } from "@/src/theme";
-
-const PRICE_BANDS = [
-  { key: "any", label: "Każda cena", min: null, max: null },
-  { key: "low", label: "do 40 zł", min: null, max: 40 },
-  { key: "mid", label: "40–80 zł", min: 40, max: 80 },
-  { key: "high", label: "od 80 zł", min: 80, max: null },
-] as const;
 
 export default function RoutePlanner() {
   const { colors } = useTheme();
@@ -47,7 +40,11 @@ export default function RoutePlanner() {
   const [buffer, setBuffer] = useState(1000);
   const [mapMode, setMapMode] = useState<RouteMapMode>("window");
   const [cuisine, setCuisine] = useState<string | null>(null);
-  const [priceKey, setPriceKey] = useState<(typeof PRICE_BANDS)[number]["key"]>("any");
+  const [priceMin, setPriceMin] = useState<number | null>(null);
+  const [priceMax, setPriceMax] = useState<number | null>(null);
+  const [priceOpen, setPriceOpen] = useState(false);
+  const [draftMin, setDraftMin] = useState("");
+  const [draftMax, setDraftMax] = useState("");
   const [spot, setSpot] = useState<LatLng | null>(null);
   const [locateAt, setLocateAt] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -165,8 +162,43 @@ export default function RoutePlanner() {
   }, [visiblePins, line]);
   const fallbackCenter = line[Math.floor(line.length / 2)] ?? line[0] ?? { lat: 52.23, lng: 21.01 };
   const mapCenter = (tracking ? userPos : spot) ?? userPos ?? fallbackCenter;
-  const priceBand = PRICE_BANDS.find((band) => band.key === priceKey) ?? PRICE_BANDS[0];
-  const shownPins = useMemo(() => filterPinsByPrice(pinsStatus, priceBand), [pinsStatus, priceBand]);
+  const shownPins = useMemo(
+    () => filterPinsByPrice(pinsStatus, { min: priceMin, max: priceMax }),
+    [pinsStatus, priceMin, priceMax],
+  );
+  const priceActive = priceMin != null || priceMax != null;
+  const priceChipLabel =
+    priceMin != null && priceMax != null
+      ? `${priceMin}–${priceMax} zł`
+      : priceMin != null
+        ? `od ${priceMin} zł`
+        : priceMax != null
+          ? `do ${priceMax} zł`
+          : "Cena";
+  const openPrice = () => {
+    setDraftMin(priceMin != null ? String(priceMin) : "");
+    setDraftMax(priceMax != null ? String(priceMax) : "");
+    setPriceOpen(true);
+  };
+  const applyPrice = () => {
+    const minRaw = draftMin.trim();
+    const maxRaw = draftMax.trim();
+    const minN = minRaw === "" ? null : Number(minRaw);
+    const maxN = maxRaw === "" ? null : Number(maxRaw);
+    if (minN != null && (!Number.isFinite(minN) || minN < 0)) return toast("Kwota „od” musi być liczbą ≥ 0", "error");
+    if (maxN != null && (!Number.isFinite(maxN) || maxN < 0)) return toast("Kwota „do” musi być liczbą ≥ 0", "error");
+    if (minN != null && maxN != null && maxN < minN) return toast("„Do” nie może być niższe niż „od”", "error");
+    setPriceMin(minN != null ? Math.round(minN) : null);
+    setPriceMax(maxN != null ? Math.round(maxN) : null);
+    setPriceOpen(false);
+  };
+  const clearPrice = () => {
+    setPriceMin(null);
+    setPriceMax(null);
+    setDraftMin("");
+    setDraftMax("");
+    setPriceOpen(false);
+  };
   const recenter = async () => {
     const here = userPos ?? await getCurrentPosition();
     if (!here) return toast("Włącz GPS, żeby wrócić do swojej lokalizacji.", "info");
@@ -204,9 +236,7 @@ export default function RoutePlanner() {
   }, [a, b, shownPins, userPos, colors, tracking]);
   const filterOverlay = (
     <ChipRow testID="route-map-filters">
-      {PRICE_BANDS.map((band) => (
-        <Chip key={band.key} testID={`route-price-${band.key}`} label={band.label} selected={priceKey === band.key} onPress={() => setPriceKey(band.key)} />
-      ))}
+      <Chip testID="route-price-chip" label={priceChipLabel} selected={priceActive} onPress={openPrice} />
       {CUISINES.map((c) => (
         <Chip
           key={c.key ?? c.label}
@@ -222,7 +252,7 @@ export default function RoutePlanner() {
     <RouteMapPane
       mode={where === "full" ? "full" : mapMode}
       onMode={setMapMode}
-      tall={210}
+      tall={tracking ? Math.max(266, Math.round(windowH * 0.434)) : 322}
       edgeToEdge={tracking || where === "full"}
       tracking={tracking}
       center={mapCenter}
@@ -241,9 +271,9 @@ export default function RoutePlanner() {
 
   return (
     <View testID="route-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, gap: spacing.xs }}>
-        <Title size={28} testID="route-title">Gastro-Trasa</Title>
-        {line.length > 1 ? null : <Body muted testID="route-intro">Ustal trasę przejazdu i odkryj miejsca po drodze, w których mógłbyś zjeść.</Body>}
+      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, alignItems: "center", gap: spacing.xs }}>
+        <Title size={28} testID="route-title" style={{ textAlign: "center", width: "100%" }}>Gastro-Trasa</Title>
+        {line.length > 1 ? null : <Body muted testID="route-intro" style={{ textAlign: "center" }}>Ustal trasę przejazdu i odkryj miejsca po drodze, w których mógłbyś zjeść.</Body>}
       </View>
       {line.length > 1 && mapMode !== "full" ? routeMap("flow") : null}
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
@@ -296,6 +326,34 @@ export default function RoutePlanner() {
         <RouteHistory rows={history} />
       </KeyboardAwareScrollView>
       {line.length > 1 && mapMode === "full" ? routeMap("full") : null}
+      <Modal visible={priceOpen} transparent animationType="fade" onRequestClose={() => setPriceOpen(false)}>
+        <Pressable
+          testID="route-price-backdrop"
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", padding: spacing.lg }}
+          onPress={() => setPriceOpen(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: colors.surfaceSecondary,
+              borderRadius: radius.lg,
+              padding: spacing.lg,
+              gap: spacing.md,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+            onPress={() => undefined}
+          >
+            <Title size={20}>Budżet na posiłek</Title>
+            <Body muted>Pokaż lokale w Twoim budżecie (zł). Lokale bez wpisanych cen i tak zawsze będą widoczne.</Body>
+            <Field testID="route-price-min" label="Od (zł)" value={draftMin} onChangeText={setDraftMin} keyboardType="number-pad" placeholder="np. 20" />
+            <Field testID="route-price-max" label="Do (zł)" value={draftMax} onChangeText={setDraftMax} keyboardType="number-pad" placeholder="np. 50" />
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              <Button testID="route-price-clear" title="Wyczyść" variant="ghost" style={{ flex: 1 }} onPress={clearPrice} />
+              <Button testID="route-price-apply" title="Zastosuj" style={{ flex: 1 }} onPress={applyPrice} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

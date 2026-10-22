@@ -109,6 +109,7 @@ function Gate() {
           <Stack.Screen name="notifications" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="games" />
+          <Stack.Screen name="scan" />
           <Stack.Screen name="user/[id]" />
         </Stack.Protected>
         <Stack.Protected guard={!session}>

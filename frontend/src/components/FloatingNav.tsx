@@ -9,6 +9,7 @@ import { radius, spacing, useTheme } from "@/src/theme";
 import { Icon } from "./Icon";
 
 const ITEMS = [
+  { href: "/scan", icon: "qrcode-scan", testID: "tab-scan", match: "/scan", label: "Skaner" },
   { href: "/chats", icon: "chat-processing", testID: "tab-chats", match: "/chats", label: "Czat" },
   { href: "/profile", icon: "account-circle", testID: "tab-profile", match: "/profile", label: "Profil" },
 ] as const;
@@ -35,7 +36,7 @@ export function FloatingNav() {
     const { width: w, height: h, top } = frame.current;
     return {
       x: Math.min(Math.max(4, x), Math.max(4, w - BUTTON - 4)),
-      y: Math.min(Math.max(top + 4, y), Math.max(top + 4, h - BUTTON * 2 - 24)),
+      y: Math.min(Math.max(top + 4, y), Math.max(top + 4, h - BUTTON * 3 - 48)),
     };
   };
 
