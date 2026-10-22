@@ -265,7 +265,7 @@ export const deleteMyAccount = () => rpc("delete_my_account");
 // ---------- events / tables ----------
 const EVENT_LIST_COLS = "id,kind,title,description,place_name,place_lat,place_lng,starts_at,capacity,seats_taken,theme,rules,status,discount_text,is_official,organizer_id,pin_id,category_key,subcategory_key,template_key";
 export async function listEvents(category: string | null, origin?: { lat: number; lng: number } | null): Promise<EventRow[]> {
-  const since = new Date(Date.now() - 3 * 3600e3).toISOString();
+  const since = new Date(Date.now() - 3600e3).toISOString();
   const run = (cols: string, withCategory: boolean) => {
     let q = supabase.from("events").select(cols).in("status", ["open", "full"]).gte("starts_at", since).order("starts_at").limit(200);
     if (origin) {

@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
+import { FIND_SOMEONE_INSTRUCTION } from "@/src/lib/meetingPlan";
 import { eventFindSubmit, type FindState, type PlayParticipant } from "@/src/lib/play";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 
@@ -82,10 +83,11 @@ export function FindRound({
 
   return (
     <View style={{ gap: spacing.md }} testID="find-round">
+      <Body style={{ textAlign: "center" }}>{FIND_SOMEONE_INSTRUCTION}</Body>
       <Body style={{ textAlign: "center" }}>
         {phase === 1
-          ? "Odpowiedz przy każdym zdaniu tak albo nie, a potem zapisz. Druga tura zacznie się, gdy zrobią to wszyscy."
-          : "Dopisz imiona osób, które Twoim zdaniem odpowiedziały tak. Przy jednym zdaniu może być kilka imion."}
+          ? "Zaznacz tak albo nie przy każdym zdaniu i zapisz odpowiedzi."
+          : "Przy tych samych zdaniach wskaż, kto Twoim zdaniem odpowiedział tak. Możesz nie wskazać nikogo, żeby nie stracić punktów."}
       </Body>
       {error ? <Body testID="find-error">{error}</Body> : null}
       {locked && phase === 2 ? <Title size={16} style={{ textAlign: "center" }} testID="find-wait">{WAIT}</Title> : null}

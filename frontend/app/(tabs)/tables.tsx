@@ -39,7 +39,7 @@ export default function Tables() {
   }, []);
 
   const nearby = useMemo(
-    () => (pos ? (rows ?? []).filter((event) => withinRadiusM(pos, { lat: event.place_lat, lng: event.place_lng }, NEARBY_M)) : []),
+    () => (pos ? (rows ?? []).filter((event) => Date.now() - new Date(event.starts_at).getTime() < 3600e3 && withinRadiusM(pos, { lat: event.place_lat, lng: event.place_lng }, NEARBY_M)) : []),
     [rows, pos],
   );
 

@@ -18,8 +18,8 @@ import {
 import { getCurrentPosition } from "@/src/lib/location";
 import { openMeetingCode } from "@/src/lib/meetingEntry";
 import { subcategoryLabel } from "@/src/lib/meetingCatalog";
-import { splitPlan } from "@/src/lib/meetingPlan";
-import { PlanNoteView } from "@/src/components/meetings/PlanNoteView";
+import { ACTIVITY_LINE, catalogGame, questionInstruction, splitPlan } from "@/src/lib/meetingPlan";
+import { ActivityName, PlanNoteView } from "@/src/components/meetings/PlanNoteView";
 import { QrMark } from "@/src/components/meetings/QrMark";
 import { eventQrValue } from "@/src/lib/eventQr";
 import { subscribePostgres } from "@/src/lib/realtime";
@@ -41,18 +41,34 @@ function withinRevealWindow(startsAt: string) {
   return now >= start - 4 * 3600e3 && now <= start + 4 * 3600e3;
 }
 
-function PlanPreview({ rows }: { rows: Array<{ id: string; category: string; title: string; body: string }> }) {
+function PlanPreview({ rows, organizer }: { rows: Array<{ id: string; category: string; title: string; body: string }>; organizer: boolean }) {
   const plan = splitPlan(rows);
   const empty = !plan.note?.body && plan.questions.length === 0 && plan.games.length === 0;
   return (
     <Card testID="event-plan" style={{ gap: spacing.lg, paddingTop: spacing.xl }}>
       <Title size={18} style={{ textAlign: "center", width: "100%", marginBottom: spacing.sm }}>Plan spotkania</Title>
-      {plan.note?.body ? <PlanNoteView testID="event-plan-note" body={plan.note.body} /> : null}
-      {plan.questions.length ? (
-        <View style={{ gap: spacing.xs }}>
-          {plan.questions.map((q) => <Body key={q.id} style={{ textAlign: "center" }}>{q.title}</Body>)}
+      {organizer && plan.note?.body ? <PlanNoteView testID="event-plan-note" body={plan.note.body} /> : null}
+      {organizer ? plan.questions.filter((question) => {
+        const line = question.body && question.body !== "własne" ? question.body : question.title;
+        return !plan.note?.body?.includes(line);
+      }).map((question) => (
+        <Body key={question.id} style={{ textAlign: "center" }}>• {question.body && question.body !== "własne" ? question.body : question.title}</Body>
+      )) : null}
+      {!organizer && plan.questions.length ? (
+        <View style={{ gap: spacing.sm }}>
+          <ActivityName>{ACTIVITY_LINE}</ActivityName>
+          <Body style={{ textAlign: "center" }}>{questionInstruction(plan.limit)}</Body>
         </View>
       ) : null}
+      {!organizer ? plan.games.map((game) => {
+        const catalog = catalogGame(game.title);
+        return (
+          <View key={game.title} style={{ gap: spacing.sm }}>
+            <ActivityName>{game.title}</ActivityName>
+            <Body style={{ textAlign: "center" }}>{catalog?.blurb || game.body}</Body>
+          </View>
+        );
+      }) : null}
       {empty ? <Body muted style={{ textAlign: "center" }}>Organizator jeszcze nie ustawił planu.</Body> : null}
     </Card>
   );
@@ -81,6 +97,7 @@ export default function EventDetail() {
   const [orgReview, setOrgReview] = useState({ hospitality: 0, organization: 0, atmosphere: 0, communication: 0, tip: "" });
   const [planRows, setPlanRows] = useState<Array<{ id: string; category: string; title: string; body: string }>>([]);
   const isOrganizer = e?.organizer_id === session?.user.id;
+  const joined = status === "joined" || status === "attended";
 
   const load = useCallback(async () => {
     try {
@@ -144,6 +161,24 @@ export default function EventDetail() {
     try { await fn(); toast(ok, "success"); await load(); } catch (err) { toast(errorMessage(err), "error"); } finally { setBusy(false); }
   };
   const openChat = async () => { const c = await eventConversationId(id); if (c) router.push(`/chat/${c}`); else toast("Czat niedostępny", "info"); };
+
+  const canRate = joined && !isOrganizer;
+  const rateStars = async (stars: number) => {
+    if (!canRate) return;
+    const next = { ...orgReview, hospitality: stars, organization: stars, atmosphere: stars, communication: stars };
+    setOrgReview(next);
+    setBusy(true);
+    try {
+      await saveOrganizerReview({ eventId: id, ...next });
+      toast("Zapisano ocenę organizatora.", "success");
+      await load();
+    } catch (err) {
+      const message = errorMessage(err);
+      toast(message.includes("Kod QR") ? "Ocena przed startem spotkania zapisze się po migracji 048_two_truths_play.sql." : message, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const submitOrgReview = async () => {
     if (!orgReview.hospitality || !orgReview.organization || !orgReview.atmosphere || !orgReview.communication) {
@@ -209,7 +244,6 @@ export default function EventDetail() {
 
   if (error) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="Spotkanie" /><ErrorState message={error} onRetry={load} /></View>;
   if (!e) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="Spotkanie" /><Loading /></View>;
-  const joined = status === "joined" || status === "attended";
   const revealOk = withinRevealWindow(e.starts_at);
   const tasting = e.category_key === "oceniaj" || e.kind === "tasting";
   const kindLabel = subcategoryLabel(e.subcategory_key) ?? KIND_LABEL[e.kind] ?? "Spotkanie";
@@ -237,7 +271,7 @@ export default function EventDetail() {
         </Card>
         {e.organizer_id ? (
           <Card testID="event-organizer-rating">
-            <Pressable onPress={() => e.organizer_id && e.organizer_id !== session?.user.id && router.push(`/user/${e.organizer_id}`)}>
+            <Pressable testID="event-organizer-open" onPress={() => { if (canRate) setReviewOpen(true); }}>
               <Title size={16}>Organizator: {orgProfile?.display_name ?? "Yummiteer"}</Title>
             </Pressable>
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
@@ -245,8 +279,13 @@ export default function EventDetail() {
                 {orgRating?.summary?.yummeet_score ?? "–"}
               </Text>
               <View>
-                <Stars testID="organizer-stars" value={Number(orgRating?.summary?.yummeet_score ?? 0)} size={20} />
-                <Body muted>{orgRating?.summary?.review_count ?? 0} ocen</Body>
+                <Stars
+                  testID="organizer-stars"
+                  value={orgReview.hospitality || Number(orgRating?.summary?.yummeet_score ?? 0)}
+                  size={20}
+                  onChange={canRate ? (value) => void rateStars(value) : undefined}
+                />
+                <Body muted>{canRate ? "Dotknij gwiazdki, żeby ocenić 1–5" : `${orgRating?.summary?.review_count ?? 0} ocen`}</Body>
               </View>
             </View>
             {orgRating?.summary ? ORG_AXES.map(([k, label]) => (
@@ -281,7 +320,7 @@ export default function EventDetail() {
             ))}
           </Card>
         ) : null}
-        <PlanPreview rows={planRows} />
+        <PlanPreview rows={planRows} organizer={isOrganizer} />
         {!joined ? <Button testID="event-plan-open" title="Panel spotkania" variant="secondary" onPress={() => router.push(`/games?event=${id}`)} /> : null}
         {!joined ? <Button testID="event-join-button" title="Zarezerwuj miejsce" icon="seat" loading={busy} disabled={e.seats_taken >= e.capacity} onPress={() => act(() => eventJoin(id), "Miejsce zarezerwowane!")} /> : (
           <View style={{ gap: spacing.md }}>

@@ -309,28 +309,36 @@ async function geocodeNominatimCityStreet(query: string, lang: string): Promise<
   return bags.flat();
 }
 
-/** Autocomplete: skróty ulicy i osiedla, potem Photon (Polska) i ulice Nominatim. */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      () => { clearTimeout(timer); resolve(fallback); },
+    );
+  });
+}
+
+/** Autocomplete: najpierw Photon dla wpisanego tekstu i samej ulicy. Nominatim tylko gdy Photon nie odda listy. */
 export async function geocode(query: string, lang = "pl"): Promise<GeocodeResult[]> {
   const variants = placeQueryVariants(query);
   if (!variants.length) return [];
+  const original = variants[0];
   const street = variants[variants.length - 1];
-  const bags = await Promise.all(variants.map(async (part) => {
-    try {
-      const photon = await geocodePhoton(part, lang);
-      if (photon.length) return photon;
-    } catch { /* nominatim */ }
-    try { return await geocodeNominatim(part, lang); } catch { return []; }
-  }));
-  if (street.length >= 3) {
-    try { bags.push(await geocodeNominatimStreet(street, lang)); } catch { /* ignore */ }
+  const [photonOriginal, photonStreet] = await Promise.all([
+    withTimeout(geocodePhoton(original, lang), 4500, [] as GeocodeResult[]),
+    street !== original ? withTimeout(geocodePhoton(street, lang), 4500, [] as GeocodeResult[]) : Promise.resolve([] as GeocodeResult[]),
+  ]);
+  let streetHits: GeocodeResult[] = [];
+  if (photonOriginal.length + photonStreet.length < 4 && street.length >= 3) {
+    streetHits = await withTimeout(geocodeNominatimStreet(street, lang), 4000, []);
   }
-  try { bags.push(await geocodeNominatimCityStreet(query, lang)); } catch { /* ignore */ }
-  if (street !== query.trim()) {
-    try { bags.push(await geocodeNominatimCityStreet(street, lang)); } catch { /* ignore */ }
-  }
-  const ranked = sortByPrefix(dedupePlaces(bags.flat()), variants[0]);
-  const best = ranked.length ? placeScore(ranked[0], variants[0]) : 0;
-  const tight = best > 0 ? ranked.filter((row) => placeScore(row, variants[0]) === best) : ranked;
+  const ranked = sortByPrefix(
+    dedupePlaces([...photonOriginal, ...photonStreet, ...streetHits].filter((row) => row.title.trim().length > 0)),
+    original,
+  );
+  const best = ranked.length ? placeScore(ranked[0], original) : 0;
+  const tight = best > 0 ? ranked.filter((row) => placeScore(row, original) === best) : ranked;
   return tight.slice(0, 8);
 }
 

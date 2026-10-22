@@ -1,5 +1,8 @@
 import { Tabs } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
+import type { ReactNode } from "react";
+import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/src/components/Icon";
 import { useDuelPresence } from "@/src/hooks/useDuelPresence";
@@ -14,6 +17,47 @@ const VISIBLE_TABS = [
 ] as const;
 
 const HIDDEN_TABS = ["food", "challenges"] as const;
+
+function AppTabBar({
+  state,
+  descriptors,
+  navigation,
+}: {
+  state: { index: number; routes: Array<{ key: string; name: string }> };
+  descriptors: Record<string, { options: { title?: string; href?: unknown; tabBarButtonTestID?: string; tabBarIcon?: (props: { focused: boolean; color: string; size: number }) => ReactNode } }>;
+  navigation: { emit: (event: { type: "tabPress"; target: string; canPreventDefault: true }) => { defaultPrevented: boolean }; navigate: (name: string) => void };
+}) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: 1, paddingBottom: insets.bottom }}>
+      <View style={{ height: 52, flexDirection: "row" }}>
+        {state.routes.map((route, index) => {
+          const options = descriptors[route.key]?.options;
+          if (!options || options.href === null) return null;
+          const focused = state.index === index;
+          const color = focused ? colors.brandPrimary : colors.muted;
+          return (
+            <Pressable
+              key={route.key}
+              testID={options.tabBarButtonTestID}
+              accessibilityRole="button"
+              accessibilityState={{ selected: focused }}
+              onPress={() => {
+                const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+                if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+              }}
+              style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 2 }}
+            >
+              {options.tabBarIcon?.({ focused, color, size: 24 })}
+              <Text style={{ color, fontFamily: fonts.display, fontSize: 11 }}>{options.title ?? route.name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const { colors } = useTheme();
@@ -47,20 +91,11 @@ export default function TabsLayout() {
   return (
     <Tabs
       safeAreaInsets={{ bottom: 0 }}
+      tabBar={(props) => <AppTabBar {...props} />}
       screenOptions={{
       headerShown: false,
       tabBarActiveTintColor: colors.brandPrimary,
       tabBarInactiveTintColor: colors.muted,
-      tabBarStyle: {
-        backgroundColor: colors.surface,
-        borderTopColor: colors.border,
-        borderTopWidth: 1,
-        height: 56,
-        paddingTop: 4,
-        paddingBottom: 2,
-      },
-      tabBarItemStyle: { paddingTop: 0, paddingBottom: 0 },
-      tabBarLabelStyle: { fontFamily: fonts.display, fontSize: 11 },
     }}>
       {VISIBLE_TABS.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{

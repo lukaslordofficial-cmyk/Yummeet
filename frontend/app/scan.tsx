@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,11 +19,16 @@ export default function ScanEvent() {
   const [done, setDone] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
+  const lastBad = useRef("");
 
   const open = async (raw: string, manual = false) => {
     if (done || !raw.trim()) return;
     if (!parseEntryCode(raw)) {
       if (manual) toast("Wpisz kod z karty organizatora.", "info");
+      else if (lastBad.current !== raw) {
+        lastBad.current = raw;
+        toast("Nie rozpoznaję tego kodu. Zeskanuj kod z karty organizatora albo wpisz go ręcznie.", "info");
+      }
       return;
     }
     setBusy(true);
