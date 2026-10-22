@@ -26,6 +26,7 @@ const MESSAGES: Record<string, string> = {
   too_early: "Kod QR jest dostępny od 4 godzin przed startem do 4 godzin po starcie.",
   event_closed: "Okno kodu minęło (4 godziny po starcie).",
   find_incomplete: "Zaznacz tak albo nie przy każdym zdaniu, zanim zapiszesz.",
+  truth_incomplete: "Wpisz trzy zdania i oznacz, które jest kłamstwem.",
   play_not_live: "Ta zabawa jeszcze nie jest uruchomiona.",
   no_questions_left: "Nie ma już nowych pytań w puli.",
   not_joined: "Najpierw dołącz do wydarzenia.",
@@ -67,6 +68,9 @@ export function errorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as any).message) : String(e);
   const key = Object.keys(MESSAGES).find((k) => raw.includes(k));
   if (key) return MESSAGES[key];
+  if (raw.includes("event_truth")) {
+    return "Dwie prawdy na kilku telefonach wymagają migracji 048_two_truths_play.sql w SQL Editorze Supabase.";
+  }
   if (raw.includes("event_find_submit") || raw.includes("event_claim_code") || raw.includes("event_presence") || raw.includes("event_find_answers")) {
     return "Dwie tury zabawy i licznik spotkań wymagają migracji 047_find_rounds_presence.sql w SQL Editorze Supabase.";
   }
@@ -82,7 +86,7 @@ export function errorMessage(e: unknown): string {
   if (raw.includes("schema cache") || raw.includes("does not exist") || raw.includes("public.events")) {
     return "Baza niegotowa: w SQL Editor uruchom migracje z docs/SETUP.md (w tym 012_repair_specs_duels.sql, potem 011).";
   }
-  if (raw === "timeout" || /network request failed|failed to fetch|aborted/i.test(raw)) {
+  if (raw === "timeout" || /network request failed|failed to fetch|error fetch|fetch failed|typeerror: fetch|aborted|network error/i.test(raw)) {
     return "Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.";
   }
   if (/invalid api key/i.test(raw)) {

@@ -14,6 +14,28 @@ export type FindState = {
   reveal: FindReveal[] | null;
 };
 
+export type TruthPerson = {
+  id: string;
+  name: string;
+  lines: string[];
+  guesses: boolean[];
+  truth: boolean[] | null;
+  line_points: number[] | null;
+  points: number | null;
+};
+
+export type TruthState = {
+  phase: number;
+  saved: boolean;
+  lines_saved: boolean;
+  guesses_saved: boolean;
+  all_saved: boolean;
+  score: number | null;
+  stake: { mine: boolean | null; yes: number; total: number; unanimous: boolean };
+  mine: { lines: string[]; lie: number } | null;
+  others: TruthPerson[];
+};
+
 export type PlayBoard = {
   status: "lobby" | "live" | "finished" | string;
   game_key: string | null;
@@ -30,6 +52,7 @@ export type PlayBoard = {
   my_answered: boolean;
   my_picks: PlayPick[];
   find?: FindState | null;
+  truths?: TruthState | null;
 };
 
 export const eventPlayBoard = (eventId: string) => rpc<PlayBoard>("event_play_board", { p_event: eventId });
@@ -40,3 +63,9 @@ export const eventFindSave = (eventId: string, prompt: string, names: string[]) 
   rpc<PlayBoard>("event_find_save", { p_event: eventId, p_prompt: prompt, p_names: names });
 export const eventFindSubmit = (eventId: string, rows: { prompt: string; yes?: boolean; names?: string[] }[]) =>
   rpc<PlayBoard>("event_find_submit", { p_event: eventId, p_rows: rows });
+export const eventTruthSubmit = (eventId: string, lines: string[], lie: number) =>
+  rpc<PlayBoard>("event_truth_submit", { p_event: eventId, p_lines: lines, p_lie: lie });
+export const eventTruthGuess = (eventId: string, rows: { target: string; marks: boolean[] }[]) =>
+  rpc<PlayBoard>("event_truth_guess", { p_event: eventId, p_rows: rows });
+export const eventTruthStake = (eventId: string, agreed: boolean) =>
+  rpc<PlayBoard>("event_truth_stake", { p_event: eventId, p_agreed: agreed });

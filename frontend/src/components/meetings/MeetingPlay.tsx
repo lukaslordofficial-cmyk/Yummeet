@@ -9,7 +9,7 @@ import { spacing } from "@/src/theme";
 
 import { FindRound } from "./FindRound";
 import { StoryTable } from "./StoryTable";
-import { TableRounds } from "./TableRounds";
+import { TwoTruthsPlay } from "./TwoTruthsPlay";
 
 const LABELS: Record<string, string> = {
   questions: "Zabawa w pytania",
@@ -124,7 +124,7 @@ export function MeetingPlay({
             <Button testID="meeting-play-draw" title="Wylosuj pytanie" loading={busy} onPress={() => void run(() => eventPlayDraw(eventId))} />
           ) : null}
           {board?.your_turn && board.my_question && !board.my_answered ? (
-            <Button testID="meeting-play-answered" title="Odpowiedziałem" loading={busy} onPress={() => void run(() => eventPlayAnswered(eventId))} />
+            <Button testID="meeting-play-answered" title="Odpowiedziałem/am" loading={busy} onPress={() => void run(() => eventPlayAnswered(eventId))} />
           ) : null}
           {!board?.your_turn ? <Body testID="meeting-play-turn" style={{ textAlign: "center" }}>Teraz kolej: {board?.turn_name ?? "kolejna osoba"}</Body> : null}
           {board?.your_turn && board.my_answered ? <Body style={{ textAlign: "center" }}>Twoja odpowiedź w tej serii jest już zapisana.</Body> : null}
@@ -132,9 +132,14 @@ export function MeetingPlay({
       ) : null}
 
       {live === "two-truths" ? (
-        <View style={{ gap: spacing.md }}>
+        <View style={{ gap: spacing.md }} testID="meeting-play-truths">
           <Title size={22} style={{ textAlign: "center" }}>Dwie prawdy i jedno kłamstwo</Title>
-          <TableRounds gameId="two-truths" prompts={[]} />
+          <Body style={{ textAlign: "center" }}>{SOCIAL_GAMES.find((game) => game.id === "two-truths")?.blurb}</Body>
+          <TwoTruthsPlay
+            eventId={eventId}
+            truths={board?.truths}
+            onBoard={(next) => { setBoard(next); setError(null); }}
+          />
         </View>
       ) : null}
 

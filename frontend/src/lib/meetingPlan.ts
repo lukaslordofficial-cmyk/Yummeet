@@ -16,9 +16,14 @@ export function questionInstruction(limit: number) {
   return `Instrukcja: Organizator dodaje pytania do puli. Każdy uczestnik losuje pytania, na które może udzielić odpowiedzi, ale nie musi. Pytań na osobę ${limit}.`;
 }
 
+export const TWO_TRUTHS_INSTRUCTION = "Wpisz dwie prawdziwe rzeczy na twój temat, i jedną która jest kłamstwem.";
+
+export const FIND_SOMEONE_INSTRUCTION =
+  "Opowiedz tak lub nie na zadane pytania i zapisz odpowiedzi. W kolejnej turze, zaznacz przy tych samych pytaniach, kto twoim zdaniem odpowiedział na te pytania tak. Za poprawną odpowiedź + 1 pkt, za negatywną -1pkt. Możesz wstrzymać się od głosu by nie stracić punktów. Zwycięzca, wygrywa drinka lub napój do 20zł na którego musi złożyć się reszta uczestników.";
+
 const GAME_INSTRUCTIONS: Record<string, string> = {
-  "two-truths": "Instrukcja: Każdy podaje trzy zdania o sobie. Dwie są prawdziwe, jedna zmyślona. Reszta typuje kłamstwo, a organizator może podać telefon dalej.",
-  "find-someone": "Instrukcja: Najpierw każdy odpowiada przy zdaniach tak albo nie i zapisuje. Gdy wszyscy zapiszą, druga tura: dopisujecie imiona osób, które waszym zdaniem odpowiedziały tak. Poprawny typ daje +1, pomyłka −1.",
+  "two-truths": `Instrukcja: ${TWO_TRUTHS_INSTRUCTION}`,
+  "find-someone": `Instrukcja: ${FIND_SOMEONE_INSTRUCTION}`,
   "runaway-story": "Instrukcja: Organizator wybiera zdanie startowe. Każdy dopisuje dokładnie jedno zdanie i zostawia haczyk dla kolejnej osoby. Aplikacja pilnuje kolejki.",
 };
 
@@ -247,6 +252,22 @@ export function toggleQuestion(items: PlanItem[], title: string): PlanItem[] {
   return [...items, { key: `q:${title}`, category: "questions", title, body: "" }];
 }
 
+/** Zdanie, od którego zaczyna się historia, trafia do puli losowania. Tytuł jest krótki, treść jest w opisie. */
+export function toggleStoryStarter(items: PlanItem[], starter: { title: string; text: string }): PlanItem[] {
+  const title = starter.title.trim().slice(0, 200);
+  const hit = items.find((i) => i.category === "questions" && i.title === title);
+  if (hit) return items.filter((i) => i.key !== hit.key);
+  const text = starter.text.trim().slice(0, 8000);
+  if (title.length < 2 || text.length < 5) return items;
+  return [...items, { key: `story:${title}`, category: "questions", title, body: text }];
+}
+
+function questionNoteLine(item: { title: string; body?: string | null }) {
+  const body = (item.body ?? "").trim();
+  if (body && body !== "własne") return body;
+  return item.title;
+}
+
 export function addCustomQuestion(items: PlanItem[], title: string): PlanItem[] {
   const clean = title.trim().slice(0, 200);
   if (clean.length < 5) return items;
@@ -291,7 +312,11 @@ export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   const extra = freeNoteText(plan.note?.body ?? "");
   const blocks: string[] = [];
   if (plan.questions.length) {
-    blocks.push([ACTIVITY_LINE, questionInstruction(plan.limit)].join("\n\n"));
+    blocks.push([
+      ACTIVITY_LINE,
+      questionInstruction(plan.limit),
+      ...plan.questions.map((question) => `• ${questionNoteLine(question)}`),
+    ].join("\n\n"));
   }
   const findSomeone = SOCIAL_GAMES.find((game) => game.id === "find-someone")?.title;
   const games = [...plan.games];

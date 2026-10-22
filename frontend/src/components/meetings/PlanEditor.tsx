@@ -4,21 +4,19 @@ import { Pressable, Text, View } from "react-native";
 import { Icon } from "@/src/components/Icon";
 import { Body, Button, Card, Field, Title, haptic } from "@/src/components/ui";
 import {
-  BUILTIN_QUESTIONS, FIND_PACKS, QUESTION_RULES, SOCIAL_GAMES,
-  addCustomPrompt, addCustomQuestion, catalogGame, freeNoteText, setPlanLimit, setPlanNote, splitPlan, syncPlanNote, toggleGame, togglePrompt, toggleQuestion,
+  BUILTIN_QUESTIONS, FIND_PACKS, QUESTION_RULES, SOCIAL_GAMES, STORY_STARTERS,
+  addCustomPrompt, addCustomQuestion, catalogGame, freeNoteText, gameInstruction, setPlanLimit, setPlanNote, splitPlan, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
   type PlanItem,
 } from "@/src/lib/meetingPlan";
 import { loadOwnQuestions, rememberOwnQuestion } from "@/src/lib/ownQuestions";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 
 import { PlanNoteView } from "./PlanNoteView";
-import { TableRounds } from "./TableRounds";
 
 export function PlanEditor({
   items,
   onChange,
   canEdit,
-  play,
   browse = false,
   testID = "plan-editor",
   noteCommit = "instant",
@@ -84,6 +82,7 @@ export function PlanEditor({
       {canEdit && noteCommit === "button" ? (
         <Button testID={`${testID}-note-save`} title="Zapisz notatkę" onPress={() => { noteDirty.current = false; commit(syncPlanNote(setPlanNote(items, note))); }} />
       ) : null}
+      {generated ? <PlanNoteView testID={`${testID}-generated`} body={generated} /> : null}
 
       <Title size={18} style={{ ...center, marginTop: spacing.md }}>Proponowane aktywności</Title>
       <ExpandTile testID={`${testID}-questions-toggle`} title="Zabawa w pytania" open={questionsOpen} onPress={() => setQuestionsOpen((open) => !open)} style={{ marginTop: spacing.xl }} />
@@ -119,6 +118,15 @@ export function PlanEditor({
               </Card>
             );
           })}
+          {STORY_STARTERS.map((starter) => {
+            const on = plan.questions.some((row) => row.title === starter.title);
+            return (
+              <Card key={starter.title} testID={`${testID}-story-${starter.title}`} accent={picked(on)} onPress={canEdit ? () => applySelection(toggleStoryStarter(items, starter)) : undefined}>
+                <Title size={16} style={center}>{starter.title}</Title>
+                <Body style={center}>{starter.text}</Body>
+              </Card>
+            );
+          })}
           {ownQuestions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q)).map((q) => {
             const on = plan.questions.some((row) => row.title === q);
             return (
@@ -128,7 +136,7 @@ export function PlanEditor({
               </Card>
             );
           })}
-          {plan.questions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q.title) && !ownQuestions.includes(q.title)).map((q) => (
+          {plan.questions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q.title) && !ownQuestions.includes(q.title) && !STORY_STARTERS.some((starter) => starter.title === q.title)).map((q) => (
             <Card key={q.key} testID={`${testID}-own-${q.key}`} accent={picked(plan.questions.some((row) => row.title === q.title))} onPress={canEdit ? () => applySelection(toggleQuestion(items, q.title)) : undefined}>
               <Title size={16} style={center}>{q.title}</Title>
               <Body muted style={center}>Własne pytanie tego spotkania</Body>
@@ -146,22 +154,19 @@ export function PlanEditor({
           <View key={g.id} style={{ gap: spacing.sm }}>
             <Card
               testID={`${testID}-game-${g.id}`}
-              accent={on ? colors.onBrandPrimary : undefined}
               onPress={() => setOpenGame(open ? null : g.id)}
-              style={{ backgroundColor: colors.brandPrimary, borderColor: on ? colors.onBrandPrimary : colors.brandPrimary }}
+              style={{ backgroundColor: colors.onBrandPrimary, borderColor: on ? colors.brandPrimary : colors.onBrandPrimary, borderWidth: on ? 2 : 1 }}
             >
-              <Title size={16} style={{ ...center, color: colors.onBrandPrimary }}>{g.title}</Title>
-              <Body style={{ ...center, color: colors.onBrandPrimary }}>{g.blurb}</Body>
+              <Title size={16} style={{ ...center, color: colors.onBrandSecondary }}>{g.title}</Title>
             </Card>
             {open ? (
               <View style={{ gap: spacing.sm, paddingHorizontal: spacing.sm }}>
-                <Body>{g.rules}</Body>
+                <Body style={center}>{gameInstruction(g.title) || g.blurb}</Body>
                 {canEdit ? (
                   <Button testID={`${testID}-game-toggle-${g.id}`} title={on ? "Usuń z planu" : "Dodaj do planu"} onPress={() => applySelection(toggleGame(items, g))} />
                 ) : null}
                 {g.id === "find-someone" ? (
                   <>
-                    <Body muted style={center}>Osoba wskazana może odpowiedzieć „to prawda”, „to nieprawda” albo „pasuję”. Nie musi ujawniać sekretu.</Body>
                     {FIND_PACKS.flatMap((pack) => pack.prompts).map((prompt) => {
                       const chosen = plan.prompts.some((row) => row.body === prompt);
                       return (
@@ -183,7 +188,6 @@ export function PlanEditor({
                     ))}
                   </>
                 ) : null}
-                {play && on ? <TableRounds gameId={g.id} prompts={plan.prompts.map((p) => p.body || p.title.replace(/^Znajdź kogoś: /, ""))} /> : null}
               </View>
             ) : null}
           </View>
@@ -195,7 +199,6 @@ export function PlanEditor({
       {plan.games.some((g) => catalogGame(g.title)?.id === "runaway-story") ? (
         <Body muted>Wspólna historia jest pod tym planem. Zdania zapisują się kolorem autora i trafiają do dziennika.</Body>
       ) : null}
-      {generated ? <PlanNoteView testID={`${testID}-generated`} body={generated} /> : null}
     </View>
   );
 }
