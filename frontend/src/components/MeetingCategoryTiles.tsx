@@ -1,13 +1,14 @@
-import { Pressable, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 
 import { EventCard } from "@/src/components/EventCard";
-import { Icon } from "@/src/components/Icon";
 import { Body, Title } from "@/src/components/ui";
 import { MEETING_CATEGORIES } from "@/src/lib/meetingCatalog";
 import { radius, spacing, useTheme } from "@/src/theme";
 import type { EventRow } from "@/src/types";
 
-/** Kategorie spotkań jedna pod drugą. Otwarty kafelek pokazuje lokale z tej półki. */
+const EMPTY = "Nikt nie organizuje spotkań w tej kategorii, w promieniu 50 kilometrów.";
+
+/** Kategorie bez opisów, w poziomym slajdzie. Lista spotkań pojawia się po wyborze. */
 export function MeetingCategoryTiles({
   openKey,
   onToggle,
@@ -20,38 +21,50 @@ export function MeetingCategoryTiles({
   onOpenEvent: (id: string) => void;
 }) {
   const { colors } = useTheme();
+  const rows = events?.filter((event) => event.category_key === openKey) ?? [];
   return (
-    <View style={{ gap: spacing.md }}>
-      {MEETING_CATEGORIES.map((c) => {
-        const open = openKey === c.key;
-        const rows = events?.filter((e) => e.category_key === c.key) ?? [];
-        return (
-          <View key={c.key} style={{ backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
+    <View style={{ gap: spacing.lg }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        testID="tables-category-slide"
+        contentContainerStyle={{ gap: spacing.md, paddingRight: spacing.lg }}
+      >
+        {MEETING_CATEGORIES.map((category) => {
+          const selected = openKey === category.key;
+          return (
             <Pressable
-              testID={`tables-category-${c.key}`}
+              key={category.key}
+              testID={`tables-category-${category.key}`}
               accessibilityRole="button"
-              accessibilityState={{ expanded: open }}
-              onPress={() => onToggle(c.key)}
-              style={{ padding: spacing.lg, gap: spacing.sm }}
+              accessibilityState={{ selected }}
+              onPress={() => onToggle(category.key)}
+              style={{
+                minWidth: 168,
+                maxWidth: 220,
+                paddingVertical: spacing.lg,
+                paddingHorizontal: spacing.md,
+                borderRadius: radius.lg,
+                borderWidth: 2,
+                borderColor: selected ? colors.brandPrimary : colors.border,
+                backgroundColor: colors.surfaceSecondary,
+                justifyContent: "center",
+              }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-                <Title size={18} style={{ flex: 1 }}>{c.label}</Title>
-                <Icon name={open ? "chevron-up" : "chevron-down"} size={24} color={colors.brandPrimary} />
-              </View>
-              <Body muted>{c.blurb}</Body>
+              <Title size={16} style={{ textAlign: "center" }}>{category.label}</Title>
             </Pressable>
-            {open ? (
-              <View testID={`tables-category-${c.key}-events`} style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md }}>
-                {events === null ? <Body muted>Ładowanie spotkań…</Body> : rows.length === 0 ? (
-                  <Body muted>Brak otwartych spotkań w tej kategorii.</Body>
-                ) : rows.map((event) => (
-                  <EventCard key={event.id} event={event} onPress={() => onOpenEvent(event.id)} />
-                ))}
-              </View>
-            ) : null}
-          </View>
-        );
-      })}
+          );
+        })}
+      </ScrollView>
+      {openKey ? (
+        <View testID={`tables-category-${openKey}-events`} style={{ gap: spacing.md }}>
+          {events === null ? <Body muted style={{ textAlign: "center" }}>Ładowanie spotkań…</Body> : rows.length === 0 ? (
+            <Body muted style={{ textAlign: "center" }}>{EMPTY}</Body>
+          ) : rows.map((event) => (
+            <EventCard key={event.id} event={event} onPress={() => onOpenEvent(event.id)} />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

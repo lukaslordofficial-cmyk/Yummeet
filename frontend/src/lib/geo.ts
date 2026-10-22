@@ -9,6 +9,11 @@ export type AreaShape =
 const R = 6371000;
 const rad = (d: number) => (d * Math.PI) / 180;
 
+export function withinRadiusM(origin: LatLng, point: { lat?: number | null; lng?: number | null }, radiusM: number) {
+  if (point.lat == null || point.lng == null || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return false;
+  return haversineM(origin, { lat: point.lat, lng: point.lng }) <= radiusM;
+}
+
 export function haversineM(a: LatLng, b: LatLng): number {
   const dLat = rad(b.lat - a.lat);
   const dLng = rad(b.lng - a.lng);

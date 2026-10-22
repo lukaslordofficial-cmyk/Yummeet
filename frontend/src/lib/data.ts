@@ -263,11 +263,16 @@ export async function updatePreferences(patch: Record<string, unknown>) {
 export const deleteMyAccount = () => rpc("delete_my_account");
 
 // ---------- events / tables ----------
-const EVENT_LIST_COLS = "id,kind,title,description,place_name,starts_at,capacity,seats_taken,theme,rules,status,discount_text,is_official,organizer_id,pin_id,category_key,subcategory_key,template_key";
-export async function listEvents(category: string | null): Promise<EventRow[]> {
+const EVENT_LIST_COLS = "id,kind,title,description,place_name,place_lat,place_lng,starts_at,capacity,seats_taken,theme,rules,status,discount_text,is_official,organizer_id,pin_id,category_key,subcategory_key,template_key";
+export async function listEvents(category: string | null, origin?: { lat: number; lng: number } | null): Promise<EventRow[]> {
   const since = new Date(Date.now() - 3 * 3600e3).toISOString();
   const run = (cols: string, withCategory: boolean) => {
-    let q = supabase.from("events").select(cols).in("status", ["open", "full"]).gte("starts_at", since).order("starts_at").limit(50);
+    let q = supabase.from("events").select(cols).in("status", ["open", "full"]).gte("starts_at", since).order("starts_at").limit(200);
+    if (origin) {
+      const dLat = 50 / 111;
+      const dLng = 50 / (111 * Math.max(0.2, Math.cos((origin.lat * Math.PI) / 180)));
+      q = q.gte("place_lat", origin.lat - dLat).lte("place_lat", origin.lat + dLat).gte("place_lng", origin.lng - dLng).lte("place_lng", origin.lng + dLng);
+    }
     if (withCategory && category) q = q.eq("category_key", category);
     return must(q) as Promise<EventRow[]>;
   };
@@ -275,7 +280,7 @@ export async function listEvents(category: string | null): Promise<EventRow[]> {
     return await run(EVENT_LIST_COLS, true);
   } catch (e) {
     if (category) throw e;
-    return await run("id,kind,title,description,place_name,starts_at,capacity,seats_taken,theme,rules,status,discount_text,is_official,organizer_id,pin_id", false);
+    return await run("id,kind,title,description,place_name,place_lat,place_lng,starts_at,capacity,seats_taken,theme,rules,status,discount_text,is_official,organizer_id,pin_id", false);
   }
 }
 export const getEvent = (id: string) => must(supabase.from("events").select("*").eq("id", id).maybeSingle()) as Promise<EventRow | null>;

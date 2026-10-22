@@ -6,9 +6,9 @@ import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOCIAL_GAMES, STORY_STARTERS, addCustomQuestion, splitPlan, storyTurnIndex, syncPlanNote, toggleGame, toggleQuestion } from "../../frontend/src/lib/meetingPlan.ts";
+import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOCIAL_GAMES, STORY_STARTERS, addCustomQuestion, gameActivityLine, splitPlan, storyTurnIndex, syncPlanNote, toggleGame, toggleQuestion } from "../../frontend/src/lib/meetingPlan.ts";
 import { subcategoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { clampRouteBuffer, haversineM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
+import { clampRouteBuffer, haversineM, withinRadiusM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
 test("rock-paper-scissors resolution matches server _rps_winner", () => {
@@ -108,6 +108,8 @@ test("meeting plan has the question pool and social games", () => {
   assert.match(note, new RegExp(ACTIVITY_LINE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(note, /Jaką najgłupszą/);
   assert.match(note, /Dwie prawdy/);
+  assert.match(note, new RegExp(gameActivityLine("Dwie prawdy i jedno kłamstwo").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.ok(note.includes("\n\n"));
   const local = syncPlanNote(addCustomQuestion([], "Czy lubisz deszcz?"));
   assert.match(splitPlan(local).note?.body ?? "", /Czy lubisz deszcz/);
   assert.equal(STORY_STARTERS.length, 16);
@@ -140,7 +142,10 @@ test("meeting catalog keeps the tasting, game and hobby shelves", () => {
   assert.deepEqual(pasje?.subs.map((s) => s.label), ["Rozmowa w językach obcych", "Wolontariat", "Wymiana ugotowanych potraw", "Inne"]);
   assert.equal(MEETING_CATEGORIES.length, 5);
   assert.equal(categoryByKey("poznaj")?.label, "Speed Friending");
-  assert.equal(categoryByKey("poznaj")?.blurb, "poznawanie nowych ludzi, poprzez rozmowy lub gry i zabawy towarzyskie");
+  assert.equal(categoryByKey("poznaj")?.blurb, "Poznawanie nowych ludzi, poprzez rozmowy lub gry i zabawy towarzyskie");
+  assert.equal(withinRadiusM({ lat: 52.23, lng: 21.01 }, { lat: 52.24, lng: 21.02 }, 50_000), true);
+  assert.equal(withinRadiusM({ lat: 52.23, lng: 21.01 }, { lat: 51.1, lng: 17.0 }, 50_000), false);
+  assert.equal(withinRadiusM({ lat: 52.23, lng: 21.01 }, { lat: null, lng: null }, 50_000), false);
   assert.deepEqual(categoryByKey("poznaj")?.subs.map((s) => s.key), ["otwarty_stol", "nowi_w_miescie", "kolacja_nieznajomych"]);
   assert.equal(subcategoryByKey("poznaj", "otwarty_stol")?.templates.length, 0);
   assert.equal(subcategoryByKey("poznaj", "nowi_w_miescie")?.templates.length, 0);

@@ -36,7 +36,7 @@ export const MEETING_CATEGORIES: MeetingCategory[] = [
   {
     key: "poznaj",
     label: "Speed Friending",
-    blurb: "poznawanie nowych ludzi, poprzez rozmowy lub gry i zabawy towarzyskie",
+    blurb: "Poznawanie nowych ludzi, poprzez rozmowy lub gry i zabawy towarzyskie",
     subs: [
       {
         key: "otwarty_stol", label: "Otwarty stół", kind: "open_table", format: "standard",

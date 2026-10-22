@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
-import { Icon } from "@/src/components/Icon";
 import { Body, Button, Card, Field, Title } from "@/src/components/ui";
 import {
   BUILTIN_QUESTIONS, FIND_PACKS, QUESTION_RULES, SOCIAL_GAMES,
-  addCustomPrompt, addCustomQuestion, catalogGame, setPlanLimit, setPlanNote, splitPlan, syncPlanNote, toggleGame, toggleQuestion,
+  addCustomPrompt, addCustomQuestion, catalogGame, setPlanLimit, setPlanNote, splitPlan, syncPlanNote, toggleGame, togglePrompt, toggleQuestion,
   type PlanItem,
 } from "@/src/lib/meetingPlan";
 import { loadOwnQuestions, rememberOwnQuestion } from "@/src/lib/ownQuestions";
@@ -38,8 +37,10 @@ export function PlanEditor({
   const [customP, setCustomP] = useState("");
   const [ownQuestions, setOwnQuestions] = useState<string[]>([]);
   const [questionsOpen, setQuestionsOpen] = useState(false);
+  const [gamesOpen, setGamesOpen] = useState(false);
   const [openGame, setOpenGame] = useState<string | null>(null);
-  const [openPacks, setOpenPacks] = useState(false);
+  const center = { textAlign: "center" as const };
+  const picked = (on: boolean) => (on ? colors.brandPrimary : undefined);
 
   useEffect(() => { void loadOwnQuestions().then(setOwnQuestions); }, []);
 
@@ -63,7 +64,7 @@ export function PlanEditor({
 
   return (
     <View style={{ gap: spacing.md }} testID={testID}>
-      <Title size={18}>Plan spotkania</Title>
+      <Title size={18} style={center}>Plan spotkania</Title>
       {browse ? null : (
         <Field
           testID={`${testID}-note`}
@@ -81,20 +82,17 @@ export function PlanEditor({
         />
       )}
       {canEdit && noteCommit === "button" ? (
-        <Button testID={`${testID}-note-save`} title="Zapisz notatkę" variant="secondary" onPress={() => { noteDirty.current = false; commit(setPlanNote(items, note)); }} />
+        <Button testID={`${testID}-note-save`} title="Zapisz notatkę" onPress={() => { noteDirty.current = false; commit(setPlanNote(items, note)); }} />
       ) : null}
 
-      <Title size={18}>Proponowane aktywności</Title>
-      <Pressable
+      <Title size={18} style={center}>Proponowane aktywności</Title>
+      <Card
         testID={`${testID}-questions-toggle`}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: questionsOpen }}
         onPress={() => setQuestionsOpen((open) => !open)}
-        style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
+        style={{ marginTop: spacing.xl }}
       >
-        <Title size={18} style={{ flex: 1 }}>1) Zabawa w Pytania</Title>
-        <Icon name={questionsOpen ? "chevron-up" : "chevron-down"} size={22} color={colors.muted} />
-      </Pressable>
+        <Title size={18} style={center}>Zabawa w pytania</Title>
+      </Card>
       {questionsOpen ? (
         <View style={{ gap: spacing.sm }}>
           <Body muted testID={`${testID}-question-rules`}>{QUESTION_RULES}</Body>
@@ -103,16 +101,16 @@ export function PlanEditor({
               <Body>Pytań na osobę: {plan.limit}</Body>
               {canEdit ? (
                 <>
-                  <Button testID={`${testID}-limit-minus`} title="−" variant="ghost" onPress={() => applySelection(setPlanLimit(items, plan.limit - 1))} />
-                  <Button testID={`${testID}-limit-plus`} title="+" variant="ghost" onPress={() => applySelection(setPlanLimit(items, plan.limit + 1))} />
+                  <Button testID={`${testID}-limit-minus`} title="−" onPress={() => applySelection(setPlanLimit(items, plan.limit - 1))} />
+                  <Button testID={`${testID}-limit-plus`} title="+" onPress={() => applySelection(setPlanLimit(items, plan.limit + 1))} />
                 </>
               ) : null}
             </View>
           )}
           {canEdit ? (
             <>
-              <Field testID={`${testID}-custom-question`} label="Własne pytanie" value={customQ} onChangeText={setCustomQ} placeholder="Zostaje tylko na tym telefonie" />
-              <Button testID={`${testID}-custom-question-add`} title="Dodaj własne pytanie" variant="ghost" onPress={() => {
+              <Field testID={`${testID}-custom-question`} label="Własne pytanie" value={customQ} onChangeText={setCustomQ} placeholder="Wpisz swoje pytanie" />
+              <Button testID={`${testID}-custom-question-add`} title="Dodaj własne pytanie" onPress={() => {
                 void rememberOwnQuestion(customQ).then(setOwnQuestions);
                 applySelection(addCustomQuestion(items, customQ));
                 setCustomQ("");
@@ -122,63 +120,70 @@ export function PlanEditor({
           {questionList.map((q) => {
             const on = plan.questions.some((row) => row.title === q);
             return (
-              <Card key={q} testID={`${testID}-q-${BUILTIN_QUESTIONS.indexOf(q)}`} onPress={canEdit ? () => applySelection(toggleQuestion(items, q)) : undefined}>
-                <Title size={16}>{on ? "✓ " : ""}{q}</Title>
+              <Card key={q} testID={`${testID}-q-${BUILTIN_QUESTIONS.indexOf(q)}`} accent={picked(on)} onPress={canEdit ? () => applySelection(toggleQuestion(items, q)) : undefined}>
+                <Title size={16} style={center}>{q}</Title>
               </Card>
             );
           })}
           {ownQuestions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q)).map((q) => {
             const on = plan.questions.some((row) => row.title === q);
             return (
-              <Card key={`local-${q}`} testID={`${testID}-local-${q}`} onPress={canEdit ? () => applySelection(on ? toggleQuestion(items, q) : addCustomQuestion(items, q)) : undefined}>
-                <Title size={16}>{on ? "✓ " : ""}{q}</Title>
-                <Body muted>Twoje pytanie, tylko na tym telefonie</Body>
+              <Card key={`local-${q}`} testID={`${testID}-local-${q}`} accent={picked(on)} onPress={canEdit ? () => applySelection(on ? toggleQuestion(items, q) : addCustomQuestion(items, q)) : undefined}>
+                <Title size={16} style={center}>{q}</Title>
+                <Body muted style={center}>Twoje pytanie, tylko na tym telefonie</Body>
               </Card>
             );
           })}
           {plan.questions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q.title) && !ownQuestions.includes(q.title)).map((q) => (
-            <Card key={q.key} testID={`${testID}-own-${q.key}`} onPress={canEdit ? () => applySelection(toggleQuestion(items, q.title)) : undefined}>
-              <Title size={16}>{canEdit ? "✓ " : ""}{q.title}</Title>
-              <Body muted>Własne pytanie tego spotkania</Body>
+            <Card key={q.key} testID={`${testID}-own-${q.key}`} accent={picked(plan.questions.some((row) => row.title === q.title))} onPress={canEdit ? () => applySelection(toggleQuestion(items, q.title)) : undefined}>
+              <Title size={16} style={center}>{q.title}</Title>
+              <Body muted style={center}>Własne pytanie tego spotkania</Body>
             </Card>
           ))}
         </View>
       ) : null}
 
-      <Title size={18}>Gry i zabawy towarzyskie</Title>
-      <Body muted>Gry towarzyskie, które można rozegrać podczas speed friendingu.</Body>
-      {gameList.map((g) => {
+      <Card testID={`${testID}-games-toggle`} onPress={() => setGamesOpen((open) => !open)}>
+        <Title size={18} style={center}>Gry i zabawy towarzyskie</Title>
+      </Card>
+      {gamesOpen ? <Body muted style={center}>Gry towarzyskie, które można rozegrać podczas speed friendingu.</Body> : null}
+      {gamesOpen ? gameList.map((g) => {
         const on = selectedGame(g.title);
         const open = openGame === g.id;
         return (
           <View key={g.id} style={{ gap: spacing.sm }}>
-            <Card testID={`${testID}-game-${g.id}`} onPress={() => setOpenGame(open ? null : g.id)}>
-              <Title size={16}>{on ? "✓ " : ""}{g.title}</Title>
-              <Body muted>{g.blurb}</Body>
+            <Card testID={`${testID}-game-${g.id}`} accent={picked(on)} onPress={() => setOpenGame(open ? null : g.id)}>
+              <Title size={16} style={center}>{g.title}</Title>
+              <Body muted style={center}>{g.blurb}</Body>
             </Card>
             {open ? (
               <View style={{ gap: spacing.sm, paddingHorizontal: spacing.sm }}>
                 <Body>{g.rules}</Body>
                 {canEdit ? (
-                  <Button testID={`${testID}-game-toggle-${g.id}`} title={on ? "Usuń z planu" : "Dodaj do planu"} variant="secondary" onPress={() => applySelection(toggleGame(items, g))} />
+                  <Button testID={`${testID}-game-toggle-${g.id}`} title={on ? "Usuń z planu" : "Dodaj do planu"} onPress={() => applySelection(toggleGame(items, g))} />
                 ) : null}
                 {g.id === "find-someone" ? (
                   <>
-                    <Button testID={`${testID}-packs`} title={openPacks ? "Ukryj zestawy" : "Pokaż zestawy zdań"} variant="ghost" onPress={() => setOpenPacks((v) => !v)} />
-                    {openPacks ? FIND_PACKS.map((pack) => (
-                      <View key={pack.id} style={{ gap: 4 }}>
-                        <Title size={16}>{pack.title}</Title>
-                        {pack.prompts.map((p) => <Body key={p}>Znajdź kogoś, kto {p.replace(/^…\s*/, "")}</Body>)}
-                      </View>
-                    )) : null}
-                    <Body muted>Osoba wskazana może odpowiedzieć „to prawda”, „to nieprawda” albo „pasuję”. Nie musi ujawniać sekretu.</Body>
+                    <Body muted style={center}>Osoba wskazana może odpowiedzieć „to prawda”, „to nieprawda” albo „pasuję”. Nie musi ujawniać sekretu.</Body>
+                    {FIND_PACKS.flatMap((pack) => pack.prompts).map((prompt) => {
+                      const chosen = plan.prompts.some((row) => row.body === prompt);
+                      return (
+                        <Card key={prompt} testID={`${testID}-prompt-${prompt.slice(0, 24)}`} accent={picked(chosen)} onPress={canEdit ? () => applySelection(togglePrompt(items, prompt)) : undefined}>
+                          <Title size={16} style={center}>{prompt}</Title>
+                        </Card>
+                      );
+                    })}
                     {canEdit ? (
                       <>
                         <Field testID={`${testID}-custom-prompt`} label="Własne zdanie do tej gry" value={customP} onChangeText={setCustomP} placeholder="…najprędzej zamówi deser przed daniem" />
-                        <Button testID={`${testID}-custom-prompt-add`} title="Dodaj własne zdanie" variant="ghost" onPress={() => { applySelection(addCustomPrompt(items, customP)); setCustomP(""); }} />
+                        <Button testID={`${testID}-custom-prompt-add`} title="Dodaj własne zdanie" onPress={() => { applySelection(addCustomPrompt(items, customP)); setCustomP(""); }} />
                       </>
                     ) : null}
-                    {plan.prompts.map((p) => <Body key={p.key}>• {p.body || p.title}</Body>)}
+                    {plan.prompts.filter((row) => !FIND_PACKS.some((pack) => pack.prompts.some((prompt) => prompt === row.body))).map((row) => (
+                      <Card key={row.key} accent={colors.brandPrimary} onPress={canEdit ? () => applySelection(togglePrompt(items, row.body || row.title)) : undefined}>
+                        <Title size={16} style={center}>{row.body || row.title}</Title>
+                      </Card>
+                    ))}
                   </>
                 ) : null}
                 {play && on ? <TableRounds gameId={g.id} prompts={plan.prompts.map((p) => p.body || p.title.replace(/^Znajdź kogoś: /, ""))} /> : null}
@@ -186,7 +191,7 @@ export function PlanEditor({
             ) : null}
           </View>
         );
-      })}
+      }) : null}
       {plan.legacy.length ? (
         <Body muted>Starsze wyzwania zostają w zapisie tego spotkania, ale nie dodajemy już nowych.</Body>
       ) : null}

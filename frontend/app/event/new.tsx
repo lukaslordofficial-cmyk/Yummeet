@@ -150,7 +150,7 @@ export default function NewEvent() {
         ) : null}
         {step === "form" && sub ? (
           <>
-            {!fromMission ? <Button testID="meeting-back-idea" title="Wróć do pomysłów" variant="ghost" onPress={() => setStep("idea")} style={{ marginHorizontal: spacing.lg }} /> : null}
+            {!fromMission ? <Button testID="meeting-back-idea" title="Wróć do pomysłów" onPress={() => setStep("idea")} style={{ marginHorizontal: spacing.lg }} /> : null}
             <Body muted style={{ paddingHorizontal: spacing.lg }} testID="new-event-kind-hint">{cat?.label} · {sub.label}. {sub.blurb}</Body>
             <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
               <Field testID="new-event-title-input" label="Tytuł" value={title} onChangeText={setTitle} placeholder="np. Ramen dla nieznajomych" />

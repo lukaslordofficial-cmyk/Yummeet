@@ -8,6 +8,10 @@ export const QUESTION_RULES =
 
 export const ACTIVITY_LINE = "Organizator przeprowadzi dla uczestników Zabawę w pytania.";
 
+export function gameActivityLine(title: string) {
+  return `Organizator przeprowadzi dla uczestników zabawę w: ${title}.`;
+}
+
 export const BUILTIN_QUESTIONS = [
   "Jaką najgłupszą rzecz zrobiłeś/aś, próbując komuś zaimponować?",
   "Jaka jest twoja najbardziej absurdalna historia z imprezy?",
@@ -205,7 +209,7 @@ function withoutTitle(items: PlanItem[], title: string) {
 
 export function setPlanNote(items: PlanItem[], text: string): PlanItem[] {
   const rest = withoutTitle(items, PLAN_NOTE_TITLE);
-  const clean = text.trim().slice(0, 2000);
+  const clean = text.trim().slice(0, 8000);
   if (!clean) return rest;
   const prev = items.find((i) => i.title === PLAN_NOTE_TITLE);
   return [...rest, { key: prev?.key ?? "plan-note", category: "questions", title: PLAN_NOTE_TITLE, body: clean }];
@@ -244,20 +248,37 @@ export function addCustomPrompt(items: PlanItem[], prompt: string): PlanItem[] {
   return [...items, { key: `prompt:${clean}`, category: "games", title, body: clean }];
 }
 
-/** Wybrane pytania i zabawy trafiają do notatki. Wolny tekst organizatora zostaje. */
+export function togglePrompt(items: PlanItem[], prompt: string): PlanItem[] {
+  const clean = prompt.trim();
+  const hit = items.find((item) => item.category === "games" && (item.body === clean || item.title === `${CUSTOM_PROMPT_PREFIX}${clean}`.slice(0, 200)));
+  if (hit) return items.filter((item) => item.key !== hit.key);
+  return addCustomPrompt(items, clean);
+}
+
+function isManagedNoteLine(line: string) {
+  const text = line.trim();
+  return !text || text === ACTIVITY_LINE || text.startsWith("• ") || text.startsWith("Organizator przeprowadzi dla uczestników zabawę w:");
+}
+
+/** Pytania zostają przy Zabawie w pytania. Każda gra dostaje własny akapit. */
 export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   const plan = splitPlan(items);
-  const selected = [
-    ...plan.questions.map((q) => `• ${q.title}`),
-    ...plan.prompts.map((p) => `• ${p.body || p.title}`),
-    ...plan.games.map((g) => `• ${g.title}`),
-  ];
-  const extra = (plan.note?.body ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && line !== ACTIVITY_LINE && !line.startsWith("• "));
-  if (!selected.length) return setPlanNote(items, extra.join("\n"));
-  return setPlanNote(items, [...extra, ACTIVITY_LINE, ...selected].join("\n"));
+  const extra = (plan.note?.body ?? "").split("\n").filter((line) => !isManagedNoteLine(line)).map((line) => line.trim());
+  const blocks: string[] = [];
+  if (plan.questions.length) {
+    blocks.push([ACTIVITY_LINE, ...plan.questions.map((q) => `• ${q.title}`)].join("\n\n"));
+  }
+  const findSomeone = SOCIAL_GAMES.find((game) => game.id === "find-someone")?.title;
+  const games = [...plan.games];
+  if (plan.prompts.length && findSomeone && !games.some((game) => game.title === findSomeone)) {
+    games.push({ key: "find-note", category: "games", title: findSomeone, body: "" });
+  }
+  for (const game of games) {
+    const lines = [gameActivityLine(game.title)];
+    if (game.title === findSomeone) lines.push(...plan.prompts.map((prompt) => `• ${prompt.body || prompt.title}`));
+    blocks.push(lines.join("\n\n"));
+  }
+  return setPlanNote(items, [...extra, ...blocks].filter(Boolean).join("\n\n"));
 }
 
 export const FALLBACK_ATTRACTIONS: AttractionSuggestion[] = [
