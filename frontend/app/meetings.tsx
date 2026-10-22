@@ -9,6 +9,7 @@ import { Icon } from "@/src/components/Icon";
 import { Body, Button, EmptyState, ErrorState, Header, Loading, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { myMeetingJournal, type MeetingJournalEntry } from "@/src/lib/data";
+import { PlanNoteView } from "@/src/components/meetings/PlanNoteView";
 import { splitPlan, storyColorKey } from "@/src/lib/meetingPlan";
 import { radius, spacing, useTheme } from "@/src/theme";
 
@@ -62,7 +63,7 @@ export default function MeetingsJournal() {
                     <Body muted>{KIND_LABEL[item.kind] ?? item.kind} · {formatDate(item.starts_at)} · {item.place_name}</Body>
                     {item.description ? <Body>{item.description}</Body> : null}
                     {item.theme ? <Body muted>Temat: {item.theme}</Body> : null}
-                    {plan.note?.body ? <Body>Notatka: {plan.note.body}</Body> : null}
+                    {plan.note?.body ? <PlanNoteView body={plan.note.body} /> : null}
                     {plan.questions.length ? (
                       <View style={{ gap: 4 }}>
                         <Body muted>Pula pytań · {plan.limit} na osobę</Body>

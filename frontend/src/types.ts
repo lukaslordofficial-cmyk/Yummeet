@@ -32,6 +32,7 @@ export interface LevelDef { level: number; name: string; min_xp: number }
 export interface PinMarker {
   id: string; title: string; lat: number; lng: number; cuisine: string | null; is_official: boolean;
   score: number | null; review_count: number; distance_m?: number; along?: number; cover_url?: string | null;
+  price_min?: number | null; price_max?: number | null;
 }
 
 export interface CardDef {

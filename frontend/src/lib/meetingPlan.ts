@@ -12,6 +12,25 @@ export function gameActivityLine(title: string) {
   return `Organizator przeprowadzi dla uczestników zabawę w: ${title}.`;
 }
 
+export function questionInstruction(limit: number) {
+  return `Instrukcja: Organizator dodaje pytania do puli. Każdy uczestnik losuje pytania, na które może udzielić odpowiedzi, ale nie musi. Pytań na osobę ${limit}.`;
+}
+
+const GAME_INSTRUCTIONS: Record<string, string> = {
+  "two-truths": "Instrukcja: Każdy podaje trzy zdania o sobie. Dwie są prawdziwe, jedna zmyślona. Reszta typuje kłamstwo, a organizator może podać telefon dalej.",
+  "find-someone": "Instrukcja: Każdy typuje osobę do zdania. Wskazana osoba może odpowiedzieć „to prawda”, „to nieprawda” albo „pasuję”, ale nie musi zdradzać sekretu.",
+  "runaway-story": "Instrukcja: Organizator wybiera zdanie startowe. Każdy dopisuje dokładnie jedno zdanie i zostawia haczyk dla kolejnej osoby. Aplikacja pilnuje kolejki.",
+};
+
+export function gameInstruction(title: string) {
+  const game = SOCIAL_GAMES.find((entry) => entry.title === title);
+  return (game && GAME_INSTRUCTIONS[game.id]) || "";
+}
+
+export function isActivityParagraph(text: string) {
+  return text.trim().startsWith("Organizator przeprowadzi dla uczestników");
+}
+
 export const BUILTIN_QUESTIONS = [
   "Jaką najgłupszą rzecz zrobiłeś/aś, próbując komuś zaimponować?",
   "Jaka jest twoja najbardziej absurdalna historia z imprezy?",
@@ -257,16 +276,21 @@ export function togglePrompt(items: PlanItem[], prompt: string): PlanItem[] {
 
 function isManagedNoteLine(line: string) {
   const text = line.trim();
-  return !text || text === ACTIVITY_LINE || text.startsWith("• ") || text.startsWith("Organizator przeprowadzi dla uczestników zabawę w:");
+  return !text || isActivityParagraph(text) || text.startsWith("Instrukcja:") || text.startsWith("• ") || text.startsWith("Pytań na osobę");
 }
 
-/** Pytania zostają przy Zabawie w pytania. Każda gra dostaje własny akapit. */
+/** Własny tekst organizatora, bez akapitów dokładanych przez plan. */
+export function freeNoteText(body: string) {
+  return body.split("\n").map((line) => line.trim()).filter((line) => line && !isManagedNoteLine(line)).join("\n\n");
+}
+
+/** Instrukcja każdej zabawy, bez powtarzania listy pytań. */
 export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   const plan = splitPlan(items);
-  const extra = (plan.note?.body ?? "").split("\n").filter((line) => !isManagedNoteLine(line)).map((line) => line.trim());
+  const extra = freeNoteText(plan.note?.body ?? "");
   const blocks: string[] = [];
   if (plan.questions.length) {
-    blocks.push([ACTIVITY_LINE, ...plan.questions.map((q) => `• ${q.title}`)].join("\n\n"));
+    blocks.push([ACTIVITY_LINE, questionInstruction(plan.limit)].join("\n\n"));
   }
   const findSomeone = SOCIAL_GAMES.find((game) => game.id === "find-someone")?.title;
   const games = [...plan.games];
@@ -275,10 +299,12 @@ export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   }
   for (const game of games) {
     const lines = [gameActivityLine(game.title)];
+    const intro = gameInstruction(game.title);
+    if (intro) lines.push(intro);
     if (game.title === findSomeone) lines.push(...plan.prompts.map((prompt) => `• ${prompt.body || prompt.title}`));
     blocks.push(lines.join("\n\n"));
   }
-  return setPlanNote(items, [...extra, ...blocks].filter(Boolean).join("\n\n"));
+  return setPlanNote(items, [...blocks, extra].filter(Boolean).join("\n\n"));
 }
 
 export const FALLBACK_ATTRACTIONS: AttractionSuggestion[] = [

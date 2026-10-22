@@ -1,7 +1,8 @@
+import type { ReactNode } from "react";
 import { Modal, View } from "react-native";
 
 import { RouteMapFrame } from "@/src/components/RouteMapFrame";
-import { Button } from "@/src/components/ui";
+import { IconButton } from "@/src/components/ui";
 import type { MapMarker } from "@/src/components/map/leafletHtml";
 import { spacing, useTheme } from "@/src/theme";
 
@@ -19,34 +20,19 @@ type Props = {
   line: Point[];
   markers: MapMarker[];
   followToken: number;
+  fitToken: number;
+  locateToken: number;
+  onRecenter: () => void;
   onMarkerPress: (id: string) => void;
   windowHeight: number;
   topInset: number;
+  overlay?: ReactNode;
 };
 
-function MapActions({ mode, onMode }: { mode: RouteMapMode; onMode: (mode: RouteMapMode) => void }) {
-  if (mode === "hidden") {
-    return <Button testID="route-map-show" title="Pokaż mapę" variant="secondary" onPress={() => onMode("window")} />;
-  }
-  const full = mode === "full";
-  return (
-    <View style={{ flexDirection: "row", gap: spacing.sm }}>
-      <Button
-        testID={full ? "route-map-window" : "route-map-full"}
-        title={full ? "Okno" : "Pełny ekran"}
-        variant="secondary"
-        onPress={() => onMode(full ? "window" : "full")}
-        style={{ flex: 1 }}
-      />
-      <Button testID="route-map-hide" title="Schowaj" variant="ghost" onPress={() => onMode("hidden")} style={{ flex: 1 }} />
-    </View>
-  );
-}
-
-/** Mapa trasy: okno, pełny ekran albo całkowicie schowana. */
+/** Mapa trasy: okno, pełny ekran albo schowana. Sterowanie jest ikonami na mapie. */
 export function RouteMapPane(props: Props) {
   const { colors } = useTheme();
-  const frame = (tall: number, edgeToEdge: boolean) => (
+  const frame = (tall: number, edgeToEdge: boolean, full: boolean) => (
     <RouteMapFrame
       tall={tall}
       edgeToEdge={edgeToEdge}
@@ -55,31 +41,29 @@ export function RouteMapPane(props: Props) {
       line={props.line}
       markers={props.markers}
       followToken={props.followToken}
+      fitToken={props.fitToken}
+      locateToken={props.locateToken}
+      full={full}
+      onRecenter={props.onRecenter}
+      onToggleFull={() => props.onMode(full ? "window" : "full")}
+      onHide={() => props.onMode("hidden")}
       onMarkerPress={props.onMarkerPress}
-    />
+    >
+      {props.overlay}
+    </RouteMapFrame>
   );
 
   return (
     <>
       {props.mode === "hidden" ? (
-        <View style={{ paddingHorizontal: spacing.lg }}>
-          <MapActions mode="hidden" onMode={props.onMode} />
+        <View style={{ paddingHorizontal: spacing.lg, alignItems: "flex-end" }}>
+          <IconButton testID="route-map-show" icon="map" tone="sheet" onPress={() => props.onMode("window")} />
         </View>
       ) : null}
-      {props.mode === "window" ? (
-        <View style={{ gap: spacing.sm }}>
-          <View style={{ paddingHorizontal: spacing.lg }}>
-            <MapActions mode="window" onMode={props.onMode} />
-          </View>
-          {frame(props.tall, props.edgeToEdge)}
-        </View>
-      ) : null}
+      {props.mode === "window" ? frame(props.tall, props.edgeToEdge, false) : null}
       <Modal visible={props.mode === "full"} animationType="fade" onRequestClose={() => props.onMode("window")} statusBarTranslucent>
-        <View style={{ flex: 1, backgroundColor: colors.surface }}>
-          {props.mode === "full" ? frame(props.windowHeight, true) : null}
-          <View style={{ position: "absolute", zIndex: 2, top: props.topInset + spacing.sm, left: spacing.md, right: spacing.md }}>
-            <MapActions mode="full" onMode={props.onMode} />
-          </View>
+        <View style={{ flex: 1, backgroundColor: colors.surface, paddingTop: props.topInset }}>
+          {props.mode === "full" ? frame(props.windowHeight - props.topInset, true, true) : null}
         </View>
       </Modal>
     </>

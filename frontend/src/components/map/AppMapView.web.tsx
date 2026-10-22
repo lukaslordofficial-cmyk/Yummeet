@@ -16,6 +16,12 @@ export interface MapViewProps extends LeafletOptions {
   followCenterToken?: number | string;
   /** Śledzenie jak w nawigacji: kamera za kierowcą, niżej w kadrze. */
   gpsFollow?: boolean;
+  /** Dopasuj kadr tylko gdy ta wartość się zmieni, nie przy każdym odświeżeniu pinów. */
+  fitToken?: number;
+  /** Wróć do podanego zoomu (znacznik bieżącej lokalizacji). */
+  locateToken?: number;
+  /** Przy śledzeniu GPS zostaw zoom ustawiony palcami. */
+  keepZoom?: boolean;
 }
 
 export function handleMapMessage(data: any, h: Pick<MapViewProps, "onMarkerPress" | "onMapPress" | "onMapDblClick" | "onAreaDrawn" | "onViewChange">) {
@@ -48,6 +54,9 @@ export function AppMapView({
   tileUrl,
   polylineColor,
   gpsFollow = false,
+  fitToken,
+  locateToken,
+  keepZoom = false,
 }: MapViewProps) {
   const frameRef = useRef<any>(null);
   const ready = useRef(false);
@@ -55,6 +64,8 @@ export function AppMapView({
   handlerRef.current = { onMarkerPress, onMapPress, onMapDblClick, onAreaDrawn, onViewChange };
   const initial = useRef({ center, zoom, pickMode, emitClicks, drawMode, tileUrl, gpsFollow });
   const lastFollow = useRef(followCenterToken);
+  const lastFit = useRef<number | undefined>(undefined);
+  const lastLocate = useRef<number | undefined>(undefined);
 
   const html = useMemo(
     () =>
@@ -81,19 +92,26 @@ export function AppMapView({
     if (!win || !ready.current || typeof win.__updateMap !== "function") return;
     const shouldFollow = followCenterToken !== undefined && followCenterToken !== lastFollow.current;
     if (shouldFollow) lastFollow.current = followCenterToken;
+    const shouldFit = fitToken !== undefined && fitToken !== lastFit.current;
+    if (shouldFit) lastFit.current = fitToken;
+    const shouldLocate = locateToken !== undefined && locateToken !== lastLocate.current;
+    if (shouldLocate) lastLocate.current = locateToken;
     const payload: MapUpdatePayload = {
       markers,
       polyline,
       center,
-      zoom,
+      zoom: shouldLocate ? zoom : zoom,
       showUser,
       pickMode,
       emitClicks,
       shape,
       polylineColor,
-      gps: gpsFollow,
-      setView: shouldFollow,
-      fitBounds: fitBounds && ((polyline?.length ?? 0) > 1),
+      gps: gpsFollow && !shouldLocate,
+      setView: shouldLocate || shouldFollow,
+      keepZoom: shouldLocate ? false : keepZoom && shouldFollow,
+      fitBounds: shouldLocate || shouldFollow ? false : fitToken === undefined
+        ? !!fitBounds && ((polyline?.length ?? 0) > 1 || (markers?.length ?? 0) > 1)
+        : shouldFit && ((polyline?.length ?? 0) > 1 || (markers?.length ?? 0) > 1),
       ...extra,
     };
     win.__updateMap(payload);
@@ -122,7 +140,7 @@ export function AppMapView({
   useEffect(() => {
     pushUpdate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markers, polyline, polylineColor, center, zoom, showUser, pickMode, emitClicks, shape, fitBounds, followCenterToken, gpsFollow]);
+  }, [markers, polyline, polylineColor, center, zoom, showUser, pickMode, emitClicks, shape, fitBounds, followCenterToken, gpsFollow, fitToken, locateToken, keepZoom]);
 
   return (
     <View style={[styles.web, style]}>

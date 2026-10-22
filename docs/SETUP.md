@@ -72,6 +72,7 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 41. **`supabase/migrations/042_leave_conversation.sql`** — usuwa czat z listy użytkownika (`conversation_leave`). Rozmowa zostaje u pozostałych osób.
 42. **`supabase/migrations/043_meeting_plan_story.sql`** — plan spotkania jest widoczny przed dołączeniem. Wspólna historia (`event_story_add`) pilnuje kolejki i trafia do dziennika.
 43. **`supabase/migrations/044_plan_note_length.sql`** — notatka planu może mieć do 8000 znaków, żeby pomieścić pytania i osobne akapity zabaw.
+44. **`supabase/migrations/045_route_pin_prices.sql`** — Gastro-Trasa dostaje przy pinach `price_min` i `price_max`, żeby kafelki ceny mogły je sortować.
 
 ### Szybka naprawa edycji pinu
 1. **`029_fix_pin_updated_xp_cards.sql`**

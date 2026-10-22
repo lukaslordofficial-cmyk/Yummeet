@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet } from "react-native";
 import type { ViewStyle } from "react-native";
 import { WebView } from "react-native-webview";
@@ -19,6 +19,12 @@ export interface MapViewProps extends LeafletOptions {
   followCenterToken?: number | string;
   /** Śledzenie jak w nawigacji: kamera za kierowcą, niżej w kadrze. */
   gpsFollow?: boolean;
+  /** Dopasuj kadr tylko gdy ta wartość się zmieni, nie przy każdym odświeżeniu pinów. */
+  fitToken?: number;
+  /** Wróć do podanego zoomu (znacznik bieżącej lokalizacji). */
+  locateToken?: number;
+  /** Przy śledzeniu GPS zostaw zoom ustawiony palcami. */
+  keepZoom?: boolean;
 }
 
 export function AppMapView({
@@ -42,11 +48,17 @@ export function AppMapView({
   tileUrl,
   polylineColor,
   gpsFollow = false,
+  fitToken,
+  locateToken,
+  keepZoom = false,
 }: MapViewProps) {
   const webRef = useRef<WebView>(null);
   const ready = useRef(false);
   const initial = useRef({ center, zoom, pickMode, emitClicks, drawMode, fitBounds, tileUrl, gpsFollow });
   const lastFollow = useRef(followCenterToken);
+  const lastFit = useRef<number | undefined>(undefined);
+  const lastLocate = useRef<number | undefined>(undefined);
+  const [booted, setBooted] = useState(0);
 
   const html = useMemo(
     () =>
@@ -72,6 +84,10 @@ export function AppMapView({
     if (!ready.current) return;
     const shouldFollow = followCenterToken !== undefined && followCenterToken !== lastFollow.current;
     if (shouldFollow) lastFollow.current = followCenterToken;
+    const shouldFit = fitToken !== undefined && fitToken !== lastFit.current;
+    if (shouldFit) lastFit.current = fitToken;
+    const shouldLocate = locateToken !== undefined && locateToken !== lastLocate.current;
+    if (shouldLocate) lastLocate.current = locateToken;
     const payload: MapUpdatePayload = {
       markers,
       polyline,
@@ -82,13 +98,16 @@ export function AppMapView({
       emitClicks,
       shape,
       polylineColor,
-      gps: gpsFollow,
-      setView: shouldFollow,
-      fitBounds: shouldFollow ? false : fitBounds && !!polyline?.length,
+      gps: gpsFollow && !shouldLocate,
+      setView: shouldLocate || shouldFollow,
+      keepZoom: shouldLocate ? false : keepZoom && shouldFollow,
+      fitBounds: shouldLocate || shouldFollow ? false : fitToken === undefined
+        ? !!fitBounds && (!!polyline?.length || (markers?.length ?? 0) > 1)
+        : shouldFit && (!!polyline?.length || (markers?.length ?? 0) > 1),
     };
     const js = `window.__updateMap && window.__updateMap(${JSON.stringify(payload)}); true;`;
     webRef.current?.injectJavaScript(js);
-  }, [markers, polyline, polylineColor, center, zoom, showUser, pickMode, emitClicks, shape, fitBounds, followCenterToken, gpsFollow]);
+  }, [markers, polyline, polylineColor, center, zoom, showUser, pickMode, emitClicks, shape, fitBounds, followCenterToken, gpsFollow, fitToken, locateToken, keepZoom, booted]);
 
   return (
     <WebView
@@ -106,6 +125,7 @@ export function AppMapView({
           const data = JSON.parse(event.nativeEvent.data);
           if (data.type === "ready") {
             ready.current = true;
+            setBooted((n) => n + 1);
             const payload: MapUpdatePayload = {
               markers,
               polyline,
@@ -118,7 +138,8 @@ export function AppMapView({
               polylineColor,
               gps: gpsFollow,
               setView: false,
-              fitBounds: fitBounds && ((markers?.length ?? 0) > 1 || (polyline?.length ?? 0) > 1),
+              keepZoom: false,
+              fitBounds: fitToken !== undefined ? false : fitBounds && ((markers?.length ?? 0) > 1 || (polyline?.length ?? 0) > 1),
             };
             webRef.current?.injectJavaScript(`window.__updateMap && window.__updateMap(${JSON.stringify(payload)}); true;`);
             return;

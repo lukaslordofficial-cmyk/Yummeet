@@ -124,7 +124,7 @@ export default function NewEvent() {
 
   return (
     <View testID="new-event-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title={header} />
+      <Header title={header} centerTitle={step === "form"} />
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
         {step === "category" ? (
           <MeetingPickList testID="meeting-category" items={MEETING_CATEGORIES.map((c) => ({ key: c.key, title: c.label, text: c.blurb }))} onPick={(key) => { setCategory(key); setSubKey(null); setStep("sub"); }} />
@@ -150,7 +150,7 @@ export default function NewEvent() {
         ) : null}
         {step === "form" && sub ? (
           <>
-            {!fromMission ? <Button testID="meeting-back-idea" title="Wróć do pomysłów" onPress={() => setStep("idea")} style={{ marginHorizontal: spacing.lg }} /> : null}
+            {!fromMission ? <Button testID="meeting-back-idea" title="Wróć do pomysłów" onPress={() => setStep("idea")} style={{ marginHorizontal: spacing.lg, marginTop: spacing.xxl }} /> : null}
             <Body muted style={{ paddingHorizontal: spacing.lg }} testID="new-event-kind-hint">{cat?.label} · {sub.label}. {sub.blurb}</Body>
             <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
               <Field testID="new-event-title-input" label="Tytuł" value={title} onChangeText={setTitle} placeholder="np. Ramen dla nieznajomych" />
@@ -169,8 +169,8 @@ export default function NewEvent() {
                 <Field testID="new-event-custom-date" label="Data (RRRR-MM-DD)" value={customDate} onChangeText={setCustomDate} placeholder="2026-10-20" keyboardType="numbers-and-punctuation" />
               ) : null}
               <Field testID="new-event-time-input" label="Godzina" value={time} onChangeText={setTime} keyboardType="numbers-and-punctuation" />
-              <Body muted>Liczba miejsc (z Tobą)</Body>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.lg }}>
+              <Body muted style={{ textAlign: "center" }}>Liczba miejsc (z Tobą)</Body>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.lg }}>
                 <Button testID="new-event-capacity-minus" title="−" variant="ghost" onPress={() => setCapacity(Math.max(2, capacity - 1))} />
                 <Title size={28} testID="new-event-capacity">{capacity}</Title>
                 <Button testID="new-event-capacity-plus" title="+" variant="ghost" onPress={() => setCapacity(Math.min(50, capacity + 1))} />
@@ -183,7 +183,7 @@ export default function NewEvent() {
                 />
               ) : null}
               <AttractionPicker picked={picked} onChange={setPicked} />
-              <Button testID="new-event-save-button" title="Utwórz spotkanie" loading={busy} onPress={() => void save()} />
+              <Button testID="new-event-save-button" title="Utwórz spotkanie" variant="ink" loading={busy} onPress={() => void save()} style={{ marginTop: spacing.xxl, minHeight: 76 }} />
             </View>
           </>
         ) : null}

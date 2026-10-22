@@ -6,9 +6,10 @@ import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOCIAL_GAMES, STORY_STARTERS, addCustomQuestion, gameActivityLine, splitPlan, storyTurnIndex, syncPlanNote, toggleGame, toggleQuestion } from "../../frontend/src/lib/meetingPlan.ts";
+import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOCIAL_GAMES, STORY_STARTERS, addCustomQuestion, gameActivityLine, questionInstruction, setPlanLimit, splitPlan, storyTurnIndex, syncPlanNote, toggleGame, toggleQuestion } from "../../frontend/src/lib/meetingPlan.ts";
+import { placeQueryVariants } from "../../frontend/src/lib/routing.ts";
 import { subcategoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { clampRouteBuffer, haversineM, withinRadiusM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
+import { clampRouteBuffer, filterPinsByPrice, haversineM, withinRadiusM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
 test("rock-paper-scissors resolution matches server _rps_winner", () => {
@@ -103,15 +104,25 @@ test("meeting plan has the question pool and social games", () => {
   assert.match(BUILTIN_QUESTIONS[19], /święto narodowe/);
   assert.deepEqual(SOCIAL_GAMES.map((g) => g.id), ["two-truths", "find-someone", "runaway-story"]);
   assert.equal(SOCIAL_GAMES.some((g) => g.title === "Zgadnij, co wybrałem"), false);
-  const picked = syncPlanNote(toggleGame(toggleQuestion([], BUILTIN_QUESTIONS[0]), SOCIAL_GAMES[0]));
+  const picked = syncPlanNote(setPlanLimit(toggleGame(toggleQuestion([], BUILTIN_QUESTIONS[0]), SOCIAL_GAMES[0]), 3));
   const note = splitPlan(picked).note?.body ?? "";
   assert.match(note, new RegExp(ACTIVITY_LINE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(note, /Jaką najgłupszą/);
+  assert.match(note, new RegExp(questionInstruction(3).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.equal(note.includes(BUILTIN_QUESTIONS[0]), false);
   assert.match(note, /Dwie prawdy/);
+  assert.match(note, /Instrukcja: Każdy podaje trzy zdania/);
   assert.match(note, new RegExp(gameActivityLine("Dwie prawdy i jedno kłamstwo").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.ok(note.includes("\n\n"));
   const local = syncPlanNote(addCustomQuestion([], "Czy lubisz deszcz?"));
-  assert.match(splitPlan(local).note?.body ?? "", /Czy lubisz deszcz/);
+  assert.equal(splitPlan(local).questions.some((q) => q.title === "Czy lubisz deszcz?"), true);
+  assert.equal((splitPlan(local).note?.body ?? "").includes("Czy lubisz deszcz"), false);
+  assert.deepEqual(placeQueryVariants("ul Komandorska"), ["ul Komandorska", "ulica Komandorska", "Komandorska"]);
+  assert.deepEqual(placeQueryVariants("os. Słoneczne"), ["os. Słoneczne", "osiedle Słoneczne", "Słoneczne"]);
+  assert.deepEqual(filterPinsByPrice([
+    { price_min: 90, price_max: 120 },
+    { price_min: 20, price_max: 30 },
+    { price_min: null, price_max: null },
+  ], { min: null, max: 40 }).map((pin) => pin.price_min), [20]);
   assert.equal(STORY_STARTERS.length, 16);
   assert.equal(FIND_PACKS.length, 6);
   assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.category === "challenges" || a.title === "Szachy"), false);

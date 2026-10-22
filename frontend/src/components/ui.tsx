@@ -24,14 +24,14 @@ export function Body({ children, muted, style, numberOfLines, testID }: { childr
   return <Text testID={testID} numberOfLines={numberOfLines} style={[{ fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: muted ? colors.muted : colors.onSurfaceSecondary }, style]}>{children}</Text>;
 }
 
-type BtnVariant = "primary" | "secondary" | "ghost" | "danger";
+type BtnVariant = "primary" | "secondary" | "ghost" | "danger" | "ink";
 export function Button({ title, onPress, variant = "primary", icon, loading, disabled, testID, style }: {
   title: string; onPress: () => void; variant?: BtnVariant; icon?: string; loading?: boolean; disabled?: boolean; testID: string; style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
-  const bg = { primary: colors.brandPrimary, secondary: colors.surfaceSecondary, ghost: colors.surfaceTertiary, danger: colors.error }[variant];
-  const fg = { primary: colors.onBrandPrimary, secondary: colors.onSurface, ghost: colors.onSurface, danger: colors.onError }[variant];
-  const borderColor = variant === "primary" || variant === "danger" ? bg : colors.borderStrong;
+  const bg = { primary: colors.brandPrimary, secondary: colors.surfaceSecondary, ghost: colors.surfaceTertiary, danger: colors.error, ink: colors.onBrandPrimary }[variant];
+  const fg = { primary: colors.onBrandPrimary, secondary: colors.onSurface, ghost: colors.onSurface, danger: colors.onError, ink: colors.onBrandSecondary }[variant];
+  const borderColor = variant === "primary" || variant === "danger" || variant === "ink" ? bg : colors.borderStrong;
   return (
     <Pressable testID={testID} accessibilityRole="button" disabled={disabled || loading} onPress={() => { haptic.tap(); onPress(); }}
       style={({ pressed }) => [{ minHeight: 48, borderRadius: radius.pill, backgroundColor: bg, borderWidth: 1, borderColor, paddingHorizontal: spacing.xl, flexDirection: "row",
@@ -131,16 +131,16 @@ export function ErrorState({ message, onRetry, testID = "error-state" }: { messa
 }
 
 /** Stack screen header (sticky, safe-area aware). */
-export function Header({ title, right, back = true, testID = "screen-header" }: { title: string; right?: ReactNode; back?: boolean; testID?: string }) {
+export function Header({ title, right, back = true, centerTitle = false, testID = "screen-header" }: { title: string; right?: ReactNode; back?: boolean; centerTitle?: boolean; testID?: string }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
   return (
     <View testID={testID} style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.sm, paddingHorizontal: spacing.lg, flexDirection: "row",
       alignItems: "center", gap: spacing.md, backgroundColor: colors.surface }}>
-      {back ? <IconButton testID="header-back-button" icon="arrow-left" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} /> : null}
-      <Title size={22} style={{ flex: 1 }}>{title}</Title>
-      {right}
+      {back ? <IconButton testID="header-back-button" icon="arrow-left" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} /> : centerTitle ? <View style={{ width: 48 }} /> : null}
+      <Title size={22} style={{ flex: 1, textAlign: centerTitle ? "center" : "left" }}>{title}</Title>
+      {right ?? (centerTitle ? <View style={{ width: 48 }} /> : null)}
     </View>
   );
 }

@@ -115,6 +115,22 @@ export function formatKm(m: number): string {
   return `${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`;
 }
 
+export type PriceBand = { min: number | null; max: number | null };
+
+/** Kafelki ceny: zostaw lokale z przedziału i ułóż od najtańszego. */
+export function filterPinsByPrice<T extends { price_min?: number | null; price_max?: number | null }>(pins: T[], band: PriceBand): T[] {
+  if (band.min == null && band.max == null) return pins;
+  const matched = pins.filter((pin) => {
+    const lo = pin.price_min ?? pin.price_max;
+    const hi = pin.price_max ?? pin.price_min;
+    if (lo == null || hi == null) return false;
+    if (band.max != null && lo > band.max) return false;
+    if (band.min != null && hi < band.min) return false;
+    return true;
+  });
+  return [...matched].sort((a, b) => (a.price_min ?? a.price_max ?? 0) - (b.price_min ?? b.price_max ?? 0));
+}
+
 export function formatDuration(s: number): string {
   const h = Math.floor(s / 3600);
   const m = Math.round((s % 3600) / 60);

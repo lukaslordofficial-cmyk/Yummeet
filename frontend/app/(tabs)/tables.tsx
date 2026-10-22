@@ -4,7 +4,7 @@ import { RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MeetingCategoryTiles } from "@/src/components/MeetingCategoryTiles";
-import { Body, Button, ErrorState, Title } from "@/src/components/ui";
+import { Body, Button, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { listEvents } from "@/src/lib/data";
 import { withinRadiusM, type LatLng } from "@/src/lib/geo";
@@ -39,7 +39,7 @@ export default function Tables() {
   }, []);
 
   const nearby = useMemo(
-    () => (pos ? (rows ?? []).filter((event) => withinRadiusM(pos, event, NEARBY_M)) : []),
+    () => (pos ? (rows ?? []).filter((event) => withinRadiusM(pos, { lat: event.place_lat, lng: event.place_lng }, NEARBY_M)) : []),
     [rows, pos],
   );
 
@@ -64,18 +64,15 @@ export default function Tables() {
         </View>
         <View style={{ marginTop: spacing.xl, paddingHorizontal: spacing.lg, gap: spacing.lg }}>
           <Title size={22} style={{ textAlign: "center" }} testID="tables-nearby-title">Lista spotkań w twojej okolicy</Title>
-          {error ? <ErrorState message={error} onRetry={load} /> : !locReady ? (
-            <Body muted style={{ textAlign: "center" }}>Szukam spotkań w promieniu 50 kilometrów…</Body>
-          ) : !pos ? (
-            <Body muted style={{ textAlign: "center" }}>Włącz lokalizację, żeby zobaczyć spotkania w promieniu 50 kilometrów.</Body>
-          ) : (
-            <MeetingCategoryTiles
-              openKey={openKey}
-              onToggle={(key) => setOpenKey((cur) => (cur === key ? null : key))}
-              events={nearby}
-              onOpenEvent={(id) => router.push(`/event/${id}`)}
-            />
-          )}
+          <MeetingCategoryTiles
+            openKey={openKey}
+            onToggle={(key) => setOpenKey((cur) => (cur === key ? null : key))}
+            events={pos ? nearby : []}
+            status={!openKey ? "hidden" : error ? "error" : !locReady ? "loading" : !pos ? "need-gps" : "ready"}
+            error={error}
+            onRetry={load}
+            onOpenEvent={(id) => router.push(`/event/${id}`)}
+          />
         </View>
       </ScrollView>
     </View>

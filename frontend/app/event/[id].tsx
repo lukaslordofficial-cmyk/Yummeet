@@ -17,7 +17,8 @@ import {
 } from "@/src/lib/data";
 import { getCurrentPosition } from "@/src/lib/location";
 import { subcategoryLabel } from "@/src/lib/meetingCatalog";
-import { QUESTION_RULES, splitPlan } from "@/src/lib/meetingPlan";
+import { splitPlan } from "@/src/lib/meetingPlan";
+import { PlanNoteView } from "@/src/components/meetings/PlanNoteView";
 import { subscribePostgres } from "@/src/lib/realtime";
 import { FREE_PHOTO_SLOTS, pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
@@ -48,13 +49,14 @@ function PlanPreview({ rows }: { rows: Array<{ id: string; category: string; tit
   const empty = !plan.note?.body && plan.questions.length === 0 && plan.games.length === 0;
   return (
     <Card testID="event-plan">
-      <Title size={18}>Plan spotkania</Title>
-      {plan.note?.body ? <Body>{plan.note.body}</Body> : null}
-      <Body muted>{QUESTION_RULES}</Body>
-      <Body>Pytań na osobę: {plan.limit}</Body>
-      {plan.questions.map((q) => <Body key={q.id}>• {q.title}</Body>)}
-      {plan.games.map((g) => <Body key={g.id}>• {g.title}</Body>)}
-      {empty ? <Body muted>Organizator jeszcze nie ustawił planu.</Body> : null}
+      <Title size={18} style={{ textAlign: "center", width: "100%" }}>Plan spotkania</Title>
+      {plan.note?.body ? <PlanNoteView testID="event-plan-note" body={plan.note.body} /> : null}
+      {plan.questions.length ? (
+        <View style={{ gap: spacing.xs }}>
+          {plan.questions.map((q) => <Body key={q.id} style={{ textAlign: "center" }}>{q.title}</Body>)}
+        </View>
+      ) : null}
+      {empty ? <Body muted style={{ textAlign: "center" }}>Organizator jeszcze nie ustawił planu.</Body> : null}
     </Card>
   );
 }

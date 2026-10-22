@@ -78,7 +78,7 @@ export default function MeetingPlan() {
 
   return (
     <View testID="games-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title="Plan spotkania" />
+      <Header title="Plan spotkania" centerTitle />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
         {!event ? (
           <Body muted>Plan ustawia organizator przy tworzeniu spotkania albo tutaj, po otwarciu go ze szczegółów spotkania. Goście widzą pulę pytań przed dołączeniem.</Body>

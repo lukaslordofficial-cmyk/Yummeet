@@ -52,6 +52,8 @@ export type MapUpdatePayload = {
   polylineColor?: string;
   /** Płynne śledzenie z kierowcą w dolnej trzeciej części mapy. */
   gps?: boolean;
+  /** Nie zmieniaj zoomu wybranego przez użytkownika. */
+  keepZoom?: boolean;
 };
 
 export function buildLeafletHtml(opts: LeafletOptions): string {
@@ -361,7 +363,8 @@ export function buildLeafletHtml(opts: LeafletOptions): string {
       if (pickModeOn && U.center) ensurePickMarker(U.center.lat, U.center.lng);
       if (!pickModeOn && pickMarker) { map.removeLayer(pickMarker); pickMarker = null; }
       if (U.setView && U.center) {
-        focusDriver(U.center.lat, U.center.lng, U.zoom != null ? U.zoom : map.getZoom(), !!U.gps);
+        var nextZoom = U.keepZoom ? map.getZoom() : (U.zoom != null ? U.zoom : map.getZoom());
+        focusDriver(U.center.lat, U.center.lng, nextZoom, !!U.gps);
       }
       if (U.fitBounds && U.markers && U.markers.length > 1) {
         try {

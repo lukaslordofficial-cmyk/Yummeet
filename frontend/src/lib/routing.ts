@@ -106,6 +106,29 @@ function polishFold(s: string): string {
     .replace(/ł/g, "l");
 }
 
+const STREET_TOKEN: Array<[RegExp, string]> = [
+  [/^(ul|ul\.)$/i, "ulica"],
+  [/^(os|os\.|osied|osied\.)$/i, "osiedle"],
+  [/^(al|al\.)$/i, "aleja"],
+  [/^(pl|pl\.)$/i, "plac"],
+];
+const STREET_TYPE = /^(ulica|osiedle|aleja|plac)$/i;
+
+/** „ul” / „os” rozwijają się do ulicy i osiedla, a sama nazwa szuka się też bez przedrostka. */
+export function placeQueryVariants(query: string): string[] {
+  const raw = query.trim().replace(/\s+/g, " ");
+  if (raw.length < 2) return [];
+  const expanded = raw.split(" ").map((part) => {
+    const hit = STREET_TOKEN.find(([re]) => re.test(part));
+    return hit ? hit[1] : part;
+  }).join(" ");
+  const stripped = expanded.split(" ").filter((part) => !STREET_TYPE.test(part)).join(" ").trim();
+  const out = [expanded];
+  if (raw !== expanded) out.unshift(raw);
+  if (stripped.length >= 3 && !out.includes(stripped)) out.push(stripped);
+  return out;
+}
+
 /** Prefer names that start with the typed prefix, then alphabetical. */
 function sortByPrefix(results: GeocodeResult[], query: string): GeocodeResult[] {
   const q = polishFold(query.trim());
@@ -122,6 +145,7 @@ function sortByPrefix(results: GeocodeResult[], query: string): GeocodeResult[] 
 async function geocodePhoton(query: string, lang: string): Promise<GeocodeResult[]> {
   const url =
     `https://photon.komoot.io/api/?limit=12&lang=${encodeURIComponent(lang)}` +
+    `&bbox=14.07,49.00,24.15,54.84&lat=52.1&lon=19.4` +
     `&q=${encodeURIComponent(query)}`;
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) return [];
@@ -178,21 +202,57 @@ async function geocodeNominatim(query: string, lang: string): Promise<GeocodeRes
   });
 }
 
-/** Autocomplete: Photon (prefix) → Nominatim fallback; prefix matches first, then A–Z. */
+async function geocodeNominatimStreet(street: string, lang: string): Promise<GeocodeResult[]> {
+  const url =
+    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&namedetails=1&limit=8` +
+    `&countrycodes=pl&accept-language=${encodeURIComponent(lang)}&street=${encodeURIComponent(street)}`;
+  const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data ?? []).map((r: any) => {
+    const poiName = r.namedetails?.name || r.name || undefined;
+    const city = r.address?.city || r.address?.town || r.address?.village;
+    const streetName = [r.address?.road, r.address?.house_number].filter(Boolean).join(" ") || undefined;
+    return {
+      title: formatAddressLabel(r.address, r.display_name as string, poiName),
+      lat: parseFloat(r.lat),
+      lng: parseFloat(r.lon),
+      country: r.address?.country,
+      city,
+      street: streetName,
+      sortKey: streetName || poiName || city || r.display_name,
+    } as GeocodeResult;
+  });
+}
+
+function dedupePlaces(results: GeocodeResult[]): GeocodeResult[] {
+  const seen = new Set<string>();
+  const out: GeocodeResult[] = [];
+  for (const row of results) {
+    const key = `${row.lat.toFixed(4)}:${row.lng.toFixed(4)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+/** Autocomplete: skróty ulicy i osiedla, potem Photon (Polska) i ulice Nominatim. */
 export async function geocode(query: string, lang = "pl"): Promise<GeocodeResult[]> {
-  const q = query.trim();
-  if (q.length < 2) return [];
-  try {
-    const photon = await geocodePhoton(q, lang);
-    if (photon.length) return sortByPrefix(photon, q);
-  } catch {
-    /* fall through */
+  const variants = placeQueryVariants(query);
+  if (!variants.length) return [];
+  const street = variants[variants.length - 1];
+  const bags = await Promise.all(variants.map(async (part) => {
+    try {
+      const photon = await geocodePhoton(part, lang);
+      if (photon.length) return photon;
+    } catch { /* nominatim */ }
+    try { return await geocodeNominatim(part, lang); } catch { return []; }
+  }));
+  if (street.length >= 3) {
+    try { bags.push(await geocodeNominatimStreet(street, lang)); } catch { /* ignore */ }
   }
-  try {
-    return sortByPrefix(await geocodeNominatim(q, lang), q);
-  } catch {
-    return [];
-  }
+  return sortByPrefix(dedupePlaces(bags.flat()), variants[0]).slice(0, 8);
 }
 
 /** Reverse geocode for a map tap. */
