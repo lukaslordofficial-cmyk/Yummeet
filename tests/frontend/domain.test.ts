@@ -10,6 +10,7 @@ import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOC
 import { placeQueryVariants } from "../../frontend/src/lib/routing.ts";
 import { subcategoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
 import { clampRouteBuffer, filterPinsByPrice, haversineM, withinRadiusM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
+import { eventQrValue, parseEventQr } from "../../frontend/src/lib/eventQr.ts";
 import { levelProgress, missionActions, rpsWinner, viewToBBox } from "../../frontend/src/domain/rules.ts";
 
 test("rock-paper-scissors resolution matches server _rps_winner", () => {
@@ -112,6 +113,8 @@ test("meeting plan has the question pool and social games", () => {
   assert.match(note, /Dwie prawdy/);
   assert.match(note, /Instrukcja: Każdy podaje trzy zdania/);
   assert.match(note, new RegExp(gameActivityLine("Dwie prawdy i jedno kłamstwo").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.equal(gameActivityLine("Znajdź kogoś, kto…"), "Znajdź kogoś, kto…");
+  assert.equal(note.includes("Organizator przeprowadzi"), false);
   assert.ok(note.includes("\n\n"));
   const local = syncPlanNote(addCustomQuestion([], "Czy lubisz deszcz?"));
   assert.equal(splitPlan(local).questions.some((q) => q.title === "Czy lubisz deszcz?"), true);
@@ -122,7 +125,7 @@ test("meeting plan has the question pool and social games", () => {
     { price_min: 90, price_max: 120 },
     { price_min: 20, price_max: 30 },
     { price_min: null, price_max: null },
-  ], { min: null, max: 40 }).map((pin) => pin.price_min), [20]);
+  ], { min: null, max: 40 }).map((pin) => pin.price_min), [20, null]);
   assert.equal(STORY_STARTERS.length, 16);
   assert.equal(FIND_PACKS.length, 6);
   assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.category === "challenges" || a.title === "Szachy"), false);
@@ -157,6 +160,9 @@ test("meeting catalog keeps the tasting, game and hobby shelves", () => {
   assert.equal(withinRadiusM({ lat: 52.23, lng: 21.01 }, { lat: 52.24, lng: 21.02 }, 50_000), true);
   assert.equal(withinRadiusM({ lat: 52.23, lng: 21.01 }, { lat: 51.1, lng: 17.0 }, 50_000), false);
   assert.equal(withinRadiusM({ lat: 52.23, lng: 21.01 }, { lat: null, lng: null }, 50_000), false);
+  const eventId = "11111111-1111-1111-1111-111111111111";
+  assert.deepEqual(parseEventQr(eventQrValue(eventId, "AB12CD")), { eventId, code: "AB12CD" });
+  assert.equal(parseEventQr("nie-kod"), null);
   assert.deepEqual(categoryByKey("poznaj")?.subs.map((s) => s.key), ["otwarty_stol", "nowi_w_miescie", "kolacja_nieznajomych"]);
   assert.equal(subcategoryByKey("poznaj", "otwarty_stol")?.templates.length, 0);
   assert.equal(subcategoryByKey("poznaj", "nowi_w_miescie")?.templates.length, 0);

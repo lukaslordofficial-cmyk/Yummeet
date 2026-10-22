@@ -6,10 +6,10 @@ export const CUSTOM_PROMPT_PREFIX = "Znajdź kogoś: ";
 export const QUESTION_RULES =
   "Organizator dodaje pytania do wspólnej puli. Każdy uczestnik losuje po jednym pytaniu, na które może odpowiedzieć. Organizator ustala, ile pytań może wylosować każda osoba.";
 
-export const ACTIVITY_LINE = "Organizator przeprowadzi dla uczestników Zabawę w pytania.";
+export const ACTIVITY_LINE = "Zabawa w pytania";
 
 export function gameActivityLine(title: string) {
-  return `Organizator przeprowadzi dla uczestników zabawę w: ${title}.`;
+  return title;
 }
 
 export function questionInstruction(limit: number) {
@@ -28,7 +28,8 @@ export function gameInstruction(title: string) {
 }
 
 export function isActivityParagraph(text: string) {
-  return text.trim().startsWith("Organizator przeprowadzi dla uczestników");
+  const line = text.trim();
+  return line.startsWith("Organizator przeprowadzi dla uczestników") || line === ACTIVITY_LINE || SOCIAL_GAMES.some((game) => game.title === line);
 }
 
 export const BUILTIN_QUESTIONS = [

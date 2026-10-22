@@ -123,12 +123,12 @@ export function filterPinsByPrice<T extends { price_min?: number | null; price_m
   const matched = pins.filter((pin) => {
     const lo = pin.price_min ?? pin.price_max;
     const hi = pin.price_max ?? pin.price_min;
-    if (lo == null || hi == null) return false;
+    if (lo == null || hi == null) return true;
     if (band.max != null && lo > band.max) return false;
     if (band.min != null && hi < band.min) return false;
     return true;
   });
-  return [...matched].sort((a, b) => (a.price_min ?? a.price_max ?? 0) - (b.price_min ?? b.price_max ?? 0));
+  return matched;
 }
 
 export function formatDuration(s: number): string {

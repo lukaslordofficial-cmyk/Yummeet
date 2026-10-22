@@ -63,8 +63,8 @@ export function PlanEditor({
   const gameList = showCatalog ? SOCIAL_GAMES : SOCIAL_GAMES.filter((g) => selectedGame(g.title));
 
   return (
-    <View style={{ gap: spacing.md }} testID={testID}>
-      <Title size={18} style={center}>Plan spotkania</Title>
+    <View style={{ gap: spacing.xl }} testID={testID}>
+      <Title size={18} style={{ ...center, marginTop: spacing.lg }}>Plan spotkania</Title>
       {browse ? null : (
         <Field
           testID={`${testID}-note`}
@@ -85,7 +85,7 @@ export function PlanEditor({
         <Button testID={`${testID}-note-save`} title="Zapisz notatkę" onPress={() => { noteDirty.current = false; commit(syncPlanNote(setPlanNote(items, note))); }} />
       ) : null}
 
-      <Title size={18} style={center}>Proponowane aktywności</Title>
+      <Title size={18} style={{ ...center, marginTop: spacing.md }}>Proponowane aktywności</Title>
       <ExpandTile testID={`${testID}-questions-toggle`} title="Zabawa w pytania" open={questionsOpen} onPress={() => setQuestionsOpen((open) => !open)} style={{ marginTop: spacing.xl }} />
       {questionsOpen ? (
         <View style={{ gap: spacing.sm }}>
