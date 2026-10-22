@@ -181,7 +181,8 @@ export default function NewEvent() {
                   onChange={setDishes}
                   hint={sub.format === "one_dish" ? "Wszyscy oceniacie to samo danie. Opis zobaczą później ludzie na pinie." : "Różne dania, porcje do dzielenia. Każdy ocenia to, czego spróbował."}
                 />
-              ) : <AttractionPicker picked={picked} onChange={setPicked} />}
+              ) : null}
+              <AttractionPicker picked={picked} onChange={setPicked} />
               <Button testID="new-event-save-button" title="Utwórz spotkanie" loading={busy} onPress={() => void save()} />
             </View>
           </>

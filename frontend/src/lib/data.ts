@@ -327,15 +327,7 @@ export async function myTravelRoutes(): Promise<TravelRouteRow[]> {
 export type { AttractionCategory } from "./attractionsCatalog";
 export async function attractionSuggestions(category?: import("./attractionsCatalog").AttractionCategory) {
   const { fallbackAttractions, FALLBACK_ATTRACTIONS } = await import("./attractionsCatalog");
-  try {
-    let q = supabase.from("attraction_suggestions").select("*").eq("is_active", true).order("sort");
-    if (category) q = q.eq("category", category);
-    const rows = ((await must(q)) as { category?: string }[] | null)?.filter((row) => row.category !== "questions") ?? [];
-    if (rows.length) return rows;
-  } catch {
-    /* tabela jeszcze nie istnieje — lokalne propozycje */
-  }
-  if (category === "questions") return [];
+  if (category === "challenges") return [];
   return category ? fallbackAttractions(category) : FALLBACK_ATTRACTIONS;
 }
 export async function eventAttractions(eventId: string) {
@@ -477,6 +469,7 @@ export type MeetingJournalEntry = {
   capacity: number; seats_taken: number;
   attractions: Array<{ id: string; category: string; title: string; body: string }>;
   photos: Array<{ id: string; photo_url: string; created_at: string }>;
+  story?: Array<{ id: string; body: string; author_id: string; author: string; created_at: string }>;
 };
 export const myMeetingJournal = () => rpc<MeetingJournalEntry[]>("my_meeting_journal", { p_limit: 50 });
 export const addEventPhoto = (eventId: string, photoUrl: string) =>

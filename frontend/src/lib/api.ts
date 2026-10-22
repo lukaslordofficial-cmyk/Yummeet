@@ -28,6 +28,11 @@ const MESSAGES: Record<string, string> = {
   not_joined: "Najpierw dołącz do wydarzenia.",
   not_member: "Tego czatu nie ma już na Twojej liście.",
   no_venue_coords: "Brak współrzędnych miejsca — przy tworzeniu stołu wskaż lokalizację.",
+  not_your_turn: "Teraz kolej innej osoby. Poczekaj na swoją turę.",
+  invalid_line: "Wpisz zdanie (1–1200 znaków).",
+  story_closed: "Organizator zakończył tę historię.",
+  duplicate_line: "To zdanie jest już ostatnim fragmentem historii.",
+  story_members_only: "Dołącz do spotkania, żeby dopisywać historię.",
   location_required: "Włącz GPS, żeby potwierdzić obecność / zobaczyć ranking w okolicy.",
   proximity_only: "Pojedynki tylko w pobliżu — włącz tryb pojedynków w ustawieniach.",
   use_reveal_with_gps: "Kod pojawi się po wykryciu GPS na miejscu w dniu wydarzenia.",
@@ -59,6 +64,9 @@ export function errorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as any).message) : String(e);
   const key = Object.keys(MESSAGES).find((k) => raw.includes(k));
   if (key) return MESSAGES[key];
+  if (raw.includes("event_story")) {
+    return "Wspólna historia wymaga migracji 043_meeting_plan_story.sql w SQL Editorze Supabase.";
+  }
   if (raw.includes("event_set_meeting") || raw.includes("event_add_dish") || raw.includes("dish_ratings") || raw.includes("pin_dish_summary") || raw.includes("event_dish_board")) {
     return "Oceny dań wymagają migracji 040_meeting_categories_dishes.sql w SQL Editorze Supabase.";
   }

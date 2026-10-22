@@ -68,8 +68,9 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 37. **`supabase/migrations/038_poland_osm_website_pins_001.sql`** … **`_061.sql`** — 10 310 lokali gastronomicznych z całej Polski, które w OpenStreetMap mają stronę www (21 października 2026). Uruchom **wszystkie** pliki `038_` po kolei. Plik pomija lokal, jeśli w promieniu 40 m jest już opublikowany pin. Nie dodaje linków Uber Eats, Glovo, Pyszne, Wolt ani Bolt Food.
 38. **`supabase/migrations/039_map_frame_and_route_order.sql`** — kadr do 1500 pinów; Gastro-Trasa sortuje lokale w pasie od najbliższego wobec GPS.
 39. **`supabase/migrations/040_meeting_categories_dishes.sql`** — kategorie spotkań oraz karty dań 1–10. Zwykła ocena lokalu (1–5) zostaje. Średnie potraw widać na pinie.
-40. **`supabase/migrations/041_remove_table_questions.sql`** — usuwa zaszyte pytania przy stole (np. „Ulubione danie z dzieciństwa?”). Gry i wyzwania zostają. Już zapisane atrakcje spotkań nie są kasowane.
+40. **`supabase/migrations/041_remove_table_questions.sql`** — usuwa stare zaszyte pytania przy stole. Już zapisane atrakcje spotkań nie są kasowane.
 41. **`supabase/migrations/042_leave_conversation.sql`** — usuwa czat z listy użytkownika (`conversation_leave`). Rozmowa zostaje u pozostałych osób.
+42. **`supabase/migrations/043_meeting_plan_story.sql`** — plan spotkania jest widoczny przed dołączeniem. Wspólna historia (`event_story_add`) pilnuje kolejki i trafia do dziennika.
 
 ### Szybka naprawa edycji pinu
 1. **`029_fix_pin_updated_xp_cards.sql`**

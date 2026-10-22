@@ -142,7 +142,7 @@ export default function ProfileTab() {
         </Card>
         <Card testID="profile-games-card" onPress={() => router.push("/games")} style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
           <Icon name="dice-multiple" size={26} color={colors.brandSecondary} />
-          <View style={{ flex: 1 }}><Title size={16}>Atrakcje</Title><Body muted>Gry i wyzwania przy stole</Body></View>
+          <View style={{ flex: 1 }}><Title size={16}>Plan spotkania</Title><Body muted>Pytania i gry towarzyskie przy stole</Body></View>
           <Icon name="chevron-right" size={24} color={colors.muted} />
         </Card>
         <Button testID="profile-logout-button" title="Wyloguj się" variant="ghost" icon="logout" onPress={signOut} />
