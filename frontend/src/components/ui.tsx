@@ -95,7 +95,7 @@ export function Field(props: TextInputProps & { label?: string; testID: string }
   const { colors } = useTheme();
   const { label, style, ...rest } = props;
   return (
-    <View style={{ gap: spacing.xs }}>
+    <View style={{ gap: spacing.md }}>
       {label ? <Text style={{ fontFamily: fonts.text, fontSize: 13, color: colors.muted }}>{label}</Text> : null}
       <TextInput placeholderTextColor={colors.muted} {...rest}
         style={[{ minHeight: 52, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: spacing.lg, paddingVertical: spacing.md,

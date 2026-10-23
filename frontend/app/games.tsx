@@ -66,7 +66,7 @@ export default function MeetingPlan() {
           <MeetingPlay eventId={event} items={items} isOrganizer={isOrganizer} scanned={scanned || isOrganizer} />
         )}
         {!event ? (
-          <PlanEditor items={items} canEdit={false} browse play={false} noteCommit="button" />
+          <PlanEditor items={items} canEdit={false} browse play={false} />
         ) : null}
         {event && !joined && !isOrganizer ? <Body muted>Dołącz do spotkania, żeby grać po zeskanowaniu kodu.</Body> : null}
       </ScrollView>

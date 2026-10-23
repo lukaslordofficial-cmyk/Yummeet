@@ -4,12 +4,12 @@ import { Body } from "@/src/components/ui";
 import { isActivityParagraph } from "@/src/lib/meetingPlan";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 
-/** Nazwa zabawy: biały tekst na czarnym tle. */
+/** Akapit „Organizator przeprowadzi…” — czarna czcionka na pomarańczowym tle. */
 export function ActivityName({ children }: { children: string }) {
   const { colors } = useTheme();
   return (
-    <View style={{ backgroundColor: colors.onBrandPrimary, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>
-      <Text style={{ fontFamily: fonts.display, fontSize: 16, lineHeight: 22, color: colors.onBrandSecondary, textAlign: "center" }}>{children}</Text>
+    <View style={{ backgroundColor: colors.brandPrimary, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>
+      <Text style={{ fontFamily: fonts.display, fontSize: 16, lineHeight: 22, color: colors.onBrandPrimary, textAlign: "center" }}>{children}</Text>
     </View>
   );
 }
@@ -19,7 +19,7 @@ export function PlanNoteView({ body, hideQuestions, testID }: { body: string; hi
   const parts = body.split(/\n\n+/).map((part) => part.trim()).filter(Boolean)
     .filter((part) => !hideQuestions || !part.startsWith("• "));
   return (
-    <View testID={testID} style={{ gap: spacing.lg, width: "100%", marginTop: spacing.sm }}>
+    <View testID={testID} style={{ gap: spacing.xl, width: "100%", marginTop: spacing.md }}>
       {parts.map((part, index) => isActivityParagraph(part) ? (
         <ActivityName key={`${index}-${part.slice(0, 24)}`}>{part}</ActivityName>
       ) : (
