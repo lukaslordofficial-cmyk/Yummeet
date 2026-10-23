@@ -20,12 +20,15 @@ export function questionInstruction(limit: number) {
 export const TWO_TRUTHS_INSTRUCTION = "Wpisz dwie prawdziwe rzeczy na twój temat, i jedną która jest kłamstwem.";
 
 export const FIND_SOMEONE_INSTRUCTION =
-  "Opowiedz tak lub nie na zadane pytania i zapisz odpowiedzi. W kolejnej turze, zaznacz przy tych samych pytaniach, kto twoim zdaniem odpowiedział na te pytania tak. Za poprawną odpowiedź + 1 pkt, za negatywną -1pkt. Możesz wstrzymać się od głosu by nie stracić punktów. Zwycięzca, wygrywa drinka lub napój do 20zł na którego musi złożyć się reszta uczestników.";
+  "Opowiedz tak lub nie na zadane pytania i zapisz odpowiedzi. W kolejnej turze, zaznacz przy tych samych pytaniach, kto twoim zdaniem odpowiedział na te pytania tak. Za poprawną odpowiedź + 1 pkt, za negatywną -1pkt. Możesz wstrzymać się od głosu by nie stracić punktów.";
+
+export const RUNAWAY_STORY_INSTRUCTION =
+  "Organizator wybiera zdanie/a startowe, lub ustawia dobór losowy spośród wybranych propozycji. Każdy dopisuje dokładnie jedno zdanie i zostawia haczyk dla kolejnej osoby. Aplikacja pilnuje kolejki.";
 
 const GAME_INSTRUCTIONS: Record<string, string> = {
   "two-truths": `Instrukcja: ${TWO_TRUTHS_INSTRUCTION}`,
   "find-someone": `Instrukcja: ${FIND_SOMEONE_INSTRUCTION}`,
-  "runaway-story": "Instrukcja: Organizator wybiera zdanie startowe. Każdy dopisuje dokładnie jedno zdanie i zostawia haczyk dla kolejnej osoby. Aplikacja pilnuje kolejki.",
+  "runaway-story": `Instrukcja: ${RUNAWAY_STORY_INSTRUCTION}`,
 };
 
 export function gameInstruction(title: string) {
@@ -292,6 +295,22 @@ export function addCustomQuestion(items: PlanItem[], title: string): PlanItem[] 
   return [...items, { key: `custom:${clean}`, category: "questions", title: clean, body: "własne" }];
 }
 
+export type StoryPickMode = "wybierz" | "losowo";
+
+export function storyPickMode(items: { category: string; title: string; body?: string | null }[]): StoryPickMode {
+  const game = SOCIAL_GAMES.find((entry) => entry.id === "runaway-story");
+  const row = game ? items.find((item) => item.category === "games" && item.title === game.title) : null;
+  return row?.body === "losowo" ? "losowo" : "wybierz";
+}
+
+/** Tryb doboru zdań startowych siedzi w treści pozycji tej zabawy. */
+export function setStoryMode(items: PlanItem[], mode: StoryPickMode): PlanItem[] {
+  const game = SOCIAL_GAMES.find((entry) => entry.id === "runaway-story");
+  if (!game) return items;
+  const base = items.some((item) => item.category === "games" && item.title === game.title) ? items : toggleGame(items, game);
+  return base.map((item) => (item.category === "games" && item.title === game.title ? { ...item, body: mode } : item));
+}
+
 export function toggleGame(items: PlanItem[], game: SocialGame): PlanItem[] {
   const hit = items.find((i) => i.category === "games" && i.title === game.title);
   if (hit) {
@@ -368,4 +387,49 @@ export function fallbackAttractions(category: AttractionCategory): AttractionSug
 export function drawIndex(length: number, random = Math.random) {
   if (length <= 0) return -1;
   return Math.min(length - 1, Math.floor(random() * length));
+}
+
+function polishCount(n: number, one: string, few: string, many: string) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (n === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
+/** Ile pytań musi być w puli, żeby każda osoba wylosowała swoją liczbę bez powtórek. */
+export function questionPoolNeed(seats: number, perPerson: number) {
+  const people = Math.max(0, Math.floor(Number(seats)));
+  return people * clampLimit(String(perPerson));
+}
+
+export function isQuestionPlanActive(items: { category: string; title: string }[]) {
+  return items.some((item) => item.title === PLAN_LIMIT_TITLE) || splitPlan(items).questions.length > 0;
+}
+
+export function questionPoolWarning(seats: number, perPerson: number, poolSize: number) {
+  const people = Math.max(0, Math.floor(Number(seats)));
+  const each = clampLimit(String(perPerson));
+  const have = Math.max(0, Math.floor(poolSize));
+  const need = people * each;
+  if (people < 1 || have >= need) return null;
+  const peopleWord = polishCount(people, "osoby", "osób", "osób");
+  const eachWord = polishCount(each, "pytanie", "pytania", "pytań");
+  const needWord = polishCount(need, "pytanie", "pytania", "pytań");
+  return `Dla ${people} ${peopleWord}, po ${each} ${eachWord} na osobę, przygotuj minimum ${need} ${needWord} do puli. Masz teraz ${have}.`;
+}
+
+export function unusedStoryStarters(usedBodies: string[], planned: { title: string; text: string }[] = []) {
+  const used = new Set(usedBodies.map((body) => body.trim()).filter(Boolean));
+  const fresh = (rows: { title: string; text: string }[]) => rows.filter((row) => row.text.trim() && !used.has(row.text.trim()));
+  const pending = fresh(planned);
+  if (pending.length) return pending;
+  return fresh(STORY_STARTERS);
+}
+
+/** Najpierw niewykorzystane zaznaczone propozycje, potem reszta katalogu. */
+export function drawStoryStarter(usedBodies: string[], planned: { title: string; text: string }[] = [], random = Math.random) {
+  const bag = unusedStoryStarters(usedBodies, planned);
+  const index = drawIndex(bag.length, random);
+  return index < 0 ? null : bag[index];
 }

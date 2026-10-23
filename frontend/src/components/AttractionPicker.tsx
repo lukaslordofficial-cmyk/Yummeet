@@ -7,11 +7,28 @@ export type DraftAttraction = PlanItem;
 export function AttractionPicker({
   picked,
   onChange,
+  seats,
+  onScrollHold,
+  onScrollShift,
   testID = "attraction-picker",
 }: {
   picked: DraftAttraction[];
   onChange: (next: DraftAttraction[]) => void;
+  seats?: number;
+  onScrollHold?: () => void;
+  onScrollShift?: (delta: number) => void;
   testID?: string;
 }) {
-  return <PlanEditor testID={testID} items={picked} onChange={onChange} canEdit play={false} />;
+  return (
+    <PlanEditor
+      testID={testID}
+      items={picked}
+      onChange={onChange}
+      canEdit
+      play={false}
+      seats={seats}
+      onScrollHold={onScrollHold}
+      onScrollShift={onScrollShift}
+    />
+  );
 }
