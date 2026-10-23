@@ -138,5 +138,5 @@ export async function forgetSavedLine(kind: SavedKind, body: string): Promise<Sa
   } catch {
     /* zostaje usunięte lokalnie */
   }
-  return loadSavedLines(kind).catch(() => bag[kind]);
+  return bag[kind];
 }

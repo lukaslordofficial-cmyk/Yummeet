@@ -18,8 +18,8 @@ import {
 import { getCurrentPosition } from "@/src/lib/location";
 import { openMeetingCode } from "@/src/lib/meetingEntry";
 import { subcategoryLabel } from "@/src/lib/meetingCatalog";
-import { QUESTION_POOL_GUEST_HEADER, freeNoteText, planActivityBlocks, splitPlan, type PlanItem } from "@/src/lib/meetingPlan";
-import { ActivityName } from "@/src/components/meetings/PlanNoteView";
+import { QUESTION_POOL_GUEST_HEADER, customActivities, freeNoteText, planActivityBlocks, splitPlan, type PlanItem } from "@/src/lib/meetingPlan";
+import { ActivityBody, ActivityName } from "@/src/components/meetings/PlanNoteView";
 import { QrMark } from "@/src/components/meetings/QrMark";
 import { eventQrValue } from "@/src/lib/eventQr";
 import { subscribePostgres } from "@/src/lib/realtime";
@@ -44,25 +44,37 @@ function withinRevealWindow(startsAt: string) {
 function PlanPreview({ rows, organizer }: { rows: Array<{ id: string; category: string; title: string; body: string }>; organizer: boolean }) {
   const { colors } = useTheme();
   const plan = splitPlan(rows);
-  const blocks = planActivityBlocks(rows.map((row) => ({ key: row.id, category: row.category as PlanItem["category"], title: row.title, body: row.body })));
-  const extra = freeNoteText(plan.note?.body ?? "");
-  const empty = blocks.length === 0 && !extra;
+  const items = rows.map((row) => ({ key: row.id, category: row.category as PlanItem["category"], title: row.title, body: row.body }));
+  const blocks = planActivityBlocks(items);
+  const homemade = customActivities(items);
+  const known = new Set([
+    ...homemade.flatMap((activity) => [activity.title, activity.body]),
+    ...blocks.flatMap((block) => [block.title, block.instruction, ...(block.bullets ?? [])]),
+  ].map((part) => part.trim()).filter(Boolean));
+  const extra = freeNoteText(plan.note?.body ?? "").split(/\n\n+/).map((part) => part.trim()).filter((part) => part && !known.has(part));
+  const empty = blocks.length === 0 && homemade.length === 0 && extra.length === 0;
   return (
     <Card testID="event-plan" style={{ gap: spacing.xl, paddingTop: spacing.xl }}>
       <Title size={18} style={{ textAlign: "center", width: "100%", marginBottom: spacing.sm }}>Plan spotkania</Title>
-      {blocks.map((block, index) => (
+      {homemade.map((activity) => (
+        <View key={activity.key} style={{ gap: spacing.md, width: "100%" }}>
+          {activity.title ? <ActivityName>{activity.title}</ActivityName> : null}
+          {activity.body ? <ActivityBody>{activity.body}</ActivityBody> : null}
+        </View>
+      ))}
+      {blocks.filter((block) => block.id !== "custom").map((block, index) => (
         <View key={`${block.id ?? "block"}-${index}`} testID={index === 0 ? "event-plan-note" : undefined} style={{ gap: spacing.md, width: "100%" }}>
           <ActivityName>{block.title}</ActivityName>
           {block.instruction ? <Body style={{ textAlign: "center", color: colors.onSurface }}>{block.instruction}</Body> : null}
-          {block.id === "questions" && !organizer ? <Title size={16} style={{ textAlign: "center", width: "100%" }}>{QUESTION_POOL_GUEST_HEADER}</Title> : null}
+          {block.id === "questions" ? <Title size={16} style={{ textAlign: "center", width: "100%" }}>{QUESTION_POOL_GUEST_HEADER}</Title> : null}
           {(organizer || block.id === "questions") && block.bullets?.length ? block.bullets.map((line) => (
             <Body key={line} style={{ textAlign: "center", color: colors.onSurface }}>• {line}</Body>
           )) : null}
         </View>
       ))}
-      {extra ? extra.split(/\n\n+/).map((part) => (
+      {extra.map((part) => (
         <Body key={part.slice(0, 40)} style={{ textAlign: "center", color: colors.onSurface }}>{part}</Body>
-      )) : null}
+      ))}
       {empty ? <Body muted style={{ textAlign: "center" }}>Organizator jeszcze nie ustawił planu.</Body> : null}
     </Card>
   );

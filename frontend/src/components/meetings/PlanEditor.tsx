@@ -2,16 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { Icon } from "@/src/components/Icon";
-import { Body, Button, Card, Field, Title, haptic } from "@/src/components/ui";
+import { Body, Button, Card, Field, Title, haptic, useToast } from "@/src/components/ui";
 import {
   BUILTIN_QUESTIONS, FIND_PACKS, QUESTION_RULES, SOCIAL_GAMES, STORY_STARTERS,
-  addCustomBody, addCustomHeading, addCustomPrompt, addCustomQuestion, catalogGame, gameInstruction, isCustomHeadingTitle, isQuestionPlanActive, questionPoolWarning, setPlanLimit, setTruthLimit, splitPlan, storyStarterLabel, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
+  addCustomActivity, addCustomPrompt, addCustomQuestion, catalogGame, customActivities, gameInstruction, isQuestionPlanActive, questionPoolWarning, removeCustomActivity, setPlanLimit, setTruthLimit, splitPlan, storyStarterLabel, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
   type PlanItem,
 } from "@/src/lib/meetingPlan";
 import { forgetSavedLine, loadSavedLines, rememberSavedLine } from "@/src/lib/savedLines";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 
-import { PlanNoteView } from "./PlanNoteView";
+import { ActivityBody, ActivityName, PlanNoteView } from "./PlanNoteView";
 
 const FIND_HEADER = "Dodaj lub stwórz pytania, na które uczestnicy, będą odpowiadać";
 const ACCOUNT_LINE = "Twoje pytanie widoczne jedynie na twoim koncie.";
@@ -39,7 +39,9 @@ export function PlanEditor({
   testID?: string;
 }) {
   const { colors } = useTheme();
+  const toast = useToast();
   const plan = splitPlan(items);
+  const homemade = customActivities(items);
   const [customQ, setCustomQ] = useState("");
   const [customP, setCustomP] = useState("");
   const [storyTitle, setStoryTitle] = useState("");
@@ -52,9 +54,10 @@ export function PlanEditor({
   const [openGame, setOpenGame] = useState<string | null>(null);
   const [headingDraft, setHeadingDraft] = useState("");
   const [bodyDraft, setBodyDraft] = useState("");
+  const [activityOpen, setActivityOpen] = useState(false);
+  const droppedQuestions = useRef<Set<string>>(new Set());
   const titleNodes = useRef<Record<string, View | null>>({});
   const planAnchor = useRef<View | null>(null);
-  const questionFieldAnchor = useRef<View | null>(null);
   const center = { textAlign: "center" as const, width: "100%" as const };
   const picked = (on: boolean) => (on ? colors.brandPrimary : undefined);
   const generated = plan.note?.body ?? "";
@@ -77,8 +80,8 @@ export function PlanEditor({
   const savedQuestionSet = new Set(ownQuestions);
   const meetingQuestions = plan.questions
     .map((row) => row.title)
-    .filter((title) => !BUILTIN_QUESTIONS.some((builtin) => builtin === title) && !savedQuestionSet.has(title) && !STORY_STARTERS.some((starter) => starter.title === title));
-  const visibleOwnQuestions = [...ownQuestions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q) && !STORY_STARTERS.some((starter) => starter.title === q)), ...meetingQuestions];
+    .filter((title) => !BUILTIN_QUESTIONS.some((builtin) => builtin === title) && !savedQuestionSet.has(title) && !STORY_STARTERS.some((starter) => starter.title === title) && !droppedQuestions.current.has(title));
+  const visibleOwnQuestions = [...ownQuestions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q) && !STORY_STARTERS.some((starter) => starter.title === q) && !droppedQuestions.current.has(q)), ...meetingQuestions];
   const meetingOnlyPrompts = plan.prompts
     .map((row) => (row.body || row.title).trim())
     .filter((body) => body.length >= 5 && !packPrompts.includes(body) && !savedPrompts.includes(body));
@@ -122,29 +125,22 @@ export function PlanEditor({
   const addOwnQuestion = () => {
     const clean = customQ.trim();
     if (clean.length < 5) return;
-    const field = questionFieldAnchor.current;
-    const hold = (yBefore: number) => {
-      const keep = () => {
-        questionFieldAnchor.current?.measureInWindow((_x, yAfter) => {
-          const delta = yAfter - yBefore;
-          if (Math.abs(delta) < 4 || !scrollRef?.current) return;
-          scrollRef.current.scrollTo({ y: Math.max(0, (scrollOffsetRef?.current ?? 0) + delta), animated: false });
-        });
-      };
-      requestAnimationFrame(keep);
-      setTimeout(keep, 80);
-    };
-    field?.measureInWindow((_x, yBefore) => hold(yBefore));
+    droppedQuestions.current.delete(clean);
     setOwnQuestions((current) => [clean, ...current.filter((line) => line !== clean)].slice(0, 40));
-    void rememberSavedLine("question", clean).then((rows) => setOwnQuestions([clean, ...rows.map((row) => row.body).filter((body) => body !== clean)]));
+    void rememberSavedLine("question", clean).then((rows) => {
+      if (droppedQuestions.current.has(clean)) return;
+      setOwnQuestions([clean, ...rows.map((row) => row.body).filter((body) => body !== clean && !droppedQuestions.current.has(body))]);
+    });
     applySelection(addCustomQuestion(items, clean));
     setCustomQ("");
+    toast("Dodano nowe pytanie.", "success");
   };
 
   const removeOwnQuestion = (body: string) => {
+    droppedQuestions.current.add(body);
     setOwnQuestions((current) => current.filter((line) => line !== body));
-    void forgetSavedLine("question", body).then((rows) => setOwnQuestions(rows.map((row) => row.body)));
-    if (plan.questions.some((row) => row.title === body)) applySelection(toggleQuestion(items, body));
+    void forgetSavedLine("question", body);
+    applySelection(items.filter((item) => item.title !== body));
   };
 
   const addOwnPrompt = () => {
@@ -163,8 +159,8 @@ export function PlanEditor({
 
   const removeOwnPrompt = (body: string) => {
     setSavedPrompts((current) => current.filter((line) => line !== body));
-    void forgetSavedLine("find_prompt", body).then((rows) => setSavedPrompts(rows.map((row) => row.body)));
-    if (plan.prompts.some((row) => row.body === body || row.title.includes(body))) applySelection(togglePrompt(items, body));
+    void forgetSavedLine("find_prompt", body);
+    applySelection(togglePrompt(items, body));
   };
 
   const addOwnStarter = () => {
@@ -188,19 +184,47 @@ export function PlanEditor({
     <View ref={planAnchor} collapsable={false} style={{ gap: spacing.xl }} testID={testID}>
       <Title size={18} style={{ ...center, marginTop: spacing.lg }}>Plan spotkania</Title>
       <Body muted style={center}>Planowane aktywności</Body>
-      <Card testID={`${testID}-plan-window`} style={{ backgroundColor: colors.surfaceTertiary, gap: spacing.md }}>
+      <Card testID={`${testID}-plan-window`} style={{ backgroundColor: colors.surfaceTertiary, gap: spacing.lg }}>
+        {homemade.map((activity) => (
+          <View key={activity.key} testID={`${testID}-custom-${activity.key}`} style={{ gap: spacing.md }}>
+            {activity.title ? <ActivityName>{activity.title}</ActivityName> : null}
+            {activity.body ? <ActivityBody>{activity.body}</ActivityBody> : null}
+            {canEdit ? (
+              <Button
+                testID={`${testID}-custom-remove-${activity.key}`}
+                title="Usuń z planu"
+                variant="ghost"
+                onPress={() => applySelection(removeCustomActivity(items, activity.keys))}
+              />
+            ) : null}
+          </View>
+        ))}
         {generated ? (
-          <PlanNoteView testID={`${testID}-generated`} body={generated} headings={plan.custom.filter((item) => isCustomHeadingTitle(item.title)).map((item) => item.body.trim())} />
-        ) : (
+          <PlanNoteView testID={`${testID}-generated`} body={generated} />
+        ) : homemade.length ? null : (
           <Body muted style={center}>Tu pojawią się nagłówki, opisy i zabawy dodane do planu.</Body>
         )}
       </Card>
       {canEdit ? (
         <View style={{ gap: spacing.lg }}>
-          <Button testID={`${testID}-custom-heading-add`} title="Dodaj nagłówek z tytułem aktywności" onPress={() => { applySelection(addCustomHeading(items, headingDraft)); setHeadingDraft(""); }} />
-          <Field testID={`${testID}-custom-heading`} label="Tytuł aktywności" value={headingDraft} onChangeText={setHeadingDraft} placeholder="np. Przywitanie przy stole" />
-          <Button testID={`${testID}-custom-body-add`} title="Dodaj treść aktywności" onPress={() => { applySelection(addCustomBody(items, bodyDraft)); setBodyDraft(""); }} />
-          <Field testID={`${testID}-custom-body`} label="Treść aktywności" value={bodyDraft} onChangeText={setBodyDraft} placeholder="Opis, który zobaczą goście" multiline style={{ minHeight: 80 }} />
+          {activityOpen ? (
+            <>
+              <Field testID={`${testID}-custom-heading`} label="Tytuł aktywności" value={headingDraft} onChangeText={setHeadingDraft} placeholder="np. Przywitanie przy stole" />
+              <Field testID={`${testID}-custom-body`} label="Opis aktywności" value={bodyDraft} onChangeText={setBodyDraft} placeholder="Opis, który zobaczą goście" multiline style={{ minHeight: 80 }} />
+              <Button
+                testID={`${testID}-custom-activity-save`}
+                title="Zapisz"
+                onPress={() => {
+                  applySelection(addCustomActivity(items, headingDraft, bodyDraft));
+                  setHeadingDraft("");
+                  setBodyDraft("");
+                  setActivityOpen(false);
+                }}
+              />
+            </>
+          ) : (
+            <Button testID={`${testID}-custom-activity-add`} title="Dodaj tytuł i opis aktywności" onPress={() => setActivityOpen(true)} />
+          )}
         </View>
       ) : null}
 
@@ -224,7 +248,7 @@ export function PlanEditor({
             <Text testID={`${testID}-pool-warning`} style={{ color: colors.error, fontFamily: fonts.text, fontSize: 15, lineHeight: 22, textAlign: "center" }}>{poolWarning}</Text>
           ) : null}
           {canEdit ? (
-            <View ref={questionFieldAnchor} collapsable={false} style={{ gap: spacing.lg }}>
+            <View style={{ gap: spacing.lg }}>
               <Field testID={`${testID}-custom-question`} label="Własne pytanie" value={customQ} onChangeText={setCustomQ} placeholder="Wpisz swoje pytanie" />
               <Button testID={`${testID}-custom-question-add`} title="Dodaj własne pytanie" onPress={addOwnQuestion} />
             </View>

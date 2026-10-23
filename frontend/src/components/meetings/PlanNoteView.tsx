@@ -14,6 +14,15 @@ export function ActivityName({ children }: { children: string }) {
   );
 }
 
+/** Wpisany opis aktywności — biała czcionka na czarnym tle. */
+export function ActivityBody({ children }: { children: string }) {
+  return (
+    <View style={{ backgroundColor: "#000000", borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>
+      <Text style={{ fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: "#FFFFFF", textAlign: "center" }}>{children}</Text>
+    </View>
+  );
+}
+
 function groupPlanParts(parts: string[], headings: string[]) {
   const groups: { title?: string; rest: string[] }[] = [];
   for (const part of parts) {
