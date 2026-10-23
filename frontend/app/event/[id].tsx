@@ -23,7 +23,7 @@ import { ActivityName } from "@/src/components/meetings/PlanNoteView";
 import { QrMark } from "@/src/components/meetings/QrMark";
 import { eventQrValue } from "@/src/lib/eventQr";
 import { subscribePostgres } from "@/src/lib/realtime";
-import { FREE_PHOTO_SLOTS, pickPinPhoto } from "@/src/lib/storage";
+import { pickPinPhoto } from "@/src/lib/storage";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 import type { EventRow, Profile } from "@/src/types";
@@ -356,7 +356,7 @@ export default function EventDetail() {
         {(joined || isOrganizer) ? (
           <Card testID="event-photos">
             <Title size={16}>Zdjęcia ze stołu</Title>
-            <Body muted>Zużywają sloty zdjęć ({FREE_PHOTO_SLOTS} max). Po ~7 dniach slot się zwalnia.</Body>
+            <Body muted>Zdjęcie zostaje w dzienniku spotkania na stałe.</Body>
             {photos.length ? (
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 {photos.map((p) => (

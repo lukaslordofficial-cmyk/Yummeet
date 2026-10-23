@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { Icon } from "@/src/components/Icon";
+import { Stars } from "@/src/components/Stars";
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
+import { saveOrganizerReview } from "@/src/lib/data";
 import {
   QUESTION_PLAY_INSTRUCTION, RUNAWAY_STORY_PLAY_GUEST, RUNAWAY_STORY_PLAY_ORGANIZER, STORY_STARTERS,
   TWO_TRUTHS_TITLE, plannedGameKeys, splitPlan, storyPickMode, storyStarterLabel, type PlanItem,
@@ -45,6 +47,8 @@ export function MeetingPlay({
   const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
+  const [rating, setRating] = useState(0);
+  const [rated, setRated] = useState(false);
   const advanced = useRef<string | null>(null);
   const keys = selectedKeys(items);
   const labels = keys.map((key) => LABELS[key] ?? key);
@@ -79,7 +83,7 @@ export function MeetingPlay({
 
   const live = board?.status === "live" ? board.game_key : null;
   useEffect(() => {
-    if (!isOrganizer || !board) return;
+    if (!board) return;
     const done = (live === "two-truths" && (board.truths?.phase ?? 0) >= 3) || (live === "find-someone" && (board.find?.phase ?? 0) >= 3);
     if (!done) return;
     const stamp = `${live}:${board.round_no}`;
@@ -89,7 +93,36 @@ export function MeetingPlay({
       void run(() => eventPlayNext(eventId));
     }, 10000);
     return () => clearTimeout(timer);
-  }, [board, isOrganizer, live, eventId]);
+  }, [board, live, eventId]);
+
+  useEffect(() => {
+    if (board?.my_review) {
+      setRating(board.my_review);
+      setRated(true);
+    }
+  }, [board?.my_review]);
+
+  const goNext = () => void run(() => eventPlayNext(eventId));
+
+  const rateOrganizer = async (stars: number) => {
+    setRating(stars);
+    setBusy(true);
+    try {
+      await saveOrganizerReview({
+        eventId,
+        hospitality: stars,
+        organization: stars,
+        atmosphere: stars,
+        communication: stars,
+      });
+      setRated(true);
+      setError(null);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!isOrganizer && !scanned) {
     return (
@@ -160,6 +193,8 @@ export function MeetingPlay({
             eventId={eventId}
             truths={board?.truths}
             onBoard={(next) => { setBoard(next); setError(null); }}
+            onNext={goNext}
+            nextBusy={busy}
           />
         </View>
       ) : null}
@@ -174,6 +209,8 @@ export function MeetingPlay({
               participants={board?.participants ?? []}
               find={board?.find}
               onBoard={(next) => { setBoard(next); setError(null); }}
+              onNext={goNext}
+              nextBusy={busy}
             />
           )}
         </View>
@@ -183,7 +220,17 @@ export function MeetingPlay({
         <View style={{ gap: spacing.xl }} testID="meeting-play-story">
           <Title size={22} style={{ textAlign: "center" }}>Historia, która wymknęła się spod kontroli</Title>
           <Body style={{ textAlign: "center" }}>{isOrganizer ? RUNAWAY_STORY_PLAY_ORGANIZER : RUNAWAY_STORY_PLAY_GUEST}</Body>
-          <StoryTable eventId={eventId} canClose={isOrganizer} planned={plannedStarters} mode={storyPickMode(items)} />
+          <StoryTable
+            eventId={eventId}
+            canClose={isOrganizer}
+            planned={plannedStarters}
+            mode={storyPickMode(items)}
+            onFinishMeeting={() => {
+              setClosing(true);
+              void eventFinishMeeting(eventId).then(() => load()).catch((e) => setError(errorMessage(e))).finally(() => setClosing(false));
+            }}
+            finishing={closing}
+          />
         </View>
       ) : null}
     </>
@@ -235,6 +282,17 @@ export function MeetingPlay({
       ) : null}
 
       {gameView}
+
+      {board?.can_rate ? (
+        <Card testID="meeting-rate-organizer" style={{ gap: spacing.md }}>
+          <Title size={18} style={{ textAlign: "center" }}>Oceń organizatora za to spotkanie</Title>
+          <Body style={{ textAlign: "center" }}>Wybierz ocenę od 1 do 5.</Body>
+          <View style={{ alignItems: "center" }}>
+            <Stars testID="meeting-organizer-stars" value={rating} onChange={(value) => void rateOrganizer(value)} />
+          </View>
+          {rated ? <Body style={{ textAlign: "center" }}>Zapisano Twoją ocenę: {rating}/5.</Body> : null}
+        </Card>
+      ) : null}
     </View>
   );
 }

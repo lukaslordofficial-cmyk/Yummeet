@@ -9,8 +9,8 @@ import { Icon } from "@/src/components/Icon";
 import { Body, Button, EmptyState, ErrorState, Header, Loading, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import { myMeetingJournal, type MeetingJournalEntry } from "@/src/lib/data";
-import { PlanNoteView } from "@/src/components/meetings/PlanNoteView";
-import { splitPlan, storyColorKey } from "@/src/lib/meetingPlan";
+import { ActivityName, PlanNoteView } from "@/src/components/meetings/PlanNoteView";
+import { journalRecapBlocks, splitPlan } from "@/src/lib/meetingPlan";
 import { radius, spacing, useTheme } from "@/src/theme";
 
 export default function MeetingsJournal() {
@@ -77,41 +77,14 @@ export default function MeetingsJournal() {
                       </View>
                     ) : null}
                     {plan.legacy.length ? plan.legacy.map((g) => <Body key={g.id ?? g.title}>• {g.title}</Body>) : null}
-                    {item.question_draws?.length ? (
-                      <View style={{ gap: 4 }}>
-                        <Body muted>Zabawa w pytania</Body>
-                        {item.question_draws.map((row, index) => (
-                          <Body key={`${row.name}-${index}`}>{row.name}: {row.question}</Body>
+                    {journalRecapBlocks(item).map((block) => (
+                      <View key={block.title} testID={`journal-recap-${block.title.slice(0, 24)}`} style={{ gap: spacing.lg, marginTop: spacing.md }}>
+                        <ActivityName>{block.title}</ActivityName>
+                        {block.lines.map((line, index) => (
+                          <Body key={`${block.title}-${index}`} style={{ textAlign: "center", color: colors.onSurface }}>{line}</Body>
                         ))}
                       </View>
-                    ) : null}
-                    {item.truths?.length ? (
-                      <View style={{ gap: 4 }}>
-                        <Body muted>Prawda czy kłamstwo</Body>
-                        {item.truths.map((row) => (
-                          <Body key={row.name}>{row.name}: prawdy — {row.truths.filter(Boolean).join("; ")}. Kłamstwo — {row.lie}.</Body>
-                        ))}
-                      </View>
-                    ) : null}
-                    {item.find_answers?.length || item.find_scores?.length ? (
-                      <View style={{ gap: 4 }}>
-                        <Body muted>Znajdź kogoś, kto…</Body>
-                        {item.find_scores?.map((row) => (
-                          <Body key={`score-${row.name}`}>{row.name}: {row.score} pkt</Body>
-                        ))}
-                        {item.find_answers?.map((row, index) => (
-                          <Body key={`${row.prompt}-${row.name}-${index}`}>{row.name} na „{row.prompt}”: {row.yes ? "tak" : "nie"}</Body>
-                        ))}
-                      </View>
-                    ) : null}
-                    {item.story?.length ? (
-                      <View style={{ gap: 4 }}>
-                        <Body muted>Historia</Body>
-                        {item.story.map((line) => (
-                          <Body key={line.id} style={{ color: colors[storyColorKey(line.author_id)] }}>{line.author}: {line.body}</Body>
-                        ))}
-                      </View>
-                    ) : null}
+                    ))}
                     {item.photos?.length ? (
                       <View style={{ gap: spacing.sm }}>
                         <Body muted>Wspólne zdjęcia</Body>

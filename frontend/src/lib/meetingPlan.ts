@@ -617,3 +617,92 @@ export function drawStoryStarter(usedBodies: string[], planned: { title: string;
   const index = drawIndex(bag.length, random);
   return index < 0 ? null : bag[index];
 }
+
+export const JOURNAL_QUESTIONS_TITLE = "Organizator przeprowadził dla uczestników Zabawę w pytania.";
+export const JOURNAL_TRUTHS_TITLE = "Organizator przeprowadził zabawę w Prawda czy kłamstwo?";
+export const JOURNAL_FIND_TITLE = "Organizator przeprowadził dla uczestników zabawę w Znajdź kogoś kto…";
+export const JOURNAL_STORY_TITLE = "Historia, która wymknęła się spod kontroli";
+
+export type JournalRecapBlock = { title: string; lines: string[] };
+
+export function journalRecapBlocks(entry: {
+  question_draws?: Array<{ name: string; question: string; round?: number }>;
+  truths?: Array<{ name: string; lines?: Array<{ text: string; truth: boolean }>; truths?: Array<string | null>; lie?: string; score?: number }>;
+  truths_ranking?: Array<{ name: string; score: number }>;
+  find_yes?: Array<{ prompt: string; names: string[] }>;
+  find_answers?: Array<{ prompt: string; name: string; yes: boolean }>;
+  find_scores?: Array<{ name: string; score: number }>;
+  stories?: Array<{ title: string; lines: Array<{ author: string; body: string }> }>;
+  story?: Array<{ author: string; body: string }>;
+}): JournalRecapBlock[] {
+  const blocks: JournalRecapBlock[] = [];
+  if (entry.question_draws?.length) {
+    blocks.push({
+      title: JOURNAL_QUESTIONS_TITLE,
+      lines: entry.question_draws.map((row) => `${row.name}: ${row.question}`),
+    });
+  }
+  if (entry.truths?.length || entry.truths_ranking?.length) {
+    const lines: string[] = [];
+    for (const row of entry.truths ?? []) {
+      if (row.lines?.length) {
+        lines.push(row.name);
+        for (const item of row.lines) {
+          lines.push(`• ${item.text} — ${item.truth ? "prawda" : "fałsz"}`);
+        }
+        if (row.score != null) lines.push(`Punkty: ${row.score}`);
+      } else {
+        const truths = (row.truths ?? []).filter(Boolean).join("; ");
+        lines.push(`${row.name}: prawdy — ${truths}. Kłamstwo — ${row.lie ?? ""}.`);
+      }
+    }
+    if (entry.truths_ranking?.length) {
+      lines.push("Ranking");
+      entry.truths_ranking.forEach((row, index) => {
+        lines.push(`${index + 1}. ${row.name}: ${row.score} pkt`);
+      });
+    }
+    blocks.push({ title: JOURNAL_TRUTHS_TITLE, lines });
+  }
+  if (entry.find_yes?.length || entry.find_answers?.length || entry.find_scores?.length) {
+    const lines: string[] = [];
+    if (entry.find_yes?.length) {
+      for (const row of entry.find_yes) {
+        lines.push(findPromptSummary(row.prompt));
+        lines.push(`Tak: ${row.names.length ? row.names.join(", ") : "nikt"}`);
+      }
+    } else {
+      const byPrompt = new Map<string, string[]>();
+      for (const row of entry.find_answers ?? []) {
+        if (!row.yes) continue;
+        const list = byPrompt.get(row.prompt) ?? [];
+        list.push(row.name);
+        byPrompt.set(row.prompt, list);
+      }
+      for (const [prompt, names] of byPrompt) {
+        lines.push(findPromptSummary(prompt));
+        lines.push(`Tak: ${names.join(", ")}`);
+      }
+    }
+    if (entry.find_scores?.length) {
+      lines.push("Ranking");
+      entry.find_scores.forEach((row, index) => {
+        lines.push(`${index + 1}. ${row.name}: ${row.score} pkt`);
+      });
+    }
+    blocks.push({ title: JOURNAL_FIND_TITLE, lines });
+  }
+  const stories = [...(entry.stories ?? [])];
+  if (entry.story?.length) {
+    const current = entry.story.map((line) => line.body).join("\n");
+    const already = stories.some((story) => (story.lines ?? []).map((line) => line.body).join("\n") === current);
+    if (!already) stories.push({ title: JOURNAL_STORY_TITLE, lines: entry.story });
+  }
+  for (const story of stories) {
+    blocks.push({
+      title: story.title?.trim() || JOURNAL_STORY_TITLE,
+      lines: (story.lines ?? []).map((line) => `${line.author}: ${line.body}`),
+    });
+  }
+  return blocks;
+}

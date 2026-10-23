@@ -478,9 +478,18 @@ export type MeetingJournalEntry = {
   photos: Array<{ id: string; photo_url: string; created_at: string }>;
   story?: Array<{ id: string; body: string; author_id: string; author: string; created_at: string }>;
   question_draws?: Array<{ name: string; question: string; round: number }>;
-  truths?: Array<{ name: string; truths: Array<string | null>; lie: string }>;
+  truths?: Array<{
+    name: string;
+    lines?: Array<{ text: string; truth: boolean }>;
+    truths?: Array<string | null>;
+    lie?: string;
+    score?: number;
+  }>;
+  truths_ranking?: Array<{ name: string; score: number }>;
+  find_yes?: Array<{ prompt: string; names: string[] }>;
   find_answers?: Array<{ prompt: string; name: string; yes: boolean }>;
   find_scores?: Array<{ name: string; score: number }>;
+  stories?: Array<{ title: string; lines: Array<{ author: string; author_id?: string; body: string }> }>;
 };
 export const myMeetingJournal = () => rpc<MeetingJournalEntry[]>("my_meeting_journal", { p_limit: 50 });
 export const addEventPhoto = (eventId: string, photoUrl: string) =>

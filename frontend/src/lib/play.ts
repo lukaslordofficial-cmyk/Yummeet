@@ -47,6 +47,7 @@ export type PlayBoard = {
   notice: string | null;
   limit: number;
   games: string[];
+  games_remaining?: boolean;
   your_turn: boolean;
   turn_name: string | null;
   participants: PlayParticipant[];
@@ -57,6 +58,8 @@ export type PlayBoard = {
   my_picks: PlayPick[];
   find?: FindState | null;
   truths?: TruthState | null;
+  my_review?: number | null;
+  can_rate?: boolean;
 };
 
 export const eventPlayBoard = (eventId: string) => rpc<PlayBoard>("event_play_board", { p_event: eventId });

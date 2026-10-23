@@ -17,12 +17,16 @@ export function FindRound({
   participants,
   find,
   onBoard,
+  onNext,
+  nextBusy,
 }: {
   eventId: string;
   prompts: string[];
   participants: PlayParticipant[];
   find: FindState | null | undefined;
   onBoard: (next: Awaited<ReturnType<typeof eventFindSubmit>>) => void;
+  onNext?: () => void;
+  nextBusy?: boolean;
 }) {
   const { colors } = useTheme();
   const { session } = useAuth();
@@ -86,6 +90,9 @@ export function FindRound({
             <Body>Punkty za to zdanie: {row.points > 0 ? `+${row.points}` : row.points}</Body>
           </Card>
         ))}
+        {onNext ? (
+          <Button testID="find-next-game" title="Przejdź do następnej zabawy" loading={nextBusy} onPress={onNext} />
+        ) : null}
       </View>
     );
   }
