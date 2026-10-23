@@ -8,15 +8,15 @@ export function AttractionPicker({
   picked,
   onChange,
   seats,
-  onScrollHold,
-  onScrollShift,
+  scrollRef,
+  scrollOffsetRef,
   testID = "attraction-picker",
 }: {
   picked: DraftAttraction[];
   onChange: (next: DraftAttraction[]) => void;
   seats?: number;
-  onScrollHold?: () => void;
-  onScrollShift?: (delta: number) => void;
+  scrollRef?: { current: { scrollTo: (options: { y: number; animated?: boolean }) => void } | null };
+  scrollOffsetRef?: { current: number };
   testID?: string;
 }) {
   return (
@@ -27,8 +27,8 @@ export function AttractionPicker({
       canEdit
       play={false}
       seats={seats}
-      onScrollHold={onScrollHold}
-      onScrollShift={onScrollShift}
+      scrollRef={scrollRef}
+      scrollOffsetRef={scrollOffsetRef}
     />
   );
 }

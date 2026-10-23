@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, isQuestionPoolItem, isStoryStarterTitle, splitPlan, storyPickMode, storyStarterLabel, type PlanItem } from "@/src/lib/meetingPlan";
+import { RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, TWO_TRUTHS_INSTRUCTION, isQuestionPoolItem, isStoryStarterTitle, splitPlan, storyPickMode, storyStarterLabel, type PlanItem } from "@/src/lib/meetingPlan";
 import { eventPlayAnswered, eventPlayBoard, eventPlayDraw, eventPlayStart, type PlayBoard } from "@/src/lib/play";
 import { spacing } from "@/src/theme";
 
@@ -142,7 +142,7 @@ export function MeetingPlay({
       {live === "two-truths" ? (
         <View style={{ gap: spacing.md }} testID="meeting-play-truths">
           <Title size={22} style={{ textAlign: "center" }}>Dwie prawdy i jedno kłamstwo</Title>
-          <Body style={{ textAlign: "center" }}>{SOCIAL_GAMES.find((game) => game.id === "two-truths")?.blurb}</Body>
+          <Body style={{ textAlign: "center" }}>{TWO_TRUTHS_INSTRUCTION}</Body>
           <TwoTruthsPlay
             eventId={eventId}
             truths={board?.truths}

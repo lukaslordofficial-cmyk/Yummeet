@@ -46,7 +46,7 @@ export default function NewEvent() {
   const [picked, setPicked] = useState<DraftAttraction[]>([]);
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const scrollAnchor = useRef({ y: 0, target: null as number | null, until: 0 });
+  const scrollOffsetRef = useRef(0);
 
   const cat = categoryByKey(category);
   const sub = subcategoryByKey(category, subKey);
@@ -128,21 +128,6 @@ export default function NewEvent() {
     }
   };
 
-  const pinScroll = (y: number) => {
-    scrollAnchor.current.target = y;
-    scrollAnchor.current.until = Date.now() + 900;
-    const apply = () => {
-      if (Date.now() > scrollAnchor.current.until) return;
-      scrollRef.current?.scrollTo({ y: scrollAnchor.current.target ?? y, animated: false });
-    };
-    apply();
-    setTimeout(apply, 60);
-    setTimeout(apply, 220);
-    setTimeout(apply, 480);
-  };
-  const holdScroll = () => pinScroll(scrollAnchor.current.target ?? scrollAnchor.current.y);
-  const shiftScroll = (delta: number) => pinScroll(Math.max(0, (scrollAnchor.current.target ?? scrollAnchor.current.y) + delta));
-
   const header = step === "category" ? "Nowe spotkanie" : step === "sub" ? cat?.label ?? "Kategoria" : step === "idea" ? sub?.label ?? "Pomysł" : "Ustawienia spotkania";
 
   return (
@@ -153,16 +138,7 @@ export default function NewEvent() {
         bottomOffset={24}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
-        onScroll={(event) => {
-          const y = event.nativeEvent.contentOffset.y;
-          const anchor = scrollAnchor.current;
-          if (anchor.target != null && Date.now() < anchor.until && Math.abs(y - anchor.target) > 2) {
-            scrollRef.current?.scrollTo({ y: anchor.target, animated: false });
-            return;
-          }
-          anchor.y = y;
-          if (Date.now() >= anchor.until) anchor.target = null;
-        }}
+        onScroll={(event) => { scrollOffsetRef.current = event.nativeEvent.contentOffset.y; }}
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}
       >
         {step === "category" ? (
@@ -221,8 +197,8 @@ export default function NewEvent() {
                   hint={sub.format === "one_dish" ? "Wszyscy oceniacie to samo danie. Opis zobaczą później ludzie na pinie." : "Różne dania, porcje do dzielenia. Każdy ocenia to, czego spróbował."}
                 />
               ) : null}
-              <AttractionPicker picked={picked} onChange={setPicked} seats={capacity} onScrollHold={holdScroll} onScrollShift={shiftScroll} />
-              <Button testID="new-event-save-button" title="Utwórz spotkanie" variant="ink" loading={busy} onPress={() => void save()} style={{ marginTop: spacing.xxl, minHeight: 76 }} />
+              <AttractionPicker picked={picked} onChange={setPicked} seats={capacity} scrollRef={scrollRef} scrollOffsetRef={scrollOffsetRef} />
+              <Button testID="new-event-save-button" title="Utwórz spotkanie" variant="primary" loading={busy} onPress={() => void save()} style={{ marginTop: spacing.xxl, minHeight: 76 }} />
             </View>
           </>
         ) : null}
