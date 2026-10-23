@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import type { ReactNode } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Dimensions, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/src/components/Icon";
@@ -30,8 +30,10 @@ function AppTabBar({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  // Na Androidzie czarny pas pod ikonami zabiera KeyboardProvider. Drugi inset tutaj znowu odsunąłby ikony od przycisków systemu.
-  const bottomPad = Platform.OS === "ios" ? insets.bottom : 0;
+  const shortest = Math.min(Dimensions.get("window").width, Dimensions.get("window").height);
+  const isTablet = shortest >= 600;
+  // Telefon z gestami: zero paddingu. Tablet ma własny pasek systemowy i potrzebuje insets.bottom, żeby ikony nie weszły pod przyciski.
+  const bottomPad = Platform.OS === "ios" || isTablet ? insets.bottom : 0;
   const focusedKey = state.routes[state.index]?.key;
   const routes = state.routes.filter((route) => {
     const options = descriptors[route.key]?.options;

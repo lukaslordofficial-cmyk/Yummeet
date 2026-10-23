@@ -8,7 +8,7 @@ import { eventTruthGuess, eventTruthStake, eventTruthSubmit, type PlayBoard, typ
 import { spacing } from "@/src/theme";
 
 const STAKE = "Czy chcesz aby zwycięzca wygrał napój/drinka/przekąskę do 20 zł, ufundowaną przez pozostałych uczestników? Stanie się tak, jeśli wszyscy uczestnicy odpowiedzą Tak.";
-const PRIZE = "Wszyscy uczestnicy zgodzili się na ufundowanie nagrody dla zwycięzcy.";
+const PRIZE = "Wszyscy uczestnicy zgodzili się na ufundowanie nagrody dla zwycięzcy. W przypadku remisu, o wygranej decyduje pojedynek w papier nożyce kamień.";
 const SAVED = "Zapisano odpowiedzi";
 const WAIT = "Czekaj na pozostałych";
 
