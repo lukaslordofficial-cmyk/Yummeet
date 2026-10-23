@@ -17,13 +17,14 @@ export function questionInstruction(limit: number) {
   return `Instrukcja: Organizator dodaje pytania do puli. Każdy uczestnik losuje pytania, na które może udzielić odpowiedzi, ale nie musi. Pytań na osobę ${limit}.`;
 }
 
-export const TWO_TRUTHS_INSTRUCTION = "Wpisz dwie prawdziwe rzeczy na twój temat, i jedną która jest kłamstwem.";
+export const TWO_TRUTHS_INSTRUCTION =
+  "Każdy uczestnik wpisuje dwie prawdziwe rzeczy na swój temat i jedną, która jest kłamstwem. Po zapisaniu odpowiedzi, uczestnicy próbują rozszyfrować pozostałych i odgadnąć co było kłamstwem. Aplikacja podlicza punkty i pokazuje uczestnikom wyniki.";
 
 export const FIND_SOMEONE_INSTRUCTION =
-  "Opowiedz tak lub nie na zadane pytania i zapisz odpowiedzi. W kolejnej turze, zaznacz przy tych samych pytaniach, kto twoim zdaniem odpowiedział na te pytania tak. Za poprawną odpowiedź + 1 pkt, za negatywną -1pkt. Możesz wstrzymać się od głosu by nie stracić punktów.";
+  "Każdy uczestnik odpowiada „Tak” lub „Nie” na pytania które stworzysz, lub wybierzesz z poniższej listy i zapisuje odpowiedzi. W kolejnej turze, przy tych samych pytaniach, zaznacza kto jego zdaniem odpowiedział na nie twierdząco. Poprawna odpowiedź daje 1pkt, negatywna -1pkt. Można wstrzymać się od odpowiedzi, by nie ryzykować utraty punktów. Aplikacja podlicza punkty i ogłasza zwycięzcę.";
 
 export const RUNAWAY_STORY_INSTRUCTION =
-  "Organizator wybiera zdanie/a startowe, lub ustawia dobór losowy spośród wybranych propozycji. Każdy dopisuje dokładnie jedno zdanie i zostawia haczyk dla kolejnej osoby. Aplikacja pilnuje kolejki.";
+  "Organizator wybiera zdanie/a startowe, lub ustawia dobór losowy spośród wybranych propozycji. Każdy dopisuje dokładnie jedno zdanie i zostawia haczyk dla kolejnej osoby. Aplikacja pilnuje kolejki, notuje kto jakie zdanie dopisał, pokazuje wszystkim aktualną treść historii, i daje podpowiedzi na żądanie.";
 
 const GAME_INSTRUCTIONS: Record<string, string> = {
   "two-truths": `Instrukcja: ${TWO_TRUTHS_INSTRUCTION}`,
@@ -42,8 +43,8 @@ export function isActivityParagraph(text: string) {
 }
 
 export function isStoryStarterTitle(title: string) {
-  const clean = title.startsWith(STORY_STARTER_PREFIX) ? title.slice(STORY_STARTER_PREFIX.length) : title;
-  return STORY_STARTERS.some((starter) => starter.title === clean);
+  if (title.startsWith(STORY_STARTER_PREFIX)) return true;
+  return STORY_STARTERS.some((starter) => starter.title === title);
 }
 
 export function storyStarterLabel(title: string) {
@@ -315,10 +316,17 @@ export function toggleGame(items: PlanItem[], game: SocialGame): PlanItem[] {
   const hit = items.find((i) => i.category === "games" && i.title === game.title);
   if (hit) {
     const rest = items.filter((i) => i.key !== hit.key);
-    if (game.id !== "runaway-story") return rest;
-    return rest.filter((i) => !isStoryStarterTitle(i.title));
+    if (game.id === "runaway-story") return rest.filter((i) => !isStoryStarterTitle(i.title));
+    if (game.id === "find-someone") return rest.filter((i) => !i.title.startsWith(CUSTOM_PROMPT_PREFIX));
+    return rest;
   }
   return [...items, { key: `game:${game.id}`, category: "games", title: game.title, body: game.blurb }];
+}
+
+function withFindSomeone(items: PlanItem[]) {
+  const game = SOCIAL_GAMES.find((entry) => entry.id === "find-someone");
+  if (!game || items.some((item) => item.category === "games" && item.title === game.title)) return items;
+  return toggleGame(items, game);
 }
 
 export function addCustomPrompt(items: PlanItem[], prompt: string): PlanItem[] {
@@ -326,7 +334,7 @@ export function addCustomPrompt(items: PlanItem[], prompt: string): PlanItem[] {
   if (clean.length < 5) return items;
   const title = `${CUSTOM_PROMPT_PREFIX}${clean}`.slice(0, 200);
   if (items.some((i) => i.title === title)) return items;
-  return [...items, { key: `prompt:${clean}`, category: "games", title, body: clean }];
+  return [...withFindSomeone(items), { key: `prompt:${clean}`, category: "games", title, body: clean }];
 }
 
 export function togglePrompt(items: PlanItem[], prompt: string): PlanItem[] {

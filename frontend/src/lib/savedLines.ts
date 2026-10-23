@@ -2,25 +2,61 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { supabase } from "./supabase";
 
-const LOCAL_KEY = "yummeet.saved-find-prompts";
-const KIND = "find_prompt";
+export type SavedKind = "find_prompt" | "question" | "story_starter";
 
-function cleanLine(body: string) {
-  return body.trim().slice(0, 500);
+export type SavedLine = { label: string; body: string };
+
+const LOCAL_KEY = "yummeet.saved-lines";
+const LEGACY_QUESTIONS = "yummeet.own-questions";
+const LEGACY_FIND = "yummeet.saved-find-prompts";
+
+function cleanBody(body: string) {
+  return body.trim().slice(0, 2000);
 }
 
-async function readLocal(): Promise<string[]> {
+function cleanLabel(label: string) {
+  return label.trim().slice(0, 80);
+}
+
+async function readBag(): Promise<Record<SavedKind, SavedLine[]>> {
+  const empty = { find_prompt: [], question: [], story_starter: [] };
   try {
     const raw = await AsyncStorage.getItem(LOCAL_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((line) => typeof line === "string" && cleanLine(line).length >= 5).map((line) => cleanLine(line)).slice(-40) : [];
+    const parsed = raw ? JSON.parse(raw) : {};
+    for (const kind of Object.keys(empty) as SavedKind[]) {
+      const rows = Array.isArray(parsed?.[kind]) ? parsed[kind] : [];
+      empty[kind] = rows
+        .map((row: { label?: string; body?: string }) => ({ label: cleanLabel(String(row?.label ?? "")), body: cleanBody(String(row?.body ?? "")) }))
+        .filter((row: SavedLine) => row.body.length >= 5)
+        .slice(0, 40);
+    }
   } catch {
-    return [];
+    /* pusta kopia */
   }
+  return empty;
 }
 
-async function writeLocal(lines: string[]) {
-  await AsyncStorage.setItem(LOCAL_KEY, JSON.stringify(lines.slice(-40)));
+async function writeBag(bag: Record<SavedKind, SavedLine[]>) {
+  await AsyncStorage.setItem(LOCAL_KEY, JSON.stringify(bag));
+}
+
+async function legacyLines(): Promise<Partial<Record<SavedKind, SavedLine[]>>> {
+  const extra: Partial<Record<SavedKind, SavedLine[]>> = {};
+  try {
+    const questions = await AsyncStorage.getItem(LEGACY_QUESTIONS);
+    const parsedQ = questions ? JSON.parse(questions) : [];
+    if (Array.isArray(parsedQ)) {
+      extra.question = parsedQ.filter((line) => typeof line === "string").map((line) => ({ label: "", body: cleanBody(line) })).filter((row) => row.body.length >= 5);
+    }
+  } catch { /* brak starej listy */ }
+  try {
+    const prompts = await AsyncStorage.getItem(LEGACY_FIND);
+    const parsedP = prompts ? JSON.parse(prompts) : [];
+    if (Array.isArray(parsedP)) {
+      extra.find_prompt = parsedP.filter((line) => typeof line === "string").map((line) => ({ label: "", body: cleanBody(line) })).filter((row) => row.body.length >= 5);
+    }
+  } catch { /* brak starej listy */ }
+  return extra;
 }
 
 async function accountId() {
@@ -28,61 +64,79 @@ async function accountId() {
   return data.session?.user.id ?? null;
 }
 
-/** Zdania „Znajdź kogoś” zapisane na koncie, którym użytkownik się loguje. Najnowsze na końcu. */
-export async function loadSavedFindPrompts(): Promise<string[]> {
-  const local = await readLocal();
+function mergeFront(current: SavedLine[], incoming: SavedLine[]) {
+  const next = [...current];
+  for (const row of incoming) {
+    if (!next.some((item) => item.body === row.body && item.label === row.label)) next.unshift(row);
+  }
+  return next.slice(0, 40);
+}
+
+/** Własne zdania na koncie logowania. Najnowsze są na początku listy. */
+export async function loadSavedLines(kind: SavedKind): Promise<SavedLine[]> {
+  const bag = await readBag();
+  const legacy = await legacyLines();
+  bag[kind] = mergeFront(bag[kind], legacy[kind] ?? []);
+  await writeBag(bag);
   const userId = await accountId();
-  if (!userId) return local;
+  if (!userId) return bag[kind];
   try {
     const { data, error } = await supabase
       .from("user_saved_lines")
-      .select("body")
+      .select("label, body")
       .eq("user_id", userId)
-      .eq("kind", KIND)
-      .order("created_at", { ascending: true });
-    if (error) return local;
-    const remote = (data ?? []).map((row) => cleanLine(String(row.body ?? ""))).filter((line) => line.length >= 5);
-    const extras = local.filter((line) => !remote.includes(line));
-    for (const body of extras) {
-      const { error: insertError } = await supabase.from("user_saved_lines").insert({ user_id: userId, kind: KIND, body });
+      .eq("kind", kind)
+      .order("created_at", { ascending: false });
+    if (error) return bag[kind];
+    const remote = (data ?? [])
+      .map((row) => ({ label: cleanLabel(String(row.label ?? "")), body: cleanBody(String(row.body ?? "")) }))
+      .filter((row) => row.body.length >= 5);
+    const extras = bag[kind].filter((row) => !remote.some((item) => item.body === row.body));
+    for (const row of extras) {
+      const { error: insertError } = await supabase.from("user_saved_lines").insert({ user_id: userId, kind, body: row.body, label: row.label });
       if (insertError) break;
     }
-    const rows = [...remote, ...extras].slice(-40);
-    await writeLocal(rows);
+    const rows = mergeFront(remote, extras);
+    bag[kind] = rows;
+    await writeBag(bag);
     return rows;
   } catch {
-    return local;
+    return bag[kind];
   }
 }
 
-export async function rememberSavedFindPrompt(body: string): Promise<string[]> {
-  const clean = cleanLine(body);
-  const current = await loadSavedFindPrompts();
+export async function rememberSavedLine(kind: SavedKind, body: string, label = ""): Promise<SavedLine[]> {
+  const clean = cleanBody(body);
+  const name = cleanLabel(label);
+  const current = await loadSavedLines(kind);
   if (clean.length < 5) return current;
-  const next = [...current.filter((line) => line !== clean), clean].slice(-40);
-  await writeLocal(next);
+  const next = [{ label: name, body: clean }, ...current.filter((row) => row.body !== clean)].slice(0, 40);
+  const bag = await readBag();
+  bag[kind] = next;
+  await writeBag(bag);
   const userId = await accountId();
   if (!userId) return next;
   try {
-    await supabase.from("user_saved_lines").delete().eq("user_id", userId).eq("kind", KIND).eq("body", clean);
-    const { error } = await supabase.from("user_saved_lines").insert({ user_id: userId, kind: KIND, body: clean });
+    await supabase.from("user_saved_lines").delete().eq("user_id", userId).eq("kind", kind).eq("body", clean);
+    const { error } = await supabase.from("user_saved_lines").insert({ user_id: userId, kind, body: clean, label: name });
     if (error) return next;
   } catch {
-    /* tabela albo sieć — zostaje kopia na telefonie */
+    /* zostaje kopia na telefonie */
   }
   return next;
 }
 
-export async function forgetSavedFindPrompt(body: string): Promise<string[]> {
-  const clean = cleanLine(body);
-  const next = (await readLocal()).filter((line) => line !== clean);
-  await writeLocal(next);
+export async function forgetSavedLine(kind: SavedKind, body: string): Promise<SavedLine[]> {
+  const clean = cleanBody(body);
+  const bag = await readBag();
+  bag[kind] = bag[kind].filter((row) => row.body !== clean);
+  await writeBag(bag);
   const userId = await accountId();
-  if (!userId) return next;
+  if (!userId) return bag[kind];
   try {
-    await supabase.from("user_saved_lines").delete().eq("user_id", userId).eq("kind", KIND).eq("body", clean);
+    await supabase.from("user_saved_lines").delete().eq("user_id", userId).eq("kind", kind).eq("body", clean);
   } catch {
     /* zostaje usunięte lokalnie */
   }
-  return (await loadSavedFindPrompts().catch(() => next));
+  return loadSavedLines(kind).catch(() => bag[kind]);
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { Icon } from "@/src/components/Icon";
@@ -8,13 +8,15 @@ import {
   addCustomPrompt, addCustomQuestion, gameInstruction, isQuestionPlanActive, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyStarterLabel, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
   type PlanItem,
 } from "@/src/lib/meetingPlan";
-import { loadOwnQuestions, rememberOwnQuestion } from "@/src/lib/ownQuestions";
-import { forgetSavedFindPrompt, loadSavedFindPrompts, rememberSavedFindPrompt } from "@/src/lib/savedLines";
+import { forgetSavedLine, loadSavedLines, rememberSavedLine } from "@/src/lib/savedLines";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 
 import { PlanNoteView } from "./PlanNoteView";
 
 const FIND_HEADER = "Dodaj lub stwórz pytania, na które uczestnicy, będą odpowiadać";
+const ACCOUNT_LINE = "Twoje pytanie widoczne jedynie na twoim koncie.";
+
+type PlanScroll = { scrollTo: (options: { y: number; animated?: boolean }) => void };
 
 export function PlanEditor({
   items,
@@ -22,8 +24,8 @@ export function PlanEditor({
   canEdit,
   browse = false,
   seats,
-  onScrollHold,
-  onScrollShift,
+  scrollRef,
+  scrollOffsetRef,
   testID = "plan-editor",
 }: {
   items: PlanItem[];
@@ -32,20 +34,22 @@ export function PlanEditor({
   play: boolean;
   browse?: boolean;
   seats?: number;
-  onScrollHold?: () => void;
-  onScrollShift?: (delta: number) => void;
+  scrollRef?: { current: PlanScroll | null };
+  scrollOffsetRef?: { current: number };
   testID?: string;
 }) {
   const { colors } = useTheme();
   const plan = splitPlan(items);
   const [customQ, setCustomQ] = useState("");
   const [customP, setCustomP] = useState("");
+  const [storyTitle, setStoryTitle] = useState("");
+  const [storyText, setStoryText] = useState("");
   const [ownQuestions, setOwnQuestions] = useState<string[]>([]);
   const [savedPrompts, setSavedPrompts] = useState<string[]>([]);
+  const [ownStarters, setOwnStarters] = useState<{ title: string; text: string }[]>([]);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [gamesOpen, setGamesOpen] = useState(false);
   const [openGame, setOpenGame] = useState<string | null>(null);
-  const noteHeight = useRef(0);
   const center = { textAlign: "center" as const, width: "100%" as const };
   const picked = (on: boolean) => (on ? colors.brandPrimary : undefined);
   const generated = plan.note?.body ?? "";
@@ -54,63 +58,104 @@ export function PlanEditor({
   const poolWarning = typeof seats === "number" && poolOn ? questionPoolWarning(seats, plan.limit, plan.questions.length) : null;
   const mode = storyPickMode(items);
 
-  useEffect(() => { void loadOwnQuestions().then(setOwnQuestions); }, []);
-  useEffect(() => { void loadSavedFindPrompts().then(setSavedPrompts); }, []);
+  useEffect(() => {
+    void loadSavedLines("question").then((rows) => setOwnQuestions(rows.map((row) => row.body)));
+    void loadSavedLines("find_prompt").then((rows) => setSavedPrompts(rows.map((row) => row.body)));
+    void loadSavedLines("story_starter").then((rows) => setOwnStarters(rows.map((row) => ({ title: row.label || row.body.slice(0, 42), text: row.body }))));
+  }, []);
 
-  const hold = () => onScrollHold?.();
   const commit = (next: PlanItem[]) => onChange?.(next);
-  const applySelection = (next: PlanItem[]) => {
-    hold();
-    commit(syncPlanNote(next));
-  };
+  const applySelection = (next: PlanItem[]) => commit(syncPlanNote(next));
   const selectedGame = (title: string) => plan.games.some((g) => g.title === title);
   const showCatalog = canEdit || browse;
   const questionList = showCatalog ? BUILTIN_QUESTIONS : BUILTIN_QUESTIONS.filter((q) => plan.questions.some((row) => row.title === q));
   const gameList = showCatalog ? SOCIAL_GAMES : SOCIAL_GAMES.filter((g) => selectedGame(g.title));
+  const savedQuestionSet = new Set(ownQuestions);
+  const meetingQuestions = plan.questions
+    .map((row) => row.title)
+    .filter((title) => !BUILTIN_QUESTIONS.some((builtin) => builtin === title) && !savedQuestionSet.has(title) && !STORY_STARTERS.some((starter) => starter.title === title));
+  const visibleOwnQuestions = [...ownQuestions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q) && !STORY_STARTERS.some((starter) => starter.title === q)), ...meetingQuestions];
   const meetingOnlyPrompts = plan.prompts
     .map((row) => (row.body || row.title).trim())
     .filter((body) => body.length >= 5 && !packPrompts.includes(body) && !savedPrompts.includes(body));
-  const customPrompts = [...meetingOnlyPrompts, ...savedPrompts.filter((body) => !packPrompts.includes(body))];
+  const customPrompts = [...savedPrompts.filter((body) => !packPrompts.includes(body)), ...meetingOnlyPrompts];
+  const catalogTitles = new Set(STORY_STARTERS.map((starter) => starter.title));
+  const meetingStarters = plan.starters
+    .map((row) => ({ title: storyStarterLabel(row.title), text: (row.body || "").trim() }))
+    .filter((starter) => starter.title.length > 1 && starter.text.length > 4 && !catalogTitles.has(starter.title) && !ownStarters.some((row) => row.title === starter.title));
+  const customStarters = [...ownStarters.filter((starter) => !catalogTitles.has(starter.title)), ...meetingStarters];
+
+  const openGameTile = (id: string) => {
+    const next = openGame === id ? null : id;
+    const y = scrollOffsetRef?.current ?? 0;
+    setOpenGame(next);
+    if (next !== "runaway-story" || y < 8) return;
+    const restore = () => scrollRef?.current?.scrollTo({ y, animated: false });
+    requestAnimationFrame(restore);
+    setTimeout(restore, 70);
+    setTimeout(restore, 160);
+  };
+
+  const addOwnQuestion = () => {
+    const clean = customQ.trim();
+    if (clean.length < 5) return;
+    setOwnQuestions((current) => [clean, ...current.filter((line) => line !== clean)].slice(0, 40));
+    void rememberSavedLine("question", clean).then((rows) => setOwnQuestions(rows.map((row) => row.body)));
+    applySelection(addCustomQuestion(items, clean));
+    setCustomQ("");
+  };
+
+  const removeOwnQuestion = (body: string) => {
+    setOwnQuestions((current) => current.filter((line) => line !== body));
+    void forgetSavedLine("question", body).then((rows) => setOwnQuestions(rows.map((row) => row.body)));
+    if (plan.questions.some((row) => row.title === body)) applySelection(toggleQuestion(items, body));
+  };
 
   const addOwnPrompt = () => {
     const clean = customP.trim();
     if (clean.length < 5) return;
-    hold();
     if (packPrompts.includes(clean)) {
       if (!plan.prompts.some((row) => row.body === clean)) applySelection(togglePrompt(items, clean));
       setCustomP("");
       return;
     }
-    setSavedPrompts((current) => [...current.filter((line) => line !== clean), clean].slice(-40));
-    void rememberSavedFindPrompt(clean).then(setSavedPrompts);
+    setSavedPrompts((current) => [clean, ...current.filter((line) => line !== clean)].slice(0, 40));
+    void rememberSavedLine("find_prompt", clean).then((rows) => setSavedPrompts(rows.map((row) => row.body)));
     applySelection(addCustomPrompt(items, clean));
     setCustomP("");
   };
 
   const removeOwnPrompt = (body: string) => {
-    hold();
     setSavedPrompts((current) => current.filter((line) => line !== body));
-    void forgetSavedFindPrompt(body).then(setSavedPrompts);
+    void forgetSavedLine("find_prompt", body).then((rows) => setSavedPrompts(rows.map((row) => row.body)));
     if (plan.prompts.some((row) => row.body === body || row.title.includes(body))) applySelection(togglePrompt(items, body));
+  };
+
+  const addOwnStarter = () => {
+    const title = storyTitle.trim();
+    const text = storyText.trim();
+    if (title.length < 2 || text.length < 5) return;
+    setOwnStarters((current) => [{ title, text }, ...current.filter((row) => row.title !== title)].slice(0, 40));
+    void rememberSavedLine("story_starter", text, title).then((rows) => setOwnStarters(rows.map((row) => ({ title: row.label || row.body.slice(0, 42), text: row.body }))));
+    if (!plan.starters.some((row) => storyStarterLabel(row.title) === title)) applySelection(toggleStoryStarter(items, { title, text }));
+    setStoryTitle("");
+    setStoryText("");
+  };
+
+  const removeOwnStarter = (title: string, text: string) => {
+    setOwnStarters((current) => current.filter((row) => row.title !== title));
+    void forgetSavedLine("story_starter", text).then((rows) => setOwnStarters(rows.map((row) => ({ title: row.label || row.body.slice(0, 42), text: row.body }))));
+    if (plan.starters.some((row) => storyStarterLabel(row.title) === title)) applySelection(toggleStoryStarter(items, { title, text }));
   };
 
   return (
     <View style={{ gap: spacing.xl }} testID={testID}>
-      <View
-        onLayout={(event) => {
-          const height = event.nativeEvent.layout.height;
-          const delta = noteHeight.current === 0 ? 0 : height - noteHeight.current;
-          noteHeight.current = height;
-          if (Math.abs(delta) > 1) onScrollShift?.(delta);
-        }}
-      >
-        <Title size={18} style={{ ...center, marginTop: spacing.lg }}>Plan spotkania</Title>
-        <Body muted style={center}>Planowane aktywności</Body>
-        {generated ? <PlanNoteView testID={`${testID}-generated`} body={generated} /> : null}
-      </View>
+      <Title size={18} style={{ ...center, marginTop: spacing.lg }}>Plan spotkania</Title>
+      <Body muted style={center}>Planowane aktywności</Body>
+      {generated ? <PlanNoteView testID={`${testID}-generated`} body={generated} /> : null}
 
       <Title size={18} style={{ ...center, marginTop: spacing.md }}>Proponowane aktywności</Title>
-      <ExpandTile testID={`${testID}-questions-toggle`} title="Zabawa w pytania" open={questionsOpen} onPress={() => { hold(); setQuestionsOpen((open) => !open); }} style={{ marginTop: spacing.xl }} />
+      <ExpandTile testID={`${testID}-questions-toggle`} title="Zabawa w pytania" open={questionsOpen} onPress={() => setQuestionsOpen((open) => !open)} style={{ marginTop: spacing.xl }} />
       {questionsOpen ? (
         <View style={{ gap: spacing.xl, marginTop: spacing.md }}>
           <Body muted testID={`${testID}-question-rules`}>{QUESTION_RULES}</Body>
@@ -131,15 +176,20 @@ export function PlanEditor({
           {canEdit ? (
             <View style={{ gap: spacing.lg }}>
               <Field testID={`${testID}-custom-question`} label="Własne pytanie" value={customQ} onChangeText={setCustomQ} placeholder="Wpisz swoje pytanie" />
-              <Button testID={`${testID}-custom-question-add`} title="Dodaj własne pytanie" onPress={() => {
-                hold();
-                void rememberOwnQuestion(customQ).then(setOwnQuestions);
-                applySelection(addCustomQuestion(items, customQ));
-                setCustomQ("");
-              }} />
+              <Button testID={`${testID}-custom-question-add`} title="Dodaj własne pytanie" onPress={addOwnQuestion} />
             </View>
           ) : null}
           <View style={{ gap: spacing.md }}>
+          {visibleOwnQuestions.map((q) => (
+            <OwnLine
+              key={`own-q-${q}`}
+              testID={`${testID}-local-${q}`}
+              text={q}
+              chosen={plan.questions.some((row) => row.title === q)}
+              onPress={canEdit ? () => applySelection(plan.questions.some((row) => row.title === q) ? toggleQuestion(items, q) : addCustomQuestion(items, q)) : undefined}
+              onRemove={canEdit ? () => removeOwnQuestion(q) : undefined}
+            />
+          ))}
           {questionList.map((q) => {
             const on = plan.questions.some((row) => row.title === q);
             return (
@@ -148,26 +198,11 @@ export function PlanEditor({
               </Card>
             );
           })}
-          {ownQuestions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q) && !STORY_STARTERS.some((starter) => starter.title === q)).map((q) => {
-            const on = plan.questions.some((row) => row.title === q);
-            return (
-              <Card key={`local-${q}`} testID={`${testID}-local-${q}`} accent={picked(on)} onPress={canEdit ? () => applySelection(on ? toggleQuestion(items, q) : addCustomQuestion(items, q)) : undefined}>
-                <Title size={16} style={center}>{q}</Title>
-                <Body muted style={center}>Twoje pytanie, tylko na tym telefonie</Body>
-              </Card>
-            );
-          })}
-          {plan.questions.filter((q) => !BUILTIN_QUESTIONS.some((builtin) => builtin === q.title) && !ownQuestions.includes(q.title) && !STORY_STARTERS.some((starter) => starter.title === q.title)).map((q) => (
-            <Card key={q.key} testID={`${testID}-own-${q.key}`} accent={picked(plan.questions.some((row) => row.title === q.title))} onPress={canEdit ? () => applySelection(toggleQuestion(items, q.title)) : undefined}>
-              <Title size={16} style={center}>{q.title}</Title>
-              <Body muted style={center}>Własne pytanie tego spotkania</Body>
-            </Card>
-          ))}
           </View>
         </View>
       ) : null}
 
-      <ExpandTile testID={`${testID}-games-toggle`} title="Gry i zabawy towarzyskie" open={gamesOpen} onPress={() => { hold(); setGamesOpen((open) => !open); }} />
+      <ExpandTile testID={`${testID}-games-toggle`} title="Gry i zabawy towarzyskie" open={gamesOpen} onPress={() => setGamesOpen((open) => !open)} />
       {gamesOpen ? <Body muted style={center}>Gry towarzyskie, które można rozegrać podczas speed friendingu.</Body> : null}
       {gamesOpen ? gameList.map((g) => {
         const on = selectedGame(g.title);
@@ -176,83 +211,93 @@ export function PlanEditor({
           <View key={g.id} style={{ gap: spacing.lg }}>
             <Card
               testID={`${testID}-game-${g.id}`}
-              onPress={() => { hold(); setOpenGame(open ? null : g.id); }}
+              onPress={() => openGameTile(g.id)}
               style={{ backgroundColor: colors.onBrandPrimary, borderColor: on ? colors.brandPrimary : colors.onBrandPrimary, borderWidth: on ? 2 : 1 }}
             >
               <Title size={16} style={{ ...center, color: colors.onBrandSecondary }}>{g.title}</Title>
             </Card>
             {open ? (
-              <View style={{ gap: spacing.lg, paddingHorizontal: spacing.sm }}>
-                <Body style={center}>{g.id === "runaway-story" ? `Instrukcja: ${RUNAWAY_STORY_INSTRUCTION}` : (gameInstruction(g.title) || g.blurb)}</Body>
-                {canEdit ? (
-                  <Button testID={`${testID}-game-toggle-${g.id}`} title={on ? "Usuń z planu" : "Dodaj do planu"} onPress={() => { hold(); applySelection(toggleGame(items, g)); }} />
+              <View style={{ gap: g.id === "runaway-story" ? spacing.xxl : spacing.xl, paddingHorizontal: spacing.sm }}>
+                <Body style={center}>{gameInstruction(g.title) || g.blurb}</Body>
+                {canEdit && g.id !== "find-someone" ? (
+                  <Button testID={`${testID}-game-toggle-${g.id}`} title={on ? "Usuń z planu" : "Dodaj do planu"} onPress={() => applySelection(toggleGame(items, g))} />
                 ) : null}
-                {g.id === "find-someone" && on ? (
-                  <View style={{ gap: spacing.md }}>
+                {canEdit && g.id === "find-someone" && on ? (
+                  <Button testID={`${testID}-game-toggle-${g.id}`} title="Usuń z planu" onPress={() => applySelection(toggleGame(items, g))} />
+                ) : null}
+                {g.id === "find-someone" ? (
+                  <View style={{ gap: spacing.xl }}>
                     <Title size={16} testID={`${testID}-find-header`} style={center}>{FIND_HEADER}</Title>
-                    {packPrompts.map((prompt) => {
-                      const chosen = plan.prompts.some((row) => row.body === prompt);
-                      return (
-                        <Card key={prompt} testID={`${testID}-prompt-${prompt.slice(0, 24)}`} accent={picked(chosen)} onPress={canEdit ? () => applySelection(togglePrompt(items, prompt)) : undefined}>
-                          <Title size={16} style={center}>{prompt}</Title>
-                        </Card>
-                      );
-                    })}
-                    {customPrompts.map((prompt) => {
-                      const chosen = plan.prompts.some((row) => row.body === prompt);
-                      return (
-                        <Card key={`saved-${prompt}`} testID={`${testID}-saved-prompt-${prompt.slice(0, 24)}`} accent={picked(chosen)}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-                            <Pressable
-                              accessibilityRole="button"
-                              disabled={!canEdit}
-                              onPress={canEdit ? () => applySelection(togglePrompt(items, prompt)) : undefined}
-                              style={{ flex: 1 }}
-                            >
-                              <Title size={16} style={center}>{prompt}</Title>
-                            </Pressable>
-                            {canEdit ? (
-                              <Pressable
-                                testID={`${testID}-prompt-remove-${prompt.slice(0, 24)}`}
-                                accessibilityRole="button"
-                                accessibilityLabel="Usuń to pytanie"
-                                hitSlop={8}
-                                onPress={() => removeOwnPrompt(prompt)}
-                                style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}
-                              >
-                                <Text style={{ color: colors.error, fontFamily: fonts.display, fontSize: 28, lineHeight: 32 }}>−</Text>
-                              </Pressable>
-                            ) : null}
-                          </View>
-                        </Card>
-                      );
-                    })}
                     {canEdit ? (
-                      <View style={{ gap: spacing.lg, marginTop: spacing.sm }}>
-                        <Field testID={`${testID}-custom-prompt`} label="Własne zdanie do tej gry" value={customP} onChangeText={setCustomP} placeholder="…najprędzej zamówi deser przed daniem" />
-                        <Button testID={`${testID}-custom-prompt-add`} title="Dodaj własne zdanie" onPress={addOwnPrompt} />
+                      <View style={{ gap: spacing.lg }}>
+                        <Field testID={`${testID}-custom-prompt`} label="Własne pytanie" value={customP} onChangeText={setCustomP} placeholder="…najprędzej zamówi deser przed daniem" />
+                        <Button testID={`${testID}-custom-prompt-add`} title="Dodaj własne pytanie" onPress={addOwnPrompt} />
                       </View>
                     ) : null}
+                    <View style={{ gap: spacing.md }}>
+                      {customPrompts.map((prompt) => {
+                        const chosen = plan.prompts.some((row) => row.body === prompt);
+                        return (
+                          <OwnLine
+                            key={`saved-${prompt}`}
+                            testID={`${testID}-saved-prompt-${prompt.slice(0, 24)}`}
+                            text={prompt}
+                            chosen={chosen}
+                            onPress={canEdit ? () => applySelection(togglePrompt(items, prompt)) : undefined}
+                            onRemove={canEdit ? () => removeOwnPrompt(prompt) : undefined}
+                          />
+                        );
+                      })}
+                      {packPrompts.map((prompt) => {
+                        const chosen = plan.prompts.some((row) => row.body === prompt);
+                        return (
+                          <Card key={prompt} testID={`${testID}-prompt-${prompt.slice(0, 24)}`} accent={picked(chosen)} onPress={canEdit ? () => applySelection(togglePrompt(items, prompt)) : undefined}>
+                            <Title size={16} style={center}>{prompt}</Title>
+                          </Card>
+                        );
+                      })}
+                    </View>
                   </View>
                 ) : null}
                 {g.id === "runaway-story" ? (
-                  <View style={{ gap: spacing.md }}>
+                  <View style={{ gap: spacing.xxl }}>
                     {canEdit ? (
                       <View style={{ flexDirection: "row", gap: spacing.md }}>
                         <Button testID={`${testID}-story-mode-wybierz`} title="Wybierz" variant={mode === "wybierz" ? "primary" : "secondary"} onPress={() => applySelection(setStoryMode(items, "wybierz"))} style={{ flex: 1 }} />
                         <Button testID={`${testID}-story-mode-losowo`} title="Losowo" variant={mode === "losowo" ? "primary" : "secondary"} onPress={() => applySelection(setStoryMode(items, "losowo"))} style={{ flex: 1 }} />
                       </View>
                     ) : null}
-                    {STORY_STARTERS.map((starter) => (
-                      <StoryProposal
-                        key={starter.title}
-                        testID={`${testID}-story-${starter.title}`}
-                        title={starter.title}
-                        text={starter.text}
-                        chosen={plan.starters.some((row) => storyStarterLabel(row.title) === starter.title)}
-                        onPress={canEdit ? () => applySelection(toggleStoryStarter(items, starter)) : undefined}
-                      />
-                    ))}
+                    {canEdit ? (
+                      <View style={{ gap: spacing.lg }}>
+                        <Field testID={`${testID}-custom-story-title`} label="Tytuł własnego początku" value={storyTitle} onChangeText={setStoryTitle} placeholder="Krótki tytuł" />
+                        <Field testID={`${testID}-custom-story-text`} label="Początek historii z haczykiem" value={storyText} onChangeText={setStoryText} placeholder="Zdanie startowe, które zostawia haczyk…" multiline style={{ minHeight: 100 }} />
+                        <Button testID={`${testID}-custom-story-add`} title="Dodaj własny początek" onPress={addOwnStarter} />
+                      </View>
+                    ) : null}
+                    <View style={{ gap: spacing.md }}>
+                      {customStarters.map((starter) => (
+                        <StoryProposal
+                          key={`own-${starter.title}`}
+                          testID={`${testID}-story-own-${starter.title}`}
+                          title={starter.title}
+                          text={starter.text}
+                          own
+                          chosen={plan.starters.some((row) => storyStarterLabel(row.title) === starter.title)}
+                          onPress={canEdit ? () => applySelection(toggleStoryStarter(items, starter)) : undefined}
+                          onRemove={canEdit ? () => removeOwnStarter(starter.title, starter.text) : undefined}
+                        />
+                      ))}
+                      {STORY_STARTERS.map((starter) => (
+                        <StoryProposal
+                          key={starter.title}
+                          testID={`${testID}-story-${starter.title}`}
+                          title={starter.title}
+                          text={starter.text}
+                          chosen={plan.starters.some((row) => storyStarterLabel(row.title) === starter.title)}
+                          onPress={canEdit ? () => applySelection(toggleStoryStarter(items, starter)) : undefined}
+                        />
+                      ))}
+                    </View>
                   </View>
                 ) : null}
               </View>
@@ -267,15 +312,37 @@ export function PlanEditor({
   );
 }
 
-function StoryProposal({ title, text, chosen, onPress, testID }: { title: string; text: string; chosen: boolean; onPress?: () => void; testID: string }) {
+function OwnLine({ text, chosen, onPress, onRemove, testID }: { text: string; chosen: boolean; onPress?: () => void; onRemove?: () => void; testID: string }) {
+  const { colors } = useTheme();
+  const center = { textAlign: "center" as const, width: "100%" as const };
+  return (
+    <Card testID={testID} accent={chosen ? colors.brandPrimary : undefined}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+        <Pressable accessibilityRole="button" disabled={!onPress} onPress={onPress} style={{ flex: 1, gap: spacing.sm }}>
+          <Title size={16} style={center}>{text}</Title>
+          <Body muted style={center}>{ACCOUNT_LINE}</Body>
+        </Pressable>
+        {onRemove ? (
+          <Pressable testID={`${testID}-remove`} accessibilityRole="button" accessibilityLabel="Usuń to pytanie" hitSlop={8} onPress={onRemove} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: colors.error, fontFamily: fonts.display, fontSize: 28, lineHeight: 32 }}>−</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
+function StoryProposal({ title, text, chosen, own, onPress, onRemove, testID }: { title: string; text: string; chosen: boolean; own?: boolean; onPress?: () => void; onRemove?: () => void; testID: string }) {
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
   const center = { textAlign: "center" as const, width: "100%" as const };
   return (
     <Card testID={testID} accent={chosen ? colors.brandPrimary : undefined}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-        <Pressable accessibilityRole="button" onPress={onPress ?? (() => setOpen((value) => !value))} style={{ flex: 1 }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.sm }}>
+        <Pressable accessibilityRole="button" onPress={onPress ?? (() => setOpen((value) => !value))} style={{ flex: 1, gap: spacing.sm }}>
           <Title size={16} style={center}>{title}</Title>
+          {open ? <Body style={center}>{text}</Body> : null}
+          {own ? <Body muted style={center}>{ACCOUNT_LINE}</Body> : null}
         </Pressable>
         <Pressable
           testID={`${testID}-expand`}
@@ -288,8 +355,12 @@ function StoryProposal({ title, text, chosen, onPress, testID }: { title: string
         >
           <Icon name={open ? "chevron-up" : "chevron-down"} size={22} color={colors.brandPrimary} />
         </Pressable>
+        {onRemove ? (
+          <Pressable testID={`${testID}-remove`} accessibilityRole="button" accessibilityLabel="Usuń to pytanie" hitSlop={8} onPress={onRemove} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: colors.error, fontFamily: fonts.display, fontSize: 28, lineHeight: 32 }}>−</Text>
+          </Pressable>
+        ) : null}
       </View>
-      {open ? <Body style={{ ...center, marginTop: spacing.sm }}>{text}</Body> : null}
     </Card>
   );
 }
