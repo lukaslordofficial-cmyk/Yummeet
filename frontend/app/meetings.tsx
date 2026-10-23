@@ -77,6 +77,33 @@ export default function MeetingsJournal() {
                       </View>
                     ) : null}
                     {plan.legacy.length ? plan.legacy.map((g) => <Body key={g.id ?? g.title}>• {g.title}</Body>) : null}
+                    {item.question_draws?.length ? (
+                      <View style={{ gap: 4 }}>
+                        <Body muted>Zabawa w pytania</Body>
+                        {item.question_draws.map((row, index) => (
+                          <Body key={`${row.name}-${index}`}>{row.name}: {row.question}</Body>
+                        ))}
+                      </View>
+                    ) : null}
+                    {item.truths?.length ? (
+                      <View style={{ gap: 4 }}>
+                        <Body muted>Dwie prawdy i jedno kłamstwo</Body>
+                        {item.truths.map((row) => (
+                          <Body key={row.name}>{row.name}: prawdy — {row.truths.filter(Boolean).join("; ")}. Kłamstwo — {row.lie}.</Body>
+                        ))}
+                      </View>
+                    ) : null}
+                    {item.find_answers?.length || item.find_scores?.length ? (
+                      <View style={{ gap: 4 }}>
+                        <Body muted>Znajdź kogoś, kto…</Body>
+                        {item.find_scores?.map((row) => (
+                          <Body key={`score-${row.name}`}>{row.name}: {row.score} pkt</Body>
+                        ))}
+                        {item.find_answers?.map((row, index) => (
+                          <Body key={`${row.prompt}-${row.name}-${index}`}>{row.name} na „{row.prompt}”: {row.yes ? "tak" : "nie"}</Body>
+                        ))}
+                      </View>
+                    ) : null}
                     {item.story?.length ? (
                       <View style={{ gap: 4 }}>
                         <Body muted>Historia</Body>

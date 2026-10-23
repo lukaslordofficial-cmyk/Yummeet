@@ -13,6 +13,16 @@ export type StoryBoard = {
   your_turn: boolean;
   turn_user_id: string | null;
   turn_name: string | null;
+  left?: boolean;
+  left_count?: number;
+  member_count?: number;
+  majority_left?: boolean;
+  end_yes?: number;
+  end_no?: number;
+  my_end_vote?: boolean | null;
+  restart_yes?: number;
+  restart_no?: number;
+  my_restart_vote?: boolean | null;
   lines: StoryLine[];
 };
 
@@ -30,3 +40,7 @@ export async function eventStoryDrawLine(eventId: string, body: string) {
   }
 }
 export const eventStoryClose = (eventId: string) => rpc<void>("event_story_close", { p_event: eventId });
+export const eventStoryLeave = (eventId: string) => rpc<StoryBoard>("event_story_leave", { p_event: eventId });
+export const eventStoryVote = (eventId: string, kind: "end" | "restart", want: boolean) =>
+  rpc<StoryBoard>("event_story_vote", { p_event: eventId, p_kind: kind, p_want: want });
+export const eventStoryRestart = (eventId: string) => rpc<StoryBoard>("event_story_restart", { p_event: eventId });

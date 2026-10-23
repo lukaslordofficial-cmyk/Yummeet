@@ -14,13 +14,13 @@ export function ActivityName({ children }: { children: string }) {
   );
 }
 
-export function PlanNoteView({ body, hideQuestions, testID }: { body: string; hideQuestions?: boolean; testID?: string }) {
+export function PlanNoteView({ body, hideQuestions, headings = [], testID }: { body: string; hideQuestions?: boolean; headings?: string[]; testID?: string }) {
   const { colors } = useTheme();
   const parts = body.split(/\n\n+/).map((part) => part.trim()).filter(Boolean)
     .filter((part) => !hideQuestions || !part.startsWith("• "));
   return (
     <View testID={testID} style={{ gap: spacing.xl, width: "100%", marginTop: spacing.md }}>
-      {parts.map((part, index) => isActivityParagraph(part) ? (
+      {parts.map((part, index) => isActivityParagraph(part, headings) ? (
         <ActivityName key={`${index}-${part.slice(0, 24)}`}>{part}</ActivityName>
       ) : (
         <Body key={`${index}-${part.slice(0, 24)}`} style={{ textAlign: "center", color: part.startsWith("• ") ? colors.onSurface : undefined }}>{part}</Body>

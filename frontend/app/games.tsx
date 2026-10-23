@@ -59,7 +59,7 @@ export default function MeetingPlan() {
   return (
     <View testID="games-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="Panel spotkania" centerTitle />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.xxl }}>
         {!event ? (
           <Body muted>Panel otwiera się ze spotkania. Organizator układa plan przy tworzeniu, a zabawy startuje tutaj.</Body>
         ) : (

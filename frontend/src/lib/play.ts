@@ -3,6 +3,7 @@ import { rpc } from "@/src/lib/api";
 export type PlayParticipant = { id: string; name: string };
 export type PlayPick = { prompt: string; names: string[] };
 
+export type FindRank = { id: string; name: string; score: number };
 export type FindAnswer = { prompt: string; yes: boolean | null; names: string[] };
 export type FindReveal = { prompt: string; yes: string[]; no: string[]; mine: string[]; points: number };
 export type FindState = {
@@ -12,6 +13,7 @@ export type FindState = {
   score: number | null;
   answers: FindAnswer[];
   reveal: FindReveal[] | null;
+  ranking?: FindRank[] | null;
 };
 
 export type TruthPerson = {
@@ -57,6 +59,8 @@ export type PlayBoard = {
 
 export const eventPlayBoard = (eventId: string) => rpc<PlayBoard>("event_play_board", { p_event: eventId });
 export const eventPlayStart = (eventId: string, game: string) => rpc<PlayBoard>("event_play_start", { p_event: eventId, p_game: game });
+export const eventPlayNext = (eventId: string) => rpc<PlayBoard>("event_play_next", { p_event: eventId });
+export const eventFinishMeeting = (eventId: string) => rpc<void>("event_finish_meeting", { p_event: eventId });
 export const eventPlayDraw = (eventId: string) => rpc<PlayBoard>("event_play_draw", { p_event: eventId });
 export const eventPlayAnswered = (eventId: string) => rpc<PlayBoard>("event_play_answered", { p_event: eventId });
 export const eventFindSave = (eventId: string, prompt: string, names: string[]) =>

@@ -6,7 +6,7 @@ import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, FIND_SOMEONE_INSTRUCTION, RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, addCustomQuestion, drawStoryStarter, gameActivityLine, gameInstruction, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyTurnIndex, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter } from "../../frontend/src/lib/meetingPlan.ts";
+import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, FIND_SOMEONE_INSTRUCTION, FIND_SOMEONE_PLAY_INSTRUCTION, RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, addCustomBody, addCustomHeading, addCustomQuestion, drawStoryStarter, gameActivityLine, gameInstruction, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyTurnIndex, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter } from "../../frontend/src/lib/meetingPlan.ts";
 import { placeQueryVariants, placeSuggestionTitle } from "../../frontend/src/lib/routing.ts";
 import { subcategoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
 import { clampRouteBuffer, filterPinsByPrice, haversineM, withinRadiusM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
@@ -162,6 +162,12 @@ test("meeting plan has the question pool and social games", () => {
   assert.match(FIND_SOMEONE_INSTRUCTION, /ogłasza zwycięzcę/);
   assert.match(gameInstruction("Dwie prawdy i jedno kłamstwo"), /rozszyfrować pozostałych/);
   assert.match(gameInstruction("Znajdź kogoś, kto…"), /wstrzymać się od odpowiedzi/);
+  assert.match(FIND_SOMEONE_PLAY_INSTRUCTION, /1 pkt/);
+  const homemade = splitPlan(syncPlanNote(addCustomBody(addCustomHeading([], "Przywitanie"), "Siadamy przy jednym stole.")));
+  assert.equal(homemade.custom.length, 2);
+  assert.equal(homemade.questions.length, 0);
+  assert.match(homemade.note?.body ?? "", /Przywitanie/);
+  assert.match(homemade.note?.body ?? "", /Siadamy przy jednym stole/);
   assert.match(RUNAWAY_STORY_INSTRUCTION, /podpowiedzi na żądanie/);
   assert.match(gameInstruction("Historia, która wymknęła się spod kontroli"), /notuje kto jakie zdanie dopisał/);
   const prompted = splitPlan(togglePrompt([], FIND_PACKS[0].prompts[0]));

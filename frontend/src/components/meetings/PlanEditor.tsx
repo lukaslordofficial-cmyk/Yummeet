@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { findNodeHandle, Pressable, Text, View } from "react-native";
 
 import { Icon } from "@/src/components/Icon";
 import { Body, Button, Card, Field, Title, haptic } from "@/src/components/ui";
 import {
-  BUILTIN_QUESTIONS, FIND_PACKS, QUESTION_RULES, RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS,
-  addCustomPrompt, addCustomQuestion, gameInstruction, isQuestionPlanActive, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyStarterLabel, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
+  BUILTIN_QUESTIONS, FIND_PACKS, QUESTION_RULES, SOCIAL_GAMES, STORY_STARTERS,
+  addCustomBody, addCustomHeading, addCustomPrompt, addCustomQuestion, gameInstruction, isCustomHeadingTitle, isQuestionPlanActive, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyStarterLabel, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
   type PlanItem,
 } from "@/src/lib/meetingPlan";
 import { forgetSavedLine, loadSavedLines, rememberSavedLine } from "@/src/lib/savedLines";
@@ -50,6 +50,9 @@ export function PlanEditor({
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [gamesOpen, setGamesOpen] = useState(false);
   const [openGame, setOpenGame] = useState<string | null>(null);
+  const [headingDraft, setHeadingDraft] = useState("");
+  const [bodyDraft, setBodyDraft] = useState("");
+  const gameNodes = useRef<Record<string, View | null>>({});
   const center = { textAlign: "center" as const, width: "100%" as const };
   const picked = (on: boolean) => (on ? colors.brandPrimary : undefined);
   const generated = plan.note?.body ?? "";
@@ -87,13 +90,21 @@ export function PlanEditor({
 
   const openGameTile = (id: string) => {
     const next = openGame === id ? null : id;
-    const y = scrollOffsetRef?.current ?? 0;
     setOpenGame(next);
-    if (next !== "runaway-story" || y < 8) return;
-    const restore = () => scrollRef?.current?.scrollTo({ y, animated: false });
-    requestAnimationFrame(restore);
-    setTimeout(restore, 70);
-    setTimeout(restore, 160);
+    if (!next) return;
+    const bringToInstruction = () => {
+      const handle = findNodeHandle(scrollRef?.current as never);
+      const node = gameNodes.current[next];
+      if (!handle || !node) return;
+      node.measureLayout(
+        handle,
+        (_x, y) => scrollRef?.current?.scrollTo({ y: Math.max(0, y - 8), animated: false }),
+        () => {},
+      );
+    };
+    requestAnimationFrame(bringToInstruction);
+    setTimeout(bringToInstruction, 80);
+    setTimeout(bringToInstruction, 180);
   };
 
   const addOwnQuestion = () => {
@@ -152,7 +163,23 @@ export function PlanEditor({
     <View style={{ gap: spacing.xl }} testID={testID}>
       <Title size={18} style={{ ...center, marginTop: spacing.lg }}>Plan spotkania</Title>
       <Body muted style={center}>Planowane aktywności</Body>
-      {generated ? <PlanNoteView testID={`${testID}-generated`} body={generated} /> : null}
+      {canEdit ? (
+        <View style={{ gap: spacing.lg }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <Field testID={`${testID}-custom-heading`} label="Dodaj nagłówek z tytułem aktywności" value={headingDraft} onChangeText={setHeadingDraft} placeholder="np. Przywitanie przy stole" />
+            </View>
+            <Button testID={`${testID}-custom-heading-add`} title="+" onPress={() => { applySelection(addCustomHeading(items, headingDraft)); setHeadingDraft(""); }} style={{ minWidth: 56, paddingHorizontal: spacing.md }} />
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <Field testID={`${testID}-custom-body`} label="Dodaj treść aktywności" value={bodyDraft} onChangeText={setBodyDraft} placeholder="Opis, który zobaczą goście" multiline style={{ minHeight: 80 }} />
+            </View>
+            <Button testID={`${testID}-custom-body-add`} title="+" onPress={() => { applySelection(addCustomBody(items, bodyDraft)); setBodyDraft(""); }} style={{ minWidth: 56, paddingHorizontal: spacing.md }} />
+          </View>
+        </View>
+      ) : null}
+      {generated ? <PlanNoteView testID={`${testID}-generated`} body={generated} headings={plan.custom.filter((item) => isCustomHeadingTitle(item.title)).map((item) => item.body.trim())} /> : null}
 
       <Title size={18} style={{ ...center, marginTop: spacing.md }}>Proponowane aktywności</Title>
       <ExpandTile testID={`${testID}-questions-toggle`} title="Zabawa w pytania" open={questionsOpen} onPress={() => setQuestionsOpen((open) => !open)} style={{ marginTop: spacing.xl }} />
@@ -208,7 +235,7 @@ export function PlanEditor({
         const on = selectedGame(g.title);
         const open = openGame === g.id;
         return (
-          <View key={g.id} style={{ gap: spacing.lg }}>
+          <View key={g.id} ref={(node) => { gameNodes.current[g.id] = node; }} collapsable={false} style={{ gap: spacing.lg }}>
             <Card
               testID={`${testID}-game-${g.id}`}
               onPress={() => openGameTile(g.id)}

@@ -3,11 +3,13 @@ import { Pressable, View } from "react-native";
 
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { FIND_SOMEONE_INSTRUCTION } from "@/src/lib/meetingPlan";
+import { FIND_SOMEONE_PLAY_INSTRUCTION } from "@/src/lib/meetingPlan";
+import { useAuth } from "@/src/providers/AuthProvider";
+import { ActivityName } from "./PlanNoteView";
 import { eventFindSubmit, type FindState, type PlayParticipant } from "@/src/lib/play";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 
-const WAIT = "Wyniki zobaczysz dopiero, gdy wszyscy uczestnicy wypełnią test.";
+const WAIT = "Zapisano odpowiedzi. Czekaj na innych użytkowników...";
 
 export function FindRound({
   eventId,
@@ -23,6 +25,8 @@ export function FindRound({
   onBoard: (next: Awaited<ReturnType<typeof eventFindSubmit>>) => void;
 }) {
   const { colors } = useTheme();
+  const { session } = useAuth();
+  const myId = session?.user.id;
   const phase = find?.phase ?? 1;
   const [yes, setYes] = useState<Record<string, boolean | null>>({});
   const [names, setNames] = useState<Record<string, string[]>>({});
@@ -63,12 +67,16 @@ export function FindRound({
 
   if (phase >= 3 && find?.reveal) {
     return (
-      <View style={{ gap: spacing.md }} testID="find-results">
-        <Title size={22} style={{ textAlign: "center" }}>Wynik: {find.score ?? 0} pkt</Title>
+      <View style={{ gap: spacing.xl }} testID="find-results">
+        <Title size={18} style={{ textAlign: "center" }}>Ranking</Title>
+        {(find.ranking ?? []).map((row) => (
+          <Title key={row.id} size={16} style={{ textAlign: "center" }}>{row.name}: {row.score} pkt</Title>
+        ))}
+        <Title size={22} style={{ textAlign: "center" }}>Twój wynik: {find.score ?? 0} pkt</Title>
         <Body style={{ textAlign: "center" }}>Poprawny typ +1, pomyłka −1.</Body>
         {find.reveal.map((row) => (
-          <Card key={row.prompt}>
-            <Title size={16}>{row.prompt}</Title>
+          <Card key={row.prompt} style={{ gap: spacing.sm }}>
+            <ActivityName>{row.prompt}</ActivityName>
             <Body>Tak: {row.yes.length ? row.yes.join(", ") : "nikt"}</Body>
             <Body>Nie: {row.no.length ? row.no.join(", ") : "nikt"}</Body>
             <Body>Twoje typy: {row.mine.length ? row.mine.join(", ") : "brak"}</Body>
@@ -83,7 +91,7 @@ export function FindRound({
 
   return (
     <View style={{ gap: spacing.md }} testID="find-round">
-      <Body style={{ textAlign: "center" }}>{FIND_SOMEONE_INSTRUCTION}</Body>
+      <Body style={{ textAlign: "center" }}>{FIND_SOMEONE_PLAY_INSTRUCTION}</Body>
       <Body style={{ textAlign: "center" }}>
         {phase === 1
           ? "Zaznacz tak albo nie przy każdym zdaniu i zapisz odpowiedzi."
@@ -91,7 +99,7 @@ export function FindRound({
       </Body>
       {error ? <Body testID="find-error">{error}</Body> : null}
       {locked && phase === 2 ? <Title size={16} style={{ textAlign: "center" }} testID="find-wait">{WAIT}</Title> : null}
-      {locked && phase === 1 ? <Body style={{ textAlign: "center" }}>Twoje odpowiedzi są zapisane. Druga tura zacznie się, gdy wszyscy zapiszą.</Body> : null}
+      {locked && phase === 1 ? <Title size={16} style={{ textAlign: "center" }} testID="find-wait-phase1">{WAIT}</Title> : null}
       {prompts.map((prompt) => (
         <Card key={prompt}>
           <Title size={16}>{prompt}</Title>
@@ -125,7 +133,7 @@ export function FindRound({
                 </View>
               ))}
               <Button testID={`find-add-${prompt.slice(0, 12)}`} title="+" disabled={locked} onPress={() => setOpen(open === prompt ? null : prompt)} />
-              {open === prompt ? participants.filter((person) => !(names[prompt] ?? []).includes(person.name)).map((person) => (
+              {open === prompt ? participants.filter((person) => person.id !== myId && !(names[prompt] ?? []).includes(person.name)).map((person) => (
                 <Pressable
                   key={person.id}
                   testID={`find-person-${person.id}`}
