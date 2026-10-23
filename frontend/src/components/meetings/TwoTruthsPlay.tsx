@@ -171,7 +171,20 @@ export function TwoTruthsPlay({
               {reveal ? <Body>Punkty przy tej osobie: {person.points ?? 0}</Body> : null}
             </Card>
           ))}
-          {reveal ? <Title size={22} style={{ textAlign: "center" }} testID="truth-score">Wynik: {truths.score ?? 0} pkt</Title> : null}
+          {reveal ? (
+            <View style={{ gap: spacing.md }} testID="truth-ranking">
+              <Title size={18} style={{ textAlign: "center" }}>Klasyfikacja</Title>
+              {(truths.ranking ?? []).map((row) => (
+                <Title key={row.id} size={16} style={{ textAlign: "center" }}>{row.name}: {row.score} pkt</Title>
+              ))}
+              <Title size={22} style={{ textAlign: "center" }} testID="truth-score">Twój wynik: {truths.score ?? 0} pkt</Title>
+              {(truths.ranking ?? []).length ? (
+                <Title size={18} style={{ textAlign: "center" }} testID="truth-place">
+                  Twoje miejsce: {(truths.ranking ?? []).filter((row) => row.score > (truths.score ?? 0)).length + 1}
+                </Title>
+              ) : null}
+            </View>
+          ) : null}
           {!reveal && truths.guesses_saved ? <Body style={{ textAlign: "center" }}>{WAIT}</Body> : null}
           {!reveal ? (
             <Button testID="truth-save-guesses" title="Zapisz odpowiedzi" style={{ marginTop: spacing.lg }} disabled={truths.guesses_saved} loading={busy} onPress={saveGuesses} />

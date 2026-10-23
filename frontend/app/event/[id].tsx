@@ -57,17 +57,21 @@ function PlanPreview({ rows, organizer }: { rows: Array<{ id: string; category: 
       )) : null}
       {!organizer && plan.questions.length ? (
         <View style={{ gap: spacing.md }}>
-          {plan.note?.body?.includes(ACTIVITY_LINE) ? null : <ActivityName>{ACTIVITY_LINE}</ActivityName>}
-          <Body style={{ textAlign: "center" }}>{questionInstruction(plan.limit)}</Body>
+          {plan.note?.body?.includes(ACTIVITY_LINE) ? null : (
+            <>
+              <ActivityName>{ACTIVITY_LINE}</ActivityName>
+              <Body style={{ textAlign: "center" }}>{questionInstruction(plan.limit)}</Body>
+            </>
+          )}
           <Title size={16} style={{ textAlign: "center", width: "100%" }}>{QUESTION_POOL_GUEST_HEADER}</Title>
           {plan.questions.map((question) => (
             <Body key={question.id ?? question.title} style={{ textAlign: "center" }}>• {question.body && question.body !== "własne" ? question.body : question.title}</Body>
           ))}
         </View>
       ) : null}
-      {!organizer ? plan.games.map((game) => (
+      {!organizer ? plan.games.filter((game) => !plan.note?.body?.includes(gameActivityLine(game.title))).map((game) => (
         <View key={game.title} style={{ gap: spacing.sm }}>
-          {plan.note?.body?.includes(gameActivityLine(game.title)) ? null : <ActivityName>{gameActivityLine(game.title)}</ActivityName>}
+          <ActivityName>{gameActivityLine(game.title)}</ActivityName>
           <Body style={{ textAlign: "center" }}>{gameInstruction(game.title) || catalogGame(game.title)?.blurb || game.body}</Body>
         </View>
       )) : null}

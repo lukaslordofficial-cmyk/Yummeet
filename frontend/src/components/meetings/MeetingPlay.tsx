@@ -4,8 +4,8 @@ import { View } from "react-native";
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
-  QUESTION_PLAY_INSTRUCTION, RUNAWAY_STORY_PLAY_GUEST, RUNAWAY_STORY_PLAY_ORGANIZER, SOCIAL_GAMES, STORY_STARTERS,
-  isQuestionPoolItem, isStoryStarterTitle, splitPlan, storyPickMode, storyStarterLabel, type PlanItem,
+  QUESTION_PLAY_INSTRUCTION, RUNAWAY_STORY_PLAY_GUEST, RUNAWAY_STORY_PLAY_ORGANIZER, STORY_STARTERS,
+  plannedGameKeys, splitPlan, storyPickMode, storyStarterLabel, type PlanItem,
 } from "@/src/lib/meetingPlan";
 import { eventFinishMeeting, eventPlayAnswered, eventPlayBoard, eventPlayDraw, eventPlayNext, eventPlayStart, type PlayBoard } from "@/src/lib/play";
 import { spacing } from "@/src/theme";
@@ -23,13 +23,7 @@ const LABELS: Record<string, string> = {
 };
 
 function selectedKeys(items: PlanItem[]) {
-  const keys: string[] = [];
-  if (items.some((item) => isQuestionPoolItem(item))) keys.push("questions");
-  for (const game of SOCIAL_GAMES) {
-    const picked = items.some((item) => item.title === game.title || (game.id === "runaway-story" && isStoryStarterTitle(item.title)));
-    if (picked) keys.push(game.id);
-  }
-  return keys;
+  return plannedGameKeys(items);
 }
 
 /** Panel zabaw: gość widzi grę po skanie QR, organizator ją startuje. */
@@ -90,7 +84,7 @@ export function MeetingPlay({
     const timer = setTimeout(() => {
       advanced.current = stamp;
       void run(() => eventPlayNext(eventId));
-    }, 14000);
+    }, 10000);
     return () => clearTimeout(timer);
   }, [board, isOrganizer, live, eventId]);
 

@@ -392,6 +392,22 @@ export function freeNoteText(body: string) {
   return body.split("\n").map((line) => line.trim()).filter((line) => line && !isManagedNoteLine(line)).join("\n\n");
 }
 
+/** Zabawy w kolejności dodania do planu, nie w kolejności katalogu. */
+export function plannedGameKeys(items: PlanItem[]): string[] {
+  const keys: string[] = [];
+  const add = (key: string) => {
+    if (!keys.includes(key)) keys.push(key);
+  };
+  for (const item of items) {
+    if (isQuestionPoolItem(item)) add("questions");
+    const game = catalogGame(item.title);
+    if (game) add(game.id);
+    if (item.title.startsWith(CUSTOM_PROMPT_PREFIX)) add("find-someone");
+    if (isStoryStarterTitle(item.title)) add("runaway-story");
+  }
+  return keys;
+}
+
 /** Wybrane pytania i zabawy trafiają do planu spotkania. */
 export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   const plan = splitPlan(items);
@@ -402,6 +418,7 @@ export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   if (plan.questions.length) {
     blocks.push([
       ACTIVITY_LINE,
+      questionInstruction(plan.limit),
       ...plan.questions.map((question) => `• ${questionNoteLine(question)}`),
     ].join("\n\n"));
   }
@@ -416,6 +433,8 @@ export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   }
   for (const game of games) {
     const lines = [gameActivityLine(game.title)];
+    const instruction = gameInstruction(game.title);
+    if (instruction) lines.push(instruction);
     if (game.title === findSomeone) lines.push(...plan.prompts.map((prompt) => `• ${prompt.body || prompt.title}`));
     if (game.title === runaway) lines.push(...plan.starters.map((starter) => `• ${storyStarterLabel(starter.title)}`));
     blocks.push(lines.join("\n\n"));

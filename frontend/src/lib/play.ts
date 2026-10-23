@@ -36,6 +36,7 @@ export type TruthState = {
   stake: { mine: boolean | null; yes: number; total: number; unanimous: boolean };
   mine: { lines: string[]; lie: number } | null;
   others: TruthPerson[];
+  ranking?: FindRank[] | null;
 };
 
 export type PlayBoard = {

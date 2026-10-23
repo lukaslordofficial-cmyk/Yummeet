@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { findNodeHandle, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { Icon } from "@/src/components/Icon";
 import { Body, Button, Card, Field, Title, haptic } from "@/src/components/ui";
@@ -52,7 +52,8 @@ export function PlanEditor({
   const [openGame, setOpenGame] = useState<string | null>(null);
   const [headingDraft, setHeadingDraft] = useState("");
   const [bodyDraft, setBodyDraft] = useState("");
-  const gameNodes = useRef<Record<string, View | null>>({});
+  const titleNodes = useRef<Record<string, View | null>>({});
+  const planAnchor = useRef<View | null>(null);
   const center = { textAlign: "center" as const, width: "100%" as const };
   const picked = (on: boolean) => (on ? colors.brandPrimary : undefined);
   const generated = plan.note?.body ?? "";
@@ -88,23 +89,35 @@ export function PlanEditor({
     .filter((starter) => starter.title.length > 1 && starter.text.length > 4 && !catalogTitles.has(starter.title) && !ownStarters.some((row) => row.title === starter.title));
   const customStarters = [...ownStarters.filter((starter) => !catalogTitles.has(starter.title)), ...meetingStarters];
 
+  const pinGameTitle = (id: string) => {
+    const card = titleNodes.current[id];
+    const anchor = planAnchor.current;
+    if (!card || !anchor || !scrollRef?.current) return;
+    anchor.measureInWindow((_ax, anchorY) => {
+      card.measureInWindow((_cx, cardY) => {
+        scrollRef.current?.scrollTo({ y: Math.max(0, cardY - anchorY - 8), animated: false });
+      });
+    });
+  };
+
   const openGameTile = (id: string) => {
-    const next = openGame === id ? null : id;
-    setOpenGame(next);
-    if (!next) return;
-    const bringToInstruction = () => {
-      const handle = findNodeHandle(scrollRef?.current as never);
-      const node = gameNodes.current[next];
-      if (!handle || !node) return;
-      node.measureLayout(
-        handle,
-        (_x, y) => scrollRef?.current?.scrollTo({ y: Math.max(0, y - 8), animated: false }),
-        () => {},
-      );
+    if (openGame === id) {
+      setOpenGame(null);
+      return;
+    }
+    const reveal = () => {
+      setOpenGame(id);
+      const pin = () => pinGameTitle(id);
+      requestAnimationFrame(pin);
+      setTimeout(pin, 50);
+      setTimeout(pin, 180);
     };
-    requestAnimationFrame(bringToInstruction);
-    setTimeout(bringToInstruction, 80);
-    setTimeout(bringToInstruction, 180);
+    if (openGame) {
+      setOpenGame(null);
+      requestAnimationFrame(() => requestAnimationFrame(reveal));
+      return;
+    }
+    reveal();
   };
 
   const addOwnQuestion = () => {
@@ -160,7 +173,7 @@ export function PlanEditor({
   };
 
   return (
-    <View style={{ gap: spacing.xl }} testID={testID}>
+    <View ref={planAnchor} collapsable={false} style={{ gap: spacing.xl }} testID={testID}>
       <Title size={18} style={{ ...center, marginTop: spacing.lg }}>Plan spotkania</Title>
       <Body muted style={center}>Planowane aktywności</Body>
       {canEdit ? (
@@ -235,14 +248,16 @@ export function PlanEditor({
         const on = selectedGame(g.title);
         const open = openGame === g.id;
         return (
-          <View key={g.id} ref={(node) => { gameNodes.current[g.id] = node; }} collapsable={false} style={{ gap: spacing.lg }}>
-            <Card
-              testID={`${testID}-game-${g.id}`}
-              onPress={() => openGameTile(g.id)}
-              style={{ backgroundColor: colors.onBrandPrimary, borderColor: on ? colors.brandPrimary : colors.onBrandPrimary, borderWidth: on ? 2 : 1 }}
-            >
-              <Title size={16} style={{ ...center, color: colors.onBrandSecondary }}>{g.title}</Title>
-            </Card>
+          <View key={g.id} style={{ gap: spacing.lg }}>
+            <View ref={(node) => { titleNodes.current[g.id] = node; }} collapsable={false}>
+              <Card
+                testID={`${testID}-game-${g.id}`}
+                onPress={() => openGameTile(g.id)}
+                style={{ backgroundColor: colors.onBrandPrimary, borderColor: on ? colors.brandPrimary : colors.onBrandPrimary, borderWidth: on ? 2 : 1 }}
+              >
+                <Title size={16} style={{ ...center, color: colors.onBrandSecondary }}>{g.title}</Title>
+              </Card>
+            </View>
             {open ? (
               <View style={{ gap: g.id === "runaway-story" ? spacing.xxl : spacing.xl, paddingHorizontal: spacing.sm }}>
                 <Body style={center}>{gameInstruction(g.title) || g.blurb}</Body>
