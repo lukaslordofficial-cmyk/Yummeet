@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { FIND_SOMEONE_PLAY_INSTRUCTION } from "@/src/lib/meetingPlan";
+import { FIND_SOMEONE_GUESS_INSTRUCTION, FIND_SOMEONE_PLAY_INSTRUCTION, findPromptSummary } from "@/src/lib/meetingPlan";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { ActivityName } from "./PlanNoteView";
 import { eventFindSubmit, type FindState, type PlayParticipant } from "@/src/lib/play";
@@ -66,17 +66,20 @@ export function FindRound({
   };
 
   if (phase >= 3 && find?.reveal) {
+    const ranking = find.ranking ?? [];
+    const place = ranking.length ? ranking.filter((row) => row.score > (find.score ?? 0)).length + 1 : null;
     return (
       <View style={{ gap: spacing.xl }} testID="find-results">
         <Title size={18} style={{ textAlign: "center" }}>Ranking</Title>
-        {(find.ranking ?? []).map((row) => (
-          <Title key={row.id} size={16} style={{ textAlign: "center" }}>{row.name}: {row.score} pkt</Title>
+        {ranking.map((row, index) => (
+          <Title key={row.id} size={16} style={{ textAlign: "center" }}>{index + 1}. {row.name}: {row.score} pkt</Title>
         ))}
         <Title size={22} style={{ textAlign: "center" }}>Twój wynik: {find.score ?? 0} pkt</Title>
-        <Body style={{ textAlign: "center" }}>Poprawny typ +1, pomyłka −1.</Body>
+        {place != null ? <Title size={18} style={{ textAlign: "center" }}>Twoje miejsce: {place}</Title> : null}
+        <Body style={{ textAlign: "center" }}>Poprawny typ +1, pomyłka −1, wstrzymanie 0.</Body>
         {find.reveal.map((row) => (
           <Card key={row.prompt} style={{ gap: spacing.sm }}>
-            <ActivityName>{row.prompt}</ActivityName>
+            <ActivityName>{findPromptSummary(row.prompt)}</ActivityName>
             <Body>Tak: {row.yes.length ? row.yes.join(", ") : "nikt"}</Body>
             <Body>Nie: {row.no.length ? row.no.join(", ") : "nikt"}</Body>
             <Body>Twoje typy: {row.mine.length ? row.mine.join(", ") : "brak"}</Body>
@@ -90,21 +93,15 @@ export function FindRound({
   const locked = !!find?.saved && phase < 3;
 
   return (
-    <View style={{ gap: spacing.md }} testID="find-round">
-      <Body style={{ textAlign: "center" }}>{FIND_SOMEONE_PLAY_INSTRUCTION}</Body>
-      <Body style={{ textAlign: "center" }}>
-        {phase === 1
-          ? "Zaznacz tak albo nie przy każdym zdaniu i zapisz odpowiedzi."
-          : "Przy tych samych zdaniach wskaż, kto Twoim zdaniem odpowiedział tak. Możesz nie wskazać nikogo, żeby nie stracić punktów."}
-      </Body>
+    <View style={{ gap: spacing.xl }} testID="find-round">
+      <Body style={{ textAlign: "center" }}>{phase === 1 ? FIND_SOMEONE_PLAY_INSTRUCTION : FIND_SOMEONE_GUESS_INSTRUCTION}</Body>
       {error ? <Body testID="find-error">{error}</Body> : null}
-      {locked && phase === 2 ? <Title size={16} style={{ textAlign: "center" }} testID="find-wait">{WAIT}</Title> : null}
-      {locked && phase === 1 ? <Title size={16} style={{ textAlign: "center" }} testID="find-wait-phase1">{WAIT}</Title> : null}
+      {locked ? <Title size={16} style={{ textAlign: "center" }} testID="find-wait">{WAIT}</Title> : null}
       {prompts.map((prompt) => (
-        <Card key={prompt}>
+        <Card key={prompt} style={{ gap: spacing.xl, paddingVertical: spacing.xl }}>
           <Title size={16}>{prompt}</Title>
           {phase === 1 ? (
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <View style={{ flexDirection: "row", gap: spacing.md, marginTop: spacing.lg }}>
               {([true, false] as const).map((value) => (
                 <Button
                   key={String(value)}
@@ -118,9 +115,9 @@ export function FindRound({
               ))}
             </View>
           ) : (
-            <View style={{ gap: spacing.sm }}>
+            <View style={{ gap: spacing.lg, marginTop: spacing.lg }}>
               {(names[prompt] ?? []).map((name) => (
-                <View key={name} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
+                <View key={name} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
                   <Body>{name}</Body>
                   <Button
                     testID={`find-remove-${name}`}
@@ -137,10 +134,13 @@ export function FindRound({
                 <Pressable
                   key={person.id}
                   testID={`find-person-${person.id}`}
-                  onPress={() => setNames((cur) => ({ ...cur, [prompt]: [...(cur[prompt] ?? []), person.name] }))}
-                  style={{ backgroundColor: colors.brandPrimary, borderRadius: radius.md, padding: spacing.md }}
+                  onPress={() => {
+                    setNames((cur) => ({ ...cur, [prompt]: [...(cur[prompt] ?? []), person.name] }));
+                    setOpen(null);
+                  }}
+                  style={{ backgroundColor: colors.onBrandPrimary, borderRadius: radius.md, padding: spacing.lg }}
                 >
-                  <Title size={16} style={{ color: colors.onBrandPrimary, textAlign: "center", fontFamily: fonts.display }}>{person.name}</Title>
+                  <Title size={16} style={{ color: colors.onSurface, textAlign: "center", fontFamily: fonts.display }}>{person.name}</Title>
                 </Pressable>
               )) : null}
             </View>
@@ -149,7 +149,7 @@ export function FindRound({
       ))}
       <Button
         testID="find-save"
-        title={phase === 1 ? "Zapisz odpowiedzi" : "Zapisz"}
+        title="Zapisz odpowiedzi"
         loading={busy}
         disabled={locked || prompts.length === 0}
         onPress={() => void save()}

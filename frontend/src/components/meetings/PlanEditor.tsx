@@ -5,7 +5,7 @@ import { Icon } from "@/src/components/Icon";
 import { Body, Button, Card, Field, Title, haptic } from "@/src/components/ui";
 import {
   BUILTIN_QUESTIONS, FIND_PACKS, QUESTION_RULES, SOCIAL_GAMES, STORY_STARTERS,
-  addCustomBody, addCustomHeading, addCustomPrompt, addCustomQuestion, gameInstruction, isCustomHeadingTitle, isQuestionPlanActive, questionPoolWarning, setPlanLimit, splitPlan, storyStarterLabel, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
+  addCustomBody, addCustomHeading, addCustomPrompt, addCustomQuestion, catalogGame, gameInstruction, isCustomHeadingTitle, isQuestionPlanActive, questionPoolWarning, setPlanLimit, setTruthLimit, splitPlan, storyStarterLabel, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
   type PlanItem,
 } from "@/src/lib/meetingPlan";
 import { forgetSavedLine, loadSavedLines, rememberSavedLine } from "@/src/lib/savedLines";
@@ -70,10 +70,10 @@ export function PlanEditor({
 
   const commit = (next: PlanItem[]) => onChange?.(next);
   const applySelection = (next: PlanItem[]) => commit(syncPlanNote(next));
-  const selectedGame = (title: string) => plan.games.some((g) => g.title === title);
+  const selectedGame = (id: string) => plan.games.some((g) => catalogGame(g.title)?.id === id);
   const showCatalog = canEdit || browse;
   const questionList = showCatalog ? BUILTIN_QUESTIONS : BUILTIN_QUESTIONS.filter((q) => plan.questions.some((row) => row.title === q));
-  const gameList = showCatalog ? SOCIAL_GAMES : SOCIAL_GAMES.filter((g) => selectedGame(g.title));
+  const gameList = showCatalog ? SOCIAL_GAMES : SOCIAL_GAMES.filter((g) => selectedGame(g.id));
   const savedQuestionSet = new Set(ownQuestions);
   const meetingQuestions = plan.questions
     .map((row) => row.title)
@@ -255,7 +255,7 @@ export function PlanEditor({
       <ExpandTile testID={`${testID}-games-toggle`} title="Gry i zabawy towarzyskie" open={gamesOpen} onPress={() => setGamesOpen((open) => !open)} />
       {gamesOpen ? <Body muted style={center}>Gry towarzyskie, które można rozegrać podczas speed friendingu.</Body> : null}
       {gamesOpen ? gameList.map((g) => {
-        const on = selectedGame(g.title);
+        const on = selectedGame(g.id);
         const open = openGame === g.id;
         return (
           <View key={g.id} style={{ gap: spacing.lg }}>
@@ -273,6 +273,13 @@ export function PlanEditor({
                 <Body style={center}>{gameInstruction(g.title) || g.blurb}</Body>
                 {canEdit && g.id !== "find-someone" ? (
                   <Button testID={`${testID}-game-toggle-${g.id}`} title={on ? "Usuń z planu" : "Dodaj do planu"} onPress={() => applySelection(toggleGame(items, g))} />
+                ) : null}
+                {canEdit && g.id === "two-truths" && on ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.lg }}>
+                    <Body style={{ textAlign: "center" }}>Zdań na osobę: {plan.truthLimit}</Body>
+                    <Button testID={`${testID}-truth-limit-minus`} title="−" onPress={() => applySelection(setTruthLimit(items, plan.truthLimit - 1))} />
+                    <Button testID={`${testID}-truth-limit-plus`} title="+" onPress={() => applySelection(setTruthLimit(items, plan.truthLimit + 1))} />
+                  </View>
                 ) : null}
                 {canEdit && g.id === "find-someone" && on ? (
                   <Button testID={`${testID}-game-toggle-${g.id}`} title="Usuń z planu" onPress={() => applySelection(toggleGame(items, g))} />

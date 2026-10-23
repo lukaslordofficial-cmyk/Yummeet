@@ -6,7 +6,7 @@ import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, FIND_SOMEONE_INSTRUCTION, FIND_SOMEONE_PLAY_INSTRUCTION, RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, TWO_TRUTHS_INSTRUCTION, addCustomBody, addCustomHeading, addCustomQuestion, drawStoryStarter, gameActivityLine, gameInstruction, plannedGameKeys, questionInstruction, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyTurnIndex, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter } from "../../frontend/src/lib/meetingPlan.ts";
+import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, FIND_SOMEONE_INSTRUCTION, FIND_SOMEONE_PLAY_INSTRUCTION, RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, TWO_TRUTHS_INSTRUCTION, TWO_TRUTHS_TITLE, addCustomBody, addCustomHeading, addCustomQuestion, clampTruthLimit, drawStoryStarter, findPromptSummary, gameActivityLine, gameInstruction, planActivityBlocks, plannedGameKeys, questionInstruction, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyTurnIndex, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter } from "../../frontend/src/lib/meetingPlan.ts";
 import { placeQueryVariants, placeSuggestionTitle } from "../../frontend/src/lib/routing.ts";
 import { subcategoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
 import { clampRouteBuffer, filterPinsByPrice, haversineM, withinRadiusM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
@@ -110,11 +110,11 @@ test("meeting plan has the question pool and social games", () => {
   assert.equal(ACTIVITY_LINE, "Organizator przeprowadzi dla uczestników Zabawę w pytania.");
   assert.match(note, new RegExp(ACTIVITY_LINE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(note.includes(BUILTIN_QUESTIONS[0]), true);
-  assert.match(note, /Dwie prawdy/);
+  assert.match(note, /Prawda czy kłamstwo/);
   assert.equal(note.includes(TWO_TRUTHS_INSTRUCTION), true);
   assert.ok(note.includes(`${ACTIVITY_LINE}\n\n${questionInstruction(3)}`));
-  assert.ok(note.includes(`${gameActivityLine("Dwie prawdy i jedno kłamstwo")}\n\n${gameInstruction("Dwie prawdy i jedno kłamstwo")}`));
-  assert.match(note, new RegExp(gameActivityLine("Dwie prawdy i jedno kłamstwo").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.ok(note.includes(`${gameActivityLine(TWO_TRUTHS_TITLE)}\n\n${gameInstruction(TWO_TRUTHS_TITLE)}`));
+  assert.match(note, new RegExp(gameActivityLine(TWO_TRUTHS_TITLE).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(gameActivityLine("Znajdź kogoś, kto…"), "Organizator przeprowadzi dla uczestników zabawę w: Znajdź kogoś, kto….");
   assert.equal(note.includes("Organizator przeprowadzi"), true);
   assert.ok(note.includes("\n\n"));
@@ -147,7 +147,11 @@ test("meeting plan has the question pool and social games", () => {
   assert.equal(FIND_PACKS[0].prompts[1], "Zrobiłeś/aś kiedyś coś tak głupiego, że do dziś zastanawiasz się jakim cudem uszło ci to na sucho?");
   assert.equal(FIND_PACKS.every((pack) => pack.prompts.every((prompt) => prompt.endsWith("?"))), true);
   assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.category === "challenges" || a.title === "Szachy"), false);
-  assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.title === "Dwie prawdy i jedno kłamstwo"), true);
+  assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.title === TWO_TRUTHS_TITLE), true);
+  assert.equal(findPromptSummary(FIND_PACKS[0].prompts[4]), "…ma jakąś absurdalną umiejętność, o której nie wspomniałby/łaby podczas rozmowy o pracę.");
+  assert.equal(clampTruthLimit("2"), 3);
+  assert.equal(clampTruthLimit("9"), 9);
+  assert.equal(clampTruthLimit("12"), 9);
   const plan = splitPlan([
     { category: "questions", title: "Notatka organizatora", body: "Kawa na koszt autora rundy." },
     { category: "questions", title: "Pytania na osobę", body: "3" },
@@ -165,7 +169,8 @@ test("meeting plan has the question pool and social games", () => {
   assert.equal(storyTurnIndex(5, 4), 1);
   assert.equal(FIND_SOMEONE_INSTRUCTION.includes("drinka"), false);
   assert.match(FIND_SOMEONE_INSTRUCTION, /ogłasza zwycięzcę/);
-  assert.match(gameInstruction("Dwie prawdy i jedno kłamstwo"), /rozszyfrować pozostałych/);
+  assert.match(gameInstruction("Dwie prawdy i jedno kłamstwo"), /Wpisz dwie prawdziwe rzeczy/);
+  assert.match(gameInstruction(TWO_TRUTHS_TITLE), /Wpisz dwie prawdziwe rzeczy/);
   assert.match(gameInstruction("Znajdź kogoś, kto…"), /wstrzymać się od odpowiedzi/);
   assert.match(FIND_SOMEONE_PLAY_INSTRUCTION, /1 pkt/);
   const homemade = splitPlan(syncPlanNote(addCustomBody(addCustomHeading([], "Przywitanie"), "Siadamy przy jednym stole.")));
@@ -186,6 +191,11 @@ test("meeting plan has the question pool and social games", () => {
   assert.equal(questionPoolWarning(4, 1, 4), null);
   const addedOrder = toggleQuestion(toggleGame(toggleGame([], SOCIAL_GAMES[1]), SOCIAL_GAMES[0]), BUILTIN_QUESTIONS[0]);
   assert.deepEqual(plannedGameKeys(addedOrder), ["find-someone", "two-truths", "questions"]);
+  const guestBlocks = planActivityBlocks(syncPlanNote(toggleGame(toggleQuestion([], BUILTIN_QUESTIONS[0]), SOCIAL_GAMES[0])));
+  assert.equal(guestBlocks[0].title, ACTIVITY_LINE);
+  assert.match(guestBlocks[0].instruction, /Instrukcja:/);
+  assert.equal(guestBlocks[1].title, gameActivityLine(TWO_TRUTHS_TITLE));
+  assert.match(guestBlocks[1].instruction, /Instrukcja:/);
   const randomMode = setStoryMode([], "losowo");
   assert.equal(storyPickMode(randomMode), "losowo");
   assert.equal(splitPlan(randomMode).games.some((game) => game.title === "Historia, która wymknęła się spod kontroli"), true);

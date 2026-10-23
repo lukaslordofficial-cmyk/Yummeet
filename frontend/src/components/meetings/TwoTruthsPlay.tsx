@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { Body, Button, Card, Field, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { TWO_TRUTHS_INSTRUCTION } from "@/src/lib/meetingPlan";
+import { TWO_TRUTHS_GUESS_INSTRUCTION, TWO_TRUTHS_INSTRUCTION, TWO_TRUTHS_NO_PRIZE, TWO_TRUTHS_TIE } from "@/src/lib/meetingPlan";
 import { eventTruthGuess, eventTruthStake, eventTruthSubmit, type PlayBoard, type TruthState } from "@/src/lib/play";
 import { spacing } from "@/src/theme";
 
@@ -22,7 +22,8 @@ export function TwoTruthsPlay({
   onBoard: (next: PlayBoard) => void;
 }) {
   const toast = useToast();
-  const [lines, setLines] = useState(["", "", ""]);
+  const count = Math.min(9, Math.max(3, truths?.limit ?? 3));
+  const [lines, setLines] = useState<string[]>(() => Array.from({ length: count }, () => ""));
   const [lie, setLie] = useState<number | null>(null);
   const [guesses, setGuesses] = useState<Record<string, Array<boolean | null>>>({});
   const [busy, setBusy] = useState(false);
@@ -31,30 +32,35 @@ export function TwoTruthsPlay({
   const phase = truths?.phase ?? 1;
 
   useEffect(() => {
-    if (truths?.mine?.lines?.length === 3) {
-      setLines(truths.mine.lines);
-      setLie(truths.mine.lie ?? 0);
+    const saved = truths?.mine?.lines ?? [];
+    if (saved.length >= 3) {
+      setLines(saved);
+      setLie(truths?.mine?.lie ?? 0);
+      return;
     }
-  }, [truths?.lines_saved, truths?.mine?.lie]);
+    setLines((current) => {
+      const next = Array.from({ length: count }, (_, index) => current[index] ?? "");
+      return next;
+    });
+  }, [truths?.lines_saved, truths?.mine?.lie, truths?.mine?.lines?.join("|"), count]);
 
   useEffect(() => {
-    if (phase < 2) return;
-    setBanner((cur) => (cur && cur.includes(WAIT) ? SAVED : cur));
+    if (phase >= 2) setBanner(null);
   }, [phase]);
 
   useEffect(() => {
     const next: Record<string, Array<boolean | null>> = {};
     for (const person of truths?.others ?? []) {
-      next[person.id] = [0, 1, 2].map((index) => person.guesses?.[index] ?? null);
+      next[person.id] = person.lines.map((_, index) => person.guesses?.[index] ?? null);
     }
     setGuesses(next);
-  }, [truths?.phase, truths?.guesses_saved, (truths?.others ?? []).map((person) => person.id).join("|")]);
+  }, [truths?.phase, truths?.guesses_saved, (truths?.others ?? []).map((person) => `${person.id}:${person.lines.length}`).join("|")]);
 
   if (!truths) {
-    return <Body style={{ textAlign: "center" }}>Dwie prawdy na kilku telefonach wymagają migracji 048 w Supabase.</Body>;
+    return <Body style={{ textAlign: "center" }}>Prawda czy kłamstwo na kilku telefonach wymaga migracji 048 i 053 w Supabase.</Body>;
   }
 
-  const run = async (action: () => Promise<PlayBoard>, message: (board: PlayBoard) => string) => {
+  const run = async (action: () => Promise<PlayBoard>, message: (board: PlayBoard) => string | null) => {
     setBusy(true);
     try {
       const next = await action();
@@ -62,7 +68,7 @@ export function TwoTruthsPlay({
       const text = message(next);
       setError(null);
       setBanner(text);
-      toast(text, "success");
+      if (text) toast(text, "success");
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -75,13 +81,13 @@ export function TwoTruthsPlay({
       setError("Oznacz, które zdanie jest kłamstwem.");
       return;
     }
-    if (lines.some((line) => line.trim().length < 2)) {
-      setError("Wpisz trzy zdania.");
+    if (lines.length !== count || lines.some((line) => line.trim().length < 2)) {
+      setError(`Wpisz ${count} zdania.`);
       return;
     }
     void run(
       () => eventTruthSubmit(eventId, lines.map((line) => line.trim()), lie),
-      (board) => (board.truths?.phase ?? 1) <= 1 ? `${SAVED}. ${WAIT}` : SAVED,
+      (board) => (board.truths?.phase ?? 1) <= 1 ? `${SAVED}. ${WAIT}` : null,
     );
   };
 
@@ -90,29 +96,38 @@ export function TwoTruthsPlay({
       target: person.id,
       marks: (guesses[person.id] ?? []).map((mark) => mark === true),
     }));
-    if ((truths.others ?? []).some((person) => (guesses[person.id] ?? []).length < 3 || (guesses[person.id] ?? []).some((mark) => mark == null))) {
+    if ((truths.others ?? []).some((person) => (guesses[person.id] ?? []).length < person.lines.length || (guesses[person.id] ?? []).some((mark) => mark == null))) {
       setError("Przy każdym zdaniu zaznacz prawdę albo fałsz.");
       return;
     }
     void run(
       () => eventTruthGuess(eventId, rows),
-      (board) => (board.truths?.phase ?? 2) >= 3 ? SAVED : `${SAVED}. ${WAIT}`,
+      (board) => (board.truths?.phase ?? 2) >= 3 ? null : `${SAVED}. ${WAIT}`,
     );
   };
 
   const lockedLines = truths.lines_saved && phase === 1;
   const showGuesses = phase >= 2 && (truths.others ?? []).length > 0;
   const reveal = phase >= 3;
+  const ranking = truths.ranking ?? [];
+  const top = ranking[0]?.score;
+  const tiedFirst = ranking.filter((row) => row.score === top).length > 1;
+  const place = ranking.length ? ranking.filter((row) => row.score > (truths.score ?? 0)).length + 1 : null;
 
   return (
     <View style={{ gap: spacing.md }} testID="two-truths-play">
-      <Body style={{ textAlign: "center" }}>{STAKE}</Body>
-      <View style={{ flexDirection: "row", gap: spacing.sm }}>
-        <Button testID="truth-stake-yes" title="Tak" style={{ flex: 1 }} variant={truths.stake.mine === true ? "primary" : "secondary"} loading={busy} onPress={() => void run(() => eventTruthStake(eventId, true), () => "Zapisano zgodę")} />
-        <Button testID="truth-stake-no" title="Nie" style={{ flex: 1 }} variant={truths.stake.mine === false ? "primary" : "secondary"} loading={busy} onPress={() => void run(() => eventTruthStake(eventId, false), () => "Zapisano odpowiedź")} />
-      </View>
-      <Body testID="truth-stake-count" style={{ textAlign: "center" }}>Zgodziło się {truths.stake.yes} z {truths.stake.total}.</Body>
+      {!showGuesses ? (
+        <>
+          <Body style={{ textAlign: "center" }}>{STAKE}</Body>
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <Button testID="truth-stake-yes" title="Tak" style={{ flex: 1 }} variant={truths.stake.mine === true ? "primary" : "secondary"} loading={busy} onPress={() => void run(() => eventTruthStake(eventId, true), () => "Zapisano zgodę")} />
+            <Button testID="truth-stake-no" title="Nie" style={{ flex: 1 }} variant={truths.stake.mine === false ? "primary" : "secondary"} loading={busy} onPress={() => void run(() => eventTruthStake(eventId, false), () => "Zapisano odpowiedź")} />
+          </View>
+          <Body testID="truth-stake-count" style={{ textAlign: "center" }}>Zgodziło się {truths.stake.yes} z {truths.stake.total}.</Body>
+        </>
+      ) : null}
       {truths.stake.unanimous ? <Title size={16} style={{ textAlign: "center" }} testID="truth-stake-unanimous">{PRIZE}</Title> : null}
+      {(truths.stake.no ?? 0) > 0 || truths.stake.mine === false ? <Title size={16} style={{ textAlign: "center" }} testID="truth-stake-fun">{TWO_TRUTHS_NO_PRIZE}</Title> : null}
       {banner ? <Title size={16} style={{ textAlign: "center" }} testID="truth-banner">{banner}</Title> : null}
       {error ? <Body testID="truth-error">{error}</Body> : null}
 
@@ -136,6 +151,7 @@ export function TwoTruthsPlay({
         </View>
       ) : (
         <View style={{ gap: spacing.md }}>
+          <Body style={{ textAlign: "center" }} testID="truth-guess-instruction">{TWO_TRUTHS_GUESS_INSTRUCTION}</Body>
           {(truths.others ?? []).map((person) => (
             <Card key={person.id} testID={`truth-person-${person.id}`}>
               <Title size={18} style={{ textAlign: "center" }}>{person.name}</Title>
@@ -154,7 +170,7 @@ export function TwoTruthsPlay({
                         style={{ flex: 1 }}
                         variant={guesses[person.id]?.[index] === true ? "primary" : "secondary"}
                         disabled={truths.guesses_saved}
-                        onPress={() => setGuesses((cur) => ({ ...cur, [person.id]: [0, 1, 2].map((n) => n === index ? true : (cur[person.id]?.[n] ?? null)) }))}
+                        onPress={() => setGuesses((cur) => ({ ...cur, [person.id]: person.lines.map((_, n) => n === index ? true : (cur[person.id]?.[n] ?? null)) }))}
                       />
                       <Button
                         testID={`truth-guess-false-${person.id}-${index}`}
@@ -162,7 +178,7 @@ export function TwoTruthsPlay({
                         style={{ flex: 1 }}
                         variant={guesses[person.id]?.[index] === false ? "primary" : "secondary"}
                         disabled={truths.guesses_saved}
-                        onPress={() => setGuesses((cur) => ({ ...cur, [person.id]: [0, 1, 2].map((n) => n === index ? false : (cur[person.id]?.[n] ?? null)) }))}
+                        onPress={() => setGuesses((cur) => ({ ...cur, [person.id]: person.lines.map((_, n) => n === index ? false : (cur[person.id]?.[n] ?? null)) }))}
                       />
                     </View>
                   )}
@@ -174,15 +190,14 @@ export function TwoTruthsPlay({
           {reveal ? (
             <View style={{ gap: spacing.md }} testID="truth-ranking">
               <Title size={18} style={{ textAlign: "center" }}>Klasyfikacja</Title>
-              {(truths.ranking ?? []).map((row) => (
-                <Title key={row.id} size={16} style={{ textAlign: "center" }}>{row.name}: {row.score} pkt</Title>
+              {ranking.map((row, index) => (
+                <Title key={row.id} size={16} style={{ textAlign: "center" }}>{index + 1}. {row.name}: {row.score} pkt</Title>
               ))}
               <Title size={22} style={{ textAlign: "center" }} testID="truth-score">Twój wynik: {truths.score ?? 0} pkt</Title>
-              {(truths.ranking ?? []).length ? (
-                <Title size={18} style={{ textAlign: "center" }} testID="truth-place">
-                  Twoje miejsce: {(truths.ranking ?? []).filter((row) => row.score > (truths.score ?? 0)).length + 1}
-                </Title>
+              {place != null ? (
+                <Title size={18} style={{ textAlign: "center" }} testID="truth-place">Twoje miejsce: {place}</Title>
               ) : null}
+              {tiedFirst ? <Body style={{ textAlign: "center" }} testID="truth-tie">{TWO_TRUTHS_TIE}</Body> : null}
             </View>
           ) : null}
           {!reveal && truths.guesses_saved ? <Body style={{ textAlign: "center" }}>{WAIT}</Body> : null}

@@ -87,7 +87,7 @@ export default function MeetingsJournal() {
                     ) : null}
                     {item.truths?.length ? (
                       <View style={{ gap: 4 }}>
-                        <Body muted>Dwie prawdy i jedno kłamstwo</Body>
+                        <Body muted>Prawda czy kłamstwo</Body>
                         {item.truths.map((row) => (
                           <Body key={row.name}>{row.name}: prawdy — {row.truths.filter(Boolean).join("; ")}. Kłamstwo — {row.lie}.</Body>
                         ))}

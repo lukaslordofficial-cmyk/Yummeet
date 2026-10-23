@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
+import { Icon } from "@/src/components/Icon";
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
   QUESTION_PLAY_INSTRUCTION, RUNAWAY_STORY_PLAY_GUEST, RUNAWAY_STORY_PLAY_ORGANIZER, STORY_STARTERS,
-  plannedGameKeys, splitPlan, storyPickMode, storyStarterLabel, type PlanItem,
+  TWO_TRUTHS_TITLE, plannedGameKeys, splitPlan, storyPickMode, storyStarterLabel, type PlanItem,
 } from "@/src/lib/meetingPlan";
 import { eventFinishMeeting, eventPlayAnswered, eventPlayBoard, eventPlayDraw, eventPlayNext, eventPlayStart, type PlayBoard } from "@/src/lib/play";
-import { spacing } from "@/src/theme";
+import { fonts, radius, spacing, useTheme } from "@/src/theme";
 
 import { ActivityName } from "./PlanNoteView";
 import { FindRound } from "./FindRound";
@@ -17,7 +18,7 @@ import { TwoTruthsPlay } from "./TwoTruthsPlay";
 
 const LABELS: Record<string, string> = {
   questions: "Zabawa w pytania",
-  "two-truths": "Dwie prawdy i jedno kłamstwo",
+  "two-truths": TWO_TRUTHS_TITLE,
   "find-someone": "Znajdź kogoś, kto…",
   "runaway-story": "Historia, która wymknęła się spod kontroli",
 };
@@ -38,10 +39,12 @@ export function MeetingPlay({
   isOrganizer: boolean;
   scanned: boolean;
 }) {
+  const { colors } = useTheme();
   const [board, setBoard] = useState<PlayBoard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(true);
   const advanced = useRef<string | null>(null);
   const keys = selectedKeys(items);
   const labels = keys.map((key) => LABELS[key] ?? key);
@@ -116,42 +119,17 @@ export function MeetingPlay({
     return { title, text };
   }).filter((starter) => starter.text.length > 0);
 
-  return (
-    <View style={{ gap: spacing.xxl }} testID="meeting-play">
-      {error ? <Body testID="meeting-play-error">{error}</Body> : null}
-      {board?.notice ? <Card><Title size={16} style={{ textAlign: "center" }} testID="meeting-play-notice">{board.notice}</Title></Card> : null}
-
-      {isOrganizer ? (
-        <View style={{ gap: spacing.xl }}>
-          <Title size={18} style={{ textAlign: "center" }}>Przełącz zabawę</Title>
-          {keys.map((key) => (
-            <Button
-              key={key}
-              testID={`meeting-play-start-${key}`}
-              title={LABELS[key] ?? key}
-              variant={live === key ? "primary" : "secondary"}
-              onPress={() => { if (live !== key) void run(() => eventPlayStart(eventId, key)); }}
-              loading={busy}
-            />
-          ))}
-          <Button
-            testID="meeting-play-finish"
-            title="Zakończ spotkanie"
-            variant="ghost"
-            loading={closing}
-            onPress={() => {
-              setClosing(true);
-              void eventFinishMeeting(eventId).then(() => load()).catch((e) => setError(errorMessage(e))).finally(() => setClosing(false));
-            }}
-          />
-        </View>
-      ) : null}
-
+  const gameView = (
+    <>
       {live == null && !isOrganizer ? (
         <View style={{ gap: spacing.xl }}>
           {labels.map((label) => <Card key={label}><Title size={16} style={{ textAlign: "center" }}>{label}</Title></Card>)}
           <Body muted style={{ textAlign: "center" }}>Czekamy, aż organizator rozpocznie zabawę.</Body>
         </View>
+      ) : null}
+
+      {live == null && isOrganizer && !panelOpen ? (
+        <Body muted style={{ textAlign: "center" }}>Rozwiń panel organizatora, żeby uruchomić zabawę.</Body>
       ) : null}
 
       {live === "questions" ? (
@@ -177,7 +155,7 @@ export function MeetingPlay({
 
       {live === "two-truths" ? (
         <View style={{ gap: spacing.xl }} testID="meeting-play-truths">
-          <ActivityName>Dwie prawdy i jedno kłamstwo</ActivityName>
+          <ActivityName>{TWO_TRUTHS_TITLE}</ActivityName>
           <TwoTruthsPlay
             eventId={eventId}
             truths={board?.truths}
@@ -208,6 +186,55 @@ export function MeetingPlay({
           <StoryTable eventId={eventId} canClose={isOrganizer} planned={plannedStarters} mode={storyPickMode(items)} />
         </View>
       ) : null}
+    </>
+  );
+
+  return (
+    <View style={{ gap: spacing.xxl }} testID="meeting-play">
+      {error ? <Body testID="meeting-play-error">{error}</Body> : null}
+      {board?.notice ? <Card><Title size={16} style={{ textAlign: "center" }} testID="meeting-play-notice">{board.notice}</Title></Card> : null}
+
+      {isOrganizer ? (
+        <View style={{ gap: spacing.lg }} testID="organizer-panel">
+          <Pressable
+            testID="organizer-panel-toggle"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: panelOpen }}
+            onPress={() => setPanelOpen((open) => !open)}
+            style={{ minHeight: 48, borderRadius: radius.pill, backgroundColor: colors.brandPrimary, paddingHorizontal: spacing.xl, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm }}
+          >
+            <Text style={{ flexShrink: 1, fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: colors.onBrandPrimary, textAlign: "center" }}>Panel organizatora</Text>
+            <Icon name={panelOpen ? "chevron-up" : "chevron-down"} size={22} color={colors.onBrandPrimary} />
+          </Pressable>
+          {panelOpen ? (
+            <View style={{ gap: spacing.xl }}>
+              <Title size={18} style={{ textAlign: "center" }}>Przełącz zabawę</Title>
+              {keys.map((key) => (
+                <Button
+                  key={key}
+                  testID={`meeting-play-start-${key}`}
+                  title={LABELS[key] ?? key}
+                  variant={live === key ? "primary" : "secondary"}
+                  onPress={() => { if (live !== key) void run(() => eventPlayStart(eventId, key)); }}
+                  loading={busy}
+                />
+              ))}
+              <Button
+                testID="meeting-play-finish"
+                title="Zakończ spotkanie"
+                variant="ghost"
+                loading={closing}
+                onPress={() => {
+                  setClosing(true);
+                  void eventFinishMeeting(eventId).then(() => load()).catch((e) => setError(errorMessage(e))).finally(() => setClosing(false));
+                }}
+              />
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {gameView}
     </View>
   );
 }
