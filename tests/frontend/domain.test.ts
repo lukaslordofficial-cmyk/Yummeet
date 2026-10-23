@@ -143,6 +143,9 @@ test("meeting plan has the question pool and social games", () => {
   ], { min: null, max: 40 }).map((pin) => pin.price_min), [20, null]);
   assert.equal(STORY_STARTERS.length, 16);
   assert.equal(FIND_PACKS.length, 6);
+  assert.equal(FIND_PACKS[0].prompts[0], "Masz na koncie historię, której nie opowiedziałbyś/łabyś przy własnej rodzinie?");
+  assert.equal(FIND_PACKS[0].prompts[1], "Zrobiłeś/aś kiedyś coś tak głupiego, że do dziś zastanawiasz się jakim cudem uszło ci to na sucho?");
+  assert.equal(FIND_PACKS.every((pack) => pack.prompts.every((prompt) => prompt.endsWith("?"))), true);
   assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.category === "challenges" || a.title === "Szachy"), false);
   assert.equal(FALLBACK_ATTRACTIONS.some((a) => a.title === "Dwie prawdy i jedno kłamstwo"), true);
   const plan = splitPlan([

@@ -39,7 +39,7 @@ export function PlanNoteView({ body, hideQuestions, headings = [], testID }: { b
         <View key={`${index}-${(group.title ?? group.rest[0] ?? "").slice(0, 24)}`} style={{ gap: spacing.md, width: "100%" }}>
           {group.title ? <ActivityName>{group.title}</ActivityName> : null}
           {group.rest.map((part) => (
-            <Body key={part.slice(0, 48)} style={{ textAlign: "center", color: part.startsWith("• ") ? colors.onSurface : undefined }}>{part}</Body>
+            <Body key={part.slice(0, 48)} style={{ textAlign: "center", color: colors.onSurface, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>{part}</Body>
           ))}
         </View>
       ))}

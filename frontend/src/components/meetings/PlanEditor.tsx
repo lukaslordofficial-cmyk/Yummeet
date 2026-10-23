@@ -5,7 +5,7 @@ import { Icon } from "@/src/components/Icon";
 import { Body, Button, Card, Field, Title, haptic } from "@/src/components/ui";
 import {
   BUILTIN_QUESTIONS, FIND_PACKS, QUESTION_RULES, SOCIAL_GAMES, STORY_STARTERS,
-  addCustomBody, addCustomHeading, addCustomPrompt, addCustomQuestion, gameInstruction, isCustomHeadingTitle, isQuestionPlanActive, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyStarterLabel, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
+  addCustomBody, addCustomHeading, addCustomPrompt, addCustomQuestion, gameInstruction, isCustomHeadingTitle, isQuestionPlanActive, questionPoolWarning, setPlanLimit, splitPlan, storyStarterLabel, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter,
   type PlanItem,
 } from "@/src/lib/meetingPlan";
 import { forgetSavedLine, loadSavedLines, rememberSavedLine } from "@/src/lib/savedLines";
@@ -54,13 +54,13 @@ export function PlanEditor({
   const [bodyDraft, setBodyDraft] = useState("");
   const titleNodes = useRef<Record<string, View | null>>({});
   const planAnchor = useRef<View | null>(null);
+  const questionFieldAnchor = useRef<View | null>(null);
   const center = { textAlign: "center" as const, width: "100%" as const };
   const picked = (on: boolean) => (on ? colors.brandPrimary : undefined);
   const generated = plan.note?.body ?? "";
   const packPrompts = FIND_PACKS.flatMap((pack) => pack.prompts);
   const poolOn = isQuestionPlanActive(items);
   const poolWarning = typeof seats === "number" && poolOn ? questionPoolWarning(seats, plan.limit, plan.questions.length) : null;
-  const mode = storyPickMode(items);
 
   useEffect(() => {
     void loadSavedLines("question").then((rows) => setOwnQuestions(rows.map((row) => row.body)));
@@ -89,14 +89,14 @@ export function PlanEditor({
     .filter((starter) => starter.title.length > 1 && starter.text.length > 4 && !catalogTitles.has(starter.title) && !ownStarters.some((row) => row.title === starter.title));
   const customStarters = [...ownStarters.filter((starter) => !catalogTitles.has(starter.title)), ...meetingStarters];
 
-  const pinGameTitle = (id: string) => {
+  const keepTileInPlace = (id: string, yBefore: number) => {
     const card = titleNodes.current[id];
-    const anchor = planAnchor.current;
-    if (!card || !anchor || !scrollRef?.current) return;
-    anchor.measureInWindow((_ax, anchorY) => {
-      card.measureInWindow((_cx, cardY) => {
-        scrollRef.current?.scrollTo({ y: Math.max(0, cardY - anchorY - 8), animated: false });
-      });
+    if (!card || !scrollRef?.current) return;
+    card.measureInWindow((_cx, yAfter) => {
+      const delta = yAfter - yBefore;
+      if (Math.abs(delta) < 4) return;
+      const current = scrollOffsetRef?.current ?? 0;
+      scrollRef.current?.scrollTo({ y: Math.max(0, current + delta), animated: false });
     });
   };
 
@@ -105,26 +105,38 @@ export function PlanEditor({
       setOpenGame(null);
       return;
     }
-    const reveal = () => {
+    const card = titleNodes.current[id];
+    if (!card) {
       setOpenGame(id);
-      const pin = () => pinGameTitle(id);
-      requestAnimationFrame(pin);
-      setTimeout(pin, 50);
-      setTimeout(pin, 180);
-    };
-    if (openGame) {
-      setOpenGame(null);
-      requestAnimationFrame(() => requestAnimationFrame(reveal));
       return;
     }
-    reveal();
+    card.measureInWindow((_cx, yBefore) => {
+      setOpenGame(id);
+      const keep = () => keepTileInPlace(id, yBefore);
+      requestAnimationFrame(keep);
+      setTimeout(keep, 50);
+      setTimeout(keep, 200);
+    });
   };
 
   const addOwnQuestion = () => {
     const clean = customQ.trim();
     if (clean.length < 5) return;
+    const field = questionFieldAnchor.current;
+    const hold = (yBefore: number) => {
+      const keep = () => {
+        questionFieldAnchor.current?.measureInWindow((_x, yAfter) => {
+          const delta = yAfter - yBefore;
+          if (Math.abs(delta) < 4 || !scrollRef?.current) return;
+          scrollRef.current.scrollTo({ y: Math.max(0, (scrollOffsetRef?.current ?? 0) + delta), animated: false });
+        });
+      };
+      requestAnimationFrame(keep);
+      setTimeout(keep, 80);
+    };
+    field?.measureInWindow((_x, yBefore) => hold(yBefore));
     setOwnQuestions((current) => [clean, ...current.filter((line) => line !== clean)].slice(0, 40));
-    void rememberSavedLine("question", clean).then((rows) => setOwnQuestions(rows.map((row) => row.body)));
+    void rememberSavedLine("question", clean).then((rows) => setOwnQuestions([clean, ...rows.map((row) => row.body).filter((body) => body !== clean)]));
     applySelection(addCustomQuestion(items, clean));
     setCustomQ("");
   };
@@ -176,23 +188,21 @@ export function PlanEditor({
     <View ref={planAnchor} collapsable={false} style={{ gap: spacing.xl }} testID={testID}>
       <Title size={18} style={{ ...center, marginTop: spacing.lg }}>Plan spotkania</Title>
       <Body muted style={center}>Planowane aktywności</Body>
+      <Card testID={`${testID}-plan-window`} style={{ backgroundColor: colors.surfaceTertiary, gap: spacing.md }}>
+        {generated ? (
+          <PlanNoteView testID={`${testID}-generated`} body={generated} headings={plan.custom.filter((item) => isCustomHeadingTitle(item.title)).map((item) => item.body.trim())} />
+        ) : (
+          <Body muted style={center}>Tu pojawią się nagłówki, opisy i zabawy dodane do planu.</Body>
+        )}
+      </Card>
       {canEdit ? (
         <View style={{ gap: spacing.lg }}>
-          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.sm }}>
-            <View style={{ flex: 1 }}>
-              <Field testID={`${testID}-custom-heading`} label="Dodaj nagłówek z tytułem aktywności" value={headingDraft} onChangeText={setHeadingDraft} placeholder="np. Przywitanie przy stole" />
-            </View>
-            <Button testID={`${testID}-custom-heading-add`} title="+" onPress={() => { applySelection(addCustomHeading(items, headingDraft)); setHeadingDraft(""); }} style={{ minWidth: 56, paddingHorizontal: spacing.md }} />
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.sm }}>
-            <View style={{ flex: 1 }}>
-              <Field testID={`${testID}-custom-body`} label="Dodaj treść aktywności" value={bodyDraft} onChangeText={setBodyDraft} placeholder="Opis, który zobaczą goście" multiline style={{ minHeight: 80 }} />
-            </View>
-            <Button testID={`${testID}-custom-body-add`} title="+" onPress={() => { applySelection(addCustomBody(items, bodyDraft)); setBodyDraft(""); }} style={{ minWidth: 56, paddingHorizontal: spacing.md }} />
-          </View>
+          <Button testID={`${testID}-custom-heading-add`} title="Dodaj nagłówek z tytułem aktywności" onPress={() => { applySelection(addCustomHeading(items, headingDraft)); setHeadingDraft(""); }} />
+          <Field testID={`${testID}-custom-heading`} label="Tytuł aktywności" value={headingDraft} onChangeText={setHeadingDraft} placeholder="np. Przywitanie przy stole" />
+          <Button testID={`${testID}-custom-body-add`} title="Dodaj treść aktywności" onPress={() => { applySelection(addCustomBody(items, bodyDraft)); setBodyDraft(""); }} />
+          <Field testID={`${testID}-custom-body`} label="Treść aktywności" value={bodyDraft} onChangeText={setBodyDraft} placeholder="Opis, który zobaczą goście" multiline style={{ minHeight: 80 }} />
         </View>
       ) : null}
-      {generated ? <PlanNoteView testID={`${testID}-generated`} body={generated} headings={plan.custom.filter((item) => isCustomHeadingTitle(item.title)).map((item) => item.body.trim())} /> : null}
 
       <Title size={18} style={{ ...center, marginTop: spacing.md }}>Proponowane aktywności</Title>
       <ExpandTile testID={`${testID}-questions-toggle`} title="Zabawa w pytania" open={questionsOpen} onPress={() => setQuestionsOpen((open) => !open)} style={{ marginTop: spacing.xl }} />
@@ -214,7 +224,7 @@ export function PlanEditor({
             <Text testID={`${testID}-pool-warning`} style={{ color: colors.error, fontFamily: fonts.text, fontSize: 15, lineHeight: 22, textAlign: "center" }}>{poolWarning}</Text>
           ) : null}
           {canEdit ? (
-            <View style={{ gap: spacing.lg }}>
+            <View ref={questionFieldAnchor} collapsable={false} style={{ gap: spacing.lg }}>
               <Field testID={`${testID}-custom-question`} label="Własne pytanie" value={customQ} onChangeText={setCustomQ} placeholder="Wpisz swoje pytanie" />
               <Button testID={`${testID}-custom-question-add`} title="Dodaj własne pytanie" onPress={addOwnQuestion} />
             </View>
@@ -272,7 +282,7 @@ export function PlanEditor({
                     <Title size={16} testID={`${testID}-find-header`} style={center}>{FIND_HEADER}</Title>
                     {canEdit ? (
                       <View style={{ gap: spacing.lg }}>
-                        <Field testID={`${testID}-custom-prompt`} label="Własne pytanie" value={customP} onChangeText={setCustomP} placeholder="…najprędzej zamówi deser przed daniem" />
+                        <Field testID={`${testID}-custom-prompt`} label="Własne pytanie" value={customP} onChangeText={setCustomP} placeholder="Zamówiłbyś/łabyś deser przed daniem?" />
                         <Button testID={`${testID}-custom-prompt-add`} title="Dodaj własne pytanie" onPress={addOwnPrompt} />
                       </View>
                     ) : null}
@@ -303,20 +313,17 @@ export function PlanEditor({
                 ) : null}
                 {g.id === "runaway-story" ? (
                   <View style={{ gap: spacing.xxl }}>
-                    {canEdit ? (
-                      <View style={{ flexDirection: "row", gap: spacing.md }}>
-                        <Button testID={`${testID}-story-mode-wybierz`} title="Wybierz" variant={mode === "wybierz" ? "primary" : "secondary"} onPress={() => applySelection(setStoryMode(items, "wybierz"))} style={{ flex: 1 }} />
-                        <Button testID={`${testID}-story-mode-losowo`} title="Losowo" variant={mode === "losowo" ? "primary" : "secondary"} onPress={() => applySelection(setStoryMode(items, "losowo"))} style={{ flex: 1 }} />
-                      </View>
-                    ) : null}
-                    {canEdit ? (
-                      <View style={{ gap: spacing.lg }}>
-                        <Field testID={`${testID}-custom-story-title`} label="Tytuł własnego początku" value={storyTitle} onChangeText={setStoryTitle} placeholder="Krótki tytuł" />
-                        <Field testID={`${testID}-custom-story-text`} label="Początek historii z haczykiem" value={storyText} onChangeText={setStoryText} placeholder="Zdanie startowe, które zostawia haczyk…" multiline style={{ minHeight: 100 }} />
-                        <Button testID={`${testID}-custom-story-add`} title="Dodaj własny początek" onPress={addOwnStarter} />
-                      </View>
-                    ) : null}
                     <View style={{ gap: spacing.md }}>
+                      {STORY_STARTERS.map((starter) => (
+                        <StoryProposal
+                          key={starter.title}
+                          testID={`${testID}-story-${starter.title}`}
+                          title={starter.title}
+                          text={starter.text}
+                          chosen={plan.starters.some((row) => storyStarterLabel(row.title) === starter.title)}
+                          onPress={canEdit ? () => applySelection(toggleStoryStarter(items, starter)) : undefined}
+                        />
+                      ))}
                       {customStarters.map((starter) => (
                         <StoryProposal
                           key={`own-${starter.title}`}
@@ -329,17 +336,14 @@ export function PlanEditor({
                           onRemove={canEdit ? () => removeOwnStarter(starter.title, starter.text) : undefined}
                         />
                       ))}
-                      {STORY_STARTERS.map((starter) => (
-                        <StoryProposal
-                          key={starter.title}
-                          testID={`${testID}-story-${starter.title}`}
-                          title={starter.title}
-                          text={starter.text}
-                          chosen={plan.starters.some((row) => storyStarterLabel(row.title) === starter.title)}
-                          onPress={canEdit ? () => applySelection(toggleStoryStarter(items, starter)) : undefined}
-                        />
-                      ))}
                     </View>
+                    {canEdit ? (
+                      <View style={{ gap: spacing.lg }}>
+                        <Field testID={`${testID}-custom-story-title`} label="Tytuł własnego początku" value={storyTitle} onChangeText={setStoryTitle} placeholder="Krótki tytuł" />
+                        <Field testID={`${testID}-custom-story-text`} label="Początek historii z haczykiem" value={storyText} onChangeText={setStoryText} placeholder="Zdanie startowe, które zostawia haczyk…" multiline style={{ minHeight: 100 }} />
+                        <Button testID={`${testID}-custom-story-add`} title="Dodaj własny początek" onPress={addOwnStarter} />
+                      </View>
+                    ) : null}
                   </View>
                 ) : null}
               </View>
@@ -415,10 +419,10 @@ function ExpandTile({ title, open, onPress, testID, style }: { title: string; op
       accessibilityRole="button"
       accessibilityState={{ expanded: open }}
       onPress={() => { haptic.tap(); onPress(); }}
-      style={[{ minHeight: 48, borderRadius: radius.pill, backgroundColor: colors.onBrandPrimary, paddingHorizontal: spacing.xl, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm }, style]}
+      style={[{ minHeight: 48, borderRadius: radius.pill, backgroundColor: colors.brandPrimary, paddingHorizontal: spacing.xl, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm }, style]}
     >
-      <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: colors.brandPrimary, textAlign: "center" }}>{title}</Text>
-      <Icon name={open ? "chevron-up" : "chevron-down"} size={22} color={colors.brandPrimary} />
+      <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: colors.onBrandPrimary, textAlign: "center" }}>{title}</Text>
+      <Icon name={open ? "chevron-up" : "chevron-down"} size={22} color={colors.onBrandPrimary} />
     </Pressable>
   );
 }

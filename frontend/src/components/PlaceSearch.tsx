@@ -117,7 +117,7 @@ export function PlaceSearch({
         </Body>
       ) : null}
       {busy && !mapOpen ? <Body muted>Szukam…</Body> : null}
-      {!busy && searched === q.trim() && results.length === 0 && q.trim().length >= 2 ? (
+      {!value && !busy && searched === q.trim() && results.length === 0 && q.trim().length >= 2 ? (
         <Body muted>Brak podpowiedzi. Wpisz miasto i ulicę, samą ulicę, albo wskaż punkt na mapie.</Body>
       ) : null}
       {results.map((r, i) => (
@@ -128,6 +128,7 @@ export function PlaceSearch({
             onPick(r);
             setQ(r.title);
             setResults([]);
+            setSearched("");
           }}
         >
           <Body numberOfLines={3}>{r.title}</Body>
