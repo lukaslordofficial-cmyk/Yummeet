@@ -17,11 +17,15 @@ export function StoryTable({
   canClose,
   planned = [],
   mode = "wybierz",
+  onFinishMeeting,
+  finishing,
 }: {
   eventId: string;
   canClose: boolean;
   planned?: { title: string; text: string }[];
   mode?: StoryPickMode;
+  onFinishMeeting?: () => void;
+  finishing?: boolean;
 }) {
   const { colors } = useTheme();
   const [board, setBoard] = useState<StoryBoard | null>(null);
@@ -82,17 +86,23 @@ export function StoryTable({
     setWord(bag[drawIndex(bag.length)] ?? "");
   };
 
+  const hidden = !!board?.hide_story;
   const empty = (board?.lines.length ?? 0) === 0;
   const closed = !!board?.closed;
-  const yourTurn = !!board?.your_turn && !closed && !board?.left;
-  const waiting = board && !closed;
-  const pickStart = canClose && empty && !closed;
+  const yourTurn = !!board?.your_turn && !closed && !board?.left && !hidden;
+  const waiting = board && !closed && !hidden;
+  const pickStart = canClose && empty && !closed && !hidden;
   const usedLines = (board?.lines ?? []).map((line) => line.body);
   const proposals = planned.length ? planned : STORY_STARTERS;
 
   return (
     <View style={{ gap: spacing.xl }} testID="story-table">
       {error ? <Body testID="story-error">{error}</Body> : null}
+      {board?.left_notice ? (
+        <Card testID="story-left-notice">
+          <Title size={16} style={{ textAlign: "center" }}>{board.left_notice}</Title>
+        </Card>
+      ) : null}
       {canClose && board && !closed ? (
         <Button testID="story-close" title="Zakończ historię" variant="ghost" onPress={() => void eventStoryClose(eventId).then(load).catch((e) => setError(errorMessage(e)))} />
       ) : null}
@@ -101,6 +111,9 @@ export function StoryTable({
       ) : null}
       {waiting && !empty ? <Title size={18} testID="story-turn" style={{ textAlign: "center" }}>Teraz mówi i wpisuje: {board.turn_name ?? "uczestnik"}</Title> : null}
       {closed ? <Body testID="story-turn">Historia zamknięta i zapisana.</Body> : null}
+      {hidden ? (
+        <Title size={16} style={{ textAlign: "center" }} testID="story-skipped">Nie bierzesz udziału w tej historii. Grupa gra dalej bez Ciebie.</Title>
+      ) : (
       <View testID="story-window" style={{ minHeight: 180, borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.lg }}>
         {empty ? <Body muted>Pierwsze zdanie pojawi się tutaj, gdy organizator je wybierze albo wylosuje.</Body> : null}
         {(board?.lines ?? []).map((line) => (
@@ -110,6 +123,7 @@ export function StoryTable({
           </View>
         ))}
       </View>
+      )}
       {pickStart ? (
         <Button
           testID="story-draw-starter"
@@ -125,6 +139,8 @@ export function StoryTable({
           }}
         />
       ) : null}
+      {hidden ? null : (
+        <>
       <ChipRow testID="story-word-kinds">
         <Chip testID="story-word-noun" label="Rzeczownik" onPress={() => roll("rzeczownik")} />
         <Chip testID="story-word-verb" label="Czasownik" onPress={() => roll("czasownik")} />
@@ -134,6 +150,8 @@ export function StoryTable({
       {word ? <Body testID="story-word">Wpleć słowo: {word}. Haczyk na końcu zostaje obowiązkowy.</Body> : null}
       <Button testID="story-hooks" title={hooks ? "Ukryj podpowiedzi" : "Jak zakończyć zdanie?"} variant="ghost" onPress={() => setHooks((v) => !v)} />
       {hooks ? STORY_HOOKS.map((h) => <Body key={h}>{h}</Body>) : null}
+        </>
+      )}
       {pickStart ? proposals.map((s) => {
         const open = openStarter === s.title;
         return (
@@ -159,12 +177,16 @@ export function StoryTable({
           </Card>
         );
       }) : null}
+      {hidden ? null : (
+        <>
       <Field testID="story-input" label="Twoje zdanie" value={text} onChangeText={setText} multiline style={{ minHeight: 160 }} editable={yourTurn && !busy} placeholder="Rozwiń sytuację i zostaw haczyk" />
       <Button testID="story-send" title="Dopisz zdanie" disabled={!yourTurn || busy || text.trim().length < 1} loading={busy} onPress={() => void send(text)} />
+        </>
+      )}
       {!canClose && board && !closed && !board.left ? (
         <Button testID="story-leave" title="Zakończ mój udział" variant="ghost" onPress={() => void eventStoryLeave(eventId).then(setBoard).catch((e) => setError(errorMessage(e)))} />
       ) : null}
-      {board?.left ? <Body style={{ textAlign: "center" }}>Nie dopisujesz już kolejnych zdań. Reszta grupy może kontynuować.</Body> : null}
+      {board?.left && !hidden ? <Body style={{ textAlign: "center" }}>Nie dopisujesz już kolejnych zdań. Reszta grupy może kontynuować.</Body> : null}
       {board?.majority_left && !closed && !board.left ? (
         <View style={{ gap: spacing.md }}>
           <Body style={{ textAlign: "center" }}>Więcej niż połowa osób zakończyła udział. Czy zakończyć już tę historię?</Body>
@@ -183,8 +205,15 @@ export function StoryTable({
             <Button testID="story-restart-no" title="Nie" style={{ flex: 1 }} variant={board?.my_restart_vote === false ? "primary" : "secondary"} onPress={() => void eventStoryVote(eventId, "restart", false).then(setBoard)} />
           </View>
           <Body style={{ textAlign: "center" }}>Głosy: tak {board?.restart_yes ?? 0} · nie {board?.restart_no ?? 0}</Body>
-          {canClose ? (
+          {canClose && !board?.close_prompt ? (
             <Button testID="story-restart" title="Rozpocznij nową historię" onPress={() => void eventStoryRestart(eventId).then(setBoard).catch((e) => setError(errorMessage(e)))} />
+          ) : null}
+          {board?.close_prompt ? (
+            <View style={{ gap: spacing.md }} testID="story-close-meeting">
+              <Title size={16} style={{ textAlign: "center" }}>Czy zamknąć i zapisać to spotkanie?</Title>
+              <Button testID="story-finish-meeting" title="Zamknij i zapisz spotkanie" loading={finishing} onPress={() => onFinishMeeting?.()} />
+              <Button testID="story-restart-anyway" title="Rozpocznij nową historię" variant="secondary" onPress={() => void eventStoryRestart(eventId).then(setBoard).catch((e) => setError(errorMessage(e)))} />
+            </View>
           ) : null}
         </View>
       ) : null}

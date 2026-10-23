@@ -6,7 +6,7 @@ import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, FIND_SOMEONE_INSTRUCTION, FIND_SOMEONE_PLAY_INSTRUCTION, RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, TWO_TRUTHS_INSTRUCTION, TWO_TRUTHS_TITLE, addCustomBody, addCustomHeading, addCustomQuestion, clampTruthLimit, drawStoryStarter, findPromptSummary, gameActivityLine, gameInstruction, planActivityBlocks, plannedGameKeys, questionInstruction, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyTurnIndex, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter } from "../../frontend/src/lib/meetingPlan.ts";
+import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, FIND_SOMEONE_INSTRUCTION, FIND_SOMEONE_PLAY_INSTRUCTION, JOURNAL_FIND_TITLE, JOURNAL_QUESTIONS_TITLE, JOURNAL_STORY_TITLE, JOURNAL_TRUTHS_TITLE, RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, TWO_TRUTHS_INSTRUCTION, TWO_TRUTHS_TITLE, addCustomBody, addCustomHeading, addCustomQuestion, clampTruthLimit, drawStoryStarter, findPromptSummary, gameActivityLine, gameInstruction, journalRecapBlocks, planActivityBlocks, plannedGameKeys, questionInstruction, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyTurnIndex, syncPlanNote, toggleGame, togglePrompt, toggleQuestion, toggleStoryStarter } from "../../frontend/src/lib/meetingPlan.ts";
 import { placeQueryVariants, placeSuggestionTitle } from "../../frontend/src/lib/routing.ts";
 import { subcategoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
 import { clampRouteBuffer, filterPinsByPrice, haversineM, withinRadiusM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
@@ -201,6 +201,32 @@ test("meeting plan has the question pool and social games", () => {
   assert.equal(splitPlan(randomMode).games.some((game) => game.title === "Historia, która wymknęła się spod kontroli"), true);
   assert.equal(drawStoryStarter(["used"], [{ title: "A", text: "used" }, { title: "B", text: "next" }], () => 0)?.text, "next");
   assert.equal(drawStoryStarter([STORY_STARTERS[0].text], [STORY_STARTERS[0]], () => 0)?.title, STORY_STARTERS[1].title);
+});
+
+test("journal recap uses orange headers and per-game detail", () => {
+  const blocks = journalRecapBlocks({
+    question_draws: [{ name: "Ala", question: "Co jesz na śniadanie?", round: 1 }],
+    truths: [{
+      name: "Bartek",
+      lines: [{ text: "Lubię koty", truth: true }, { text: "Mam jacht", truth: false }],
+      score: 2,
+    }],
+    truths_ranking: [{ name: "Bartek", score: 2 }, { name: "Ala", score: 1 }],
+    find_yes: [{ prompt: "Znajdź kogoś: kto gra na gitarze", names: ["Ala"] }],
+    find_scores: [{ name: "Ala", score: 3 }, { name: "Bartek", score: 0 }],
+    stories: [{ title: JOURNAL_STORY_TITLE, lines: [{ author: "Ala", body: "Drzwi się otworzyły." }] }],
+    story: [{ author: "Ala", body: "Drzwi się otworzyły." }],
+  });
+  assert.equal(blocks[0].title, JOURNAL_QUESTIONS_TITLE);
+  assert.match(blocks[0].lines[0], /Ala/);
+  assert.equal(blocks[1].title, JOURNAL_TRUTHS_TITLE);
+  assert.match(blocks[1].lines.join("\n"), /Lubię koty — prawda/);
+  assert.match(blocks[1].lines.join("\n"), /1\. Bartek: 2 pkt/);
+  assert.equal(blocks[2].title, JOURNAL_FIND_TITLE);
+  assert.match(blocks[2].lines.join("\n"), /Ala/);
+  assert.equal(blocks[3].title, JOURNAL_STORY_TITLE);
+  assert.equal(blocks[3].lines[0], "Ala: Drzwi się otworzyły.");
+  assert.equal(blocks.length, 4);
 });
 
 test("meeting catalog keeps the tasting, game and hobby shelves", () => {

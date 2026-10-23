@@ -14,8 +14,11 @@ export type StoryBoard = {
   turn_user_id: string | null;
   turn_name: string | null;
   left?: boolean;
+  hide_story?: boolean;
+  left_notice?: string | null;
   left_count?: number;
   member_count?: number;
+  active_count?: number;
   majority_left?: boolean;
   end_yes?: number;
   end_no?: number;
@@ -23,6 +26,7 @@ export type StoryBoard = {
   restart_yes?: number;
   restart_no?: number;
   my_restart_vote?: boolean | null;
+  close_prompt?: boolean;
   lines: StoryLine[];
 };
 

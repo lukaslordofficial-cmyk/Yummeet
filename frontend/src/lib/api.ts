@@ -62,6 +62,7 @@ const MESSAGES: Record<string, string> = {
   too_many_dishes: "Na jednym spotkaniu zmieści się 12 dań.",
   invalid_duration: "Czas spotkania: od 15 minut do 12 godzin.",
   invalid_budget: "Budżet na osobę jest poza zakresem.",
+  invalid_photo: "Wybierz zdjęcie jeszcze raz.",
 };
 
 export function errorMessage(e: unknown): string {
@@ -77,8 +78,11 @@ export function errorMessage(e: unknown): string {
   if (raw.includes("event_play") || raw.includes("event_find_save") || raw.includes("event_find_picks")) {
     return "Panel zabaw wymaga migracji 046_play_qr_window.sql w SQL Editorze Supabase.";
   }
+  if (raw.includes("add_event_photo") || raw.includes("event_photos")) {
+    return "Zdjęcia spotkania zapisują się na stałe po migracji 054_play_journal_photos.sql w SQL Editorze Supabase.";
+  }
   if (raw.includes("event_story")) {
-    return "Wspólna historia wymaga migracji 043_meeting_plan_story.sql w SQL Editorze Supabase.";
+    return "Wspólna historia wymaga migracji 043_meeting_plan_story.sql i 054_play_journal_photos.sql w SQL Editorze Supabase.";
   }
   if (raw.includes("event_set_meeting") || raw.includes("event_add_dish") || raw.includes("dish_ratings") || raw.includes("pin_dish_summary") || raw.includes("event_dish_board")) {
     return "Oceny dań wymagają migracji 040_meeting_categories_dishes.sql w SQL Editorze Supabase.";

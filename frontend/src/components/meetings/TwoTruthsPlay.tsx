@@ -16,10 +16,14 @@ export function TwoTruthsPlay({
   eventId,
   truths,
   onBoard,
+  onNext,
+  nextBusy,
 }: {
   eventId: string;
   truths: TruthState | null | undefined;
   onBoard: (next: PlayBoard) => void;
+  onNext?: () => void;
+  nextBusy?: boolean;
 }) {
   const toast = useToast();
   const count = Math.min(9, Math.max(3, truths?.limit ?? 3));
@@ -198,6 +202,9 @@ export function TwoTruthsPlay({
                 <Title size={18} style={{ textAlign: "center" }} testID="truth-place">Twoje miejsce: {place}</Title>
               ) : null}
               {tiedFirst ? <Body style={{ textAlign: "center" }} testID="truth-tie">{TWO_TRUTHS_TIE}</Body> : null}
+              {onNext ? (
+                <Button testID="truth-next-game" title="Przejdź do następnej zabawy" loading={nextBusy} onPress={onNext} />
+              ) : null}
             </View>
           ) : null}
           {!reveal && truths.guesses_saved ? <Body style={{ textAlign: "center" }}>{WAIT}</Body> : null}
