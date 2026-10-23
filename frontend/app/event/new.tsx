@@ -125,7 +125,7 @@ export default function NewEvent() {
   return (
     <View testID="new-event-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title={header} centerTitle={step === "form"} />
-      <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
+      <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
         {step === "category" ? (
           <MeetingPickList testID="meeting-category" items={MEETING_CATEGORIES.map((c) => ({ key: c.key, title: c.label, text: c.blurb }))} onPick={(key) => { setCategory(key); setSubKey(null); setStep("sub"); }} />
         ) : null}
@@ -152,7 +152,7 @@ export default function NewEvent() {
           <>
             {!fromMission ? <Button testID="meeting-back-idea" title="Wróć do pomysłów" onPress={() => setStep("idea")} style={{ marginHorizontal: spacing.lg, marginTop: spacing.xxl }} /> : null}
             <Body muted style={{ paddingHorizontal: spacing.lg }} testID="new-event-kind-hint">{cat?.label} · {sub.label}. {sub.blurb}</Body>
-            <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+            <View style={{ paddingHorizontal: spacing.lg, gap: spacing.lg }}>
               <Field testID="new-event-title-input" label="Tytuł" value={title} onChangeText={setTitle} placeholder="np. Ramen dla nieznajomych" />
               <PlaceSearch testID="new-event-place" label="Miejsce (publiczne)" value={venue} onPick={setVenue} placeholder="np. Kraków Rynek 16 albo ul. Floriańska" />
               <Field testID="new-event-theme-input" label="Temat (opcjonalnie)" value={theme} onChangeText={setTheme} />
@@ -164,7 +164,7 @@ export default function NewEvent() {
                 <Chip key={k} testID={`new-event-day-${k}`} label={l} selected={day === k} onPress={() => setDay(k)} />
               ))}
             </ChipRow>
-            <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+            <View style={{ paddingHorizontal: spacing.lg, gap: spacing.lg }}>
               {day === "custom" ? (
                 <Field testID="new-event-custom-date" label="Data (RRRR-MM-DD)" value={customDate} onChangeText={setCustomDate} placeholder="2026-10-20" keyboardType="numbers-and-punctuation" />
               ) : null}

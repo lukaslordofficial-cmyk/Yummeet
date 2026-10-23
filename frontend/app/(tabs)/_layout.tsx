@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import type { ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/src/components/Icon";
@@ -17,6 +17,7 @@ const VISIBLE_TABS = [
 ] as const;
 
 const HIDDEN_TABS = ["food", "challenges"] as const;
+const HIDDEN_TAB_NAMES = new Set<string>(HIDDEN_TABS);
 
 function AppTabBar({
   state,
@@ -29,13 +30,20 @@ function AppTabBar({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  // Android already ends the window above the system buttons. Extra inset padding paints a black band under the icons.
+  const bottomPad = Platform.OS === "ios" ? insets.bottom : 0;
+  const focusedKey = state.routes[state.index]?.key;
+  const routes = state.routes.filter((route) => {
+    const options = descriptors[route.key]?.options;
+    return !!options && options.href !== null && !HIDDEN_TAB_NAMES.has(route.name);
+  });
   return (
-    <View style={{ backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: 1, paddingBottom: insets.bottom }}>
-      <View style={{ height: 52, flexDirection: "row" }}>
-        {state.routes.map((route, index) => {
+    <View style={{ backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: 1, paddingBottom: bottomPad }}>
+      <View style={{ height: 56, flexDirection: "row" }}>
+        {routes.map((route) => {
           const options = descriptors[route.key]?.options;
-          if (!options || options.href === null) return null;
-          const focused = state.index === index;
+          if (!options) return null;
+          const focused = focusedKey === route.key;
           const color = focused ? colors.brandPrimary : colors.muted;
           return (
             <Pressable
@@ -47,10 +55,10 @@ function AppTabBar({
                 const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
                 if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
               }}
-              style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 2 }}
+              style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: 4 }}
             >
               {options.tabBarIcon?.({ focused, color, size: 24 })}
-              <Text style={{ color, fontFamily: fonts.display, fontSize: 11 }}>{options.title ?? route.name}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color, fontFamily: fonts.display, fontSize: 11, textAlign: "center" }}>{options.title ?? route.name}</Text>
             </Pressable>
           );
         })}

@@ -13,5 +13,5 @@ export function AttractionPicker({
   onChange: (next: DraftAttraction[]) => void;
   testID?: string;
 }) {
-  return <PlanEditor testID={testID} items={picked} onChange={onChange} canEdit play={false} noteCommit="instant" />;
+  return <PlanEditor testID={testID} items={picked} onChange={onChange} canEdit play={false} />;
 }

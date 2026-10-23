@@ -6,10 +6,11 @@ export const CUSTOM_PROMPT_PREFIX = "Znajdź kogoś: ";
 export const QUESTION_RULES =
   "Organizator dodaje pytania do wspólnej puli. Każdy uczestnik losuje po jednym pytaniu, na które może odpowiedzieć. Organizator ustala, ile pytań może wylosować każda osoba.";
 
-export const ACTIVITY_LINE = "Zabawa w pytania";
+export const ACTIVITY_LINE = "Organizator przeprowadzi dla uczestników Zabawę w pytania.";
+export const STORY_STARTER_PREFIX = "Początek historii: ";
 
 export function gameActivityLine(title: string) {
-  return title;
+  return `Organizator przeprowadzi dla uczestników zabawę w: ${title}.`;
 }
 
 export function questionInstruction(limit: number) {
@@ -34,7 +35,20 @@ export function gameInstruction(title: string) {
 
 export function isActivityParagraph(text: string) {
   const line = text.trim();
-  return line.startsWith("Organizator przeprowadzi dla uczestników") || line === ACTIVITY_LINE || SOCIAL_GAMES.some((game) => game.title === line);
+  return line.startsWith("Organizator przeprowadzi") || line === "Zabawa w pytania" || line === ACTIVITY_LINE || SOCIAL_GAMES.some((game) => game.title === line);
+}
+
+export function isStoryStarterTitle(title: string) {
+  const clean = title.startsWith(STORY_STARTER_PREFIX) ? title.slice(STORY_STARTER_PREFIX.length) : title;
+  return STORY_STARTERS.some((starter) => starter.title === clean);
+}
+
+export function storyStarterLabel(title: string) {
+  return title.startsWith(STORY_STARTER_PREFIX) ? title.slice(STORY_STARTER_PREFIX.length) : title;
+}
+
+export function isQuestionPoolItem(item: { category: string; title: string }) {
+  return item.category === "questions" && item.title !== PLAN_NOTE_TITLE && item.title !== PLAN_LIMIT_TITLE && !isStoryStarterTitle(item.title);
 }
 
 export const BUILTIN_QUESTIONS = [
@@ -221,11 +235,12 @@ export function clampLimit(raw: string | undefined) {
 export function splitPlan<T extends { category: string; title: string; body?: string | null }>(items: T[]) {
   const note = items.find((i) => i.title === PLAN_NOTE_TITLE) ?? null;
   const limitRow = items.find((i) => i.title === PLAN_LIMIT_TITLE) ?? null;
-  const questions = items.filter((i) => i.category === "questions" && i.title !== PLAN_NOTE_TITLE && i.title !== PLAN_LIMIT_TITLE);
+  const questions = items.filter((i) => isQuestionPoolItem(i));
+  const starters = items.filter((i) => (i.category === "questions" || i.category === "games") && isStoryStarterTitle(i.title));
   const prompts = items.filter((i) => i.category === "games" && i.title.startsWith(CUSTOM_PROMPT_PREFIX));
-  const games = items.filter((i) => i.category === "games" && !i.title.startsWith(CUSTOM_PROMPT_PREFIX));
+  const games = items.filter((i) => i.category === "games" && !i.title.startsWith(CUSTOM_PROMPT_PREFIX) && !isStoryStarterTitle(i.title));
   const legacy = items.filter((i) => i.category === "challenges");
-  return { note, limit: clampLimit(limitRow?.body ?? undefined), questions, prompts, games, legacy };
+  return { note, limit: clampLimit(limitRow?.body ?? undefined), questions, prompts, starters, games, legacy };
 }
 
 function withoutTitle(items: PlanItem[], title: string) {
@@ -252,14 +267,16 @@ export function toggleQuestion(items: PlanItem[], title: string): PlanItem[] {
   return [...items, { key: `q:${title}`, category: "questions", title, body: "" }];
 }
 
-/** Zdanie, od którego zaczyna się historia, trafia do puli losowania. Tytuł jest krótki, treść jest w opisie. */
+/** Początek historii należy do zabawy „Historia, która wymknęła się spod kontroli”, nie do puli pytań. */
 export function toggleStoryStarter(items: PlanItem[], starter: { title: string; text: string }): PlanItem[] {
   const title = starter.title.trim().slice(0, 200);
-  const hit = items.find((i) => i.category === "questions" && i.title === title);
+  const hit = items.find((i) => isStoryStarterTitle(i.title) && storyStarterLabel(i.title) === title);
   if (hit) return items.filter((i) => i.key !== hit.key);
   const text = starter.text.trim().slice(0, 8000);
   if (title.length < 2 || text.length < 5) return items;
-  return [...items, { key: `story:${title}`, category: "questions", title, body: text }];
+  const game = SOCIAL_GAMES.find((entry) => entry.id === "runaway-story");
+  const base = game && !items.some((i) => i.category === "games" && i.title === game.title) ? toggleGame(items, game) : items;
+  return [...base, { key: `story:${title}`, category: "games", title: `${STORY_STARTER_PREFIX}${title}`.slice(0, 200), body: text }];
 }
 
 function questionNoteLine(item: { title: string; body?: string | null }) {
@@ -277,7 +294,11 @@ export function addCustomQuestion(items: PlanItem[], title: string): PlanItem[] 
 
 export function toggleGame(items: PlanItem[], game: SocialGame): PlanItem[] {
   const hit = items.find((i) => i.category === "games" && i.title === game.title);
-  if (hit) return items.filter((i) => i.key !== hit.key);
+  if (hit) {
+    const rest = items.filter((i) => i.key !== hit.key);
+    if (game.id !== "runaway-story") return rest;
+    return rest.filter((i) => !isStoryStarterTitle(i.title));
+  }
   return [...items, { key: `game:${game.id}`, category: "games", title: game.title, body: game.blurb }];
 }
 
@@ -298,7 +319,7 @@ export function togglePrompt(items: PlanItem[], prompt: string): PlanItem[] {
 
 function isManagedNoteLine(line: string) {
   const text = line.trim();
-  return !text || isActivityParagraph(text) || text.startsWith("Instrukcja:") || text.startsWith("• ") || text.startsWith("Pytań na osobę");
+  return !text || isActivityParagraph(text) || text.startsWith("Instrukcja:") || text.startsWith("• ") || text.startsWith("Pytań na osobę") || isStoryStarterTitle(text);
 }
 
 /** Własny tekst organizatora, bez akapitów dokładanych przez plan. */
@@ -306,7 +327,7 @@ export function freeNoteText(body: string) {
   return body.split("\n").map((line) => line.trim()).filter((line) => line && !isManagedNoteLine(line)).join("\n\n");
 }
 
-/** Instrukcja każdej zabawy, bez powtarzania listy pytań. */
+/** Wybrane pytania i zabawy trafiają do planu spotkania. */
 export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   const plan = splitPlan(items);
   const extra = freeNoteText(plan.note?.body ?? "");
@@ -314,20 +335,22 @@ export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   if (plan.questions.length) {
     blocks.push([
       ACTIVITY_LINE,
-      questionInstruction(plan.limit),
       ...plan.questions.map((question) => `• ${questionNoteLine(question)}`),
     ].join("\n\n"));
   }
   const findSomeone = SOCIAL_GAMES.find((game) => game.id === "find-someone")?.title;
+  const runaway = SOCIAL_GAMES.find((game) => game.id === "runaway-story")?.title;
   const games = [...plan.games];
   if (plan.prompts.length && findSomeone && !games.some((game) => game.title === findSomeone)) {
     games.push({ key: "find-note", category: "games", title: findSomeone, body: "" });
   }
+  if (plan.starters.length && runaway && !games.some((game) => game.title === runaway)) {
+    games.push({ key: "story-note", category: "games", title: runaway, body: "" });
+  }
   for (const game of games) {
     const lines = [gameActivityLine(game.title)];
-    const intro = gameInstruction(game.title);
-    if (intro) lines.push(intro);
     if (game.title === findSomeone) lines.push(...plan.prompts.map((prompt) => `• ${prompt.body || prompt.title}`));
+    if (game.title === runaway) lines.push(...plan.starters.map((starter) => `• ${storyStarterLabel(starter.title)}`));
     blocks.push(lines.join("\n\n"));
   }
   return setPlanNote(items, [...blocks, extra].filter(Boolean).join("\n\n"));

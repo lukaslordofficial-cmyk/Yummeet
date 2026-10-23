@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { SOCIAL_GAMES, type PlanItem } from "@/src/lib/meetingPlan";
+import { SOCIAL_GAMES, isQuestionPoolItem, isStoryStarterTitle, type PlanItem } from "@/src/lib/meetingPlan";
 import { eventPlayAnswered, eventPlayBoard, eventPlayDraw, eventPlayStart, type PlayBoard } from "@/src/lib/play";
 import { spacing } from "@/src/theme";
 
@@ -20,9 +20,10 @@ const LABELS: Record<string, string> = {
 
 function selectedKeys(items: PlanItem[]) {
   const keys: string[] = [];
-  if (items.some((item) => item.category === "questions" && item.title !== "Notatka organizatora" && item.title !== "Pytania na osobę")) keys.push("questions");
+  if (items.some((item) => isQuestionPoolItem(item))) keys.push("questions");
   for (const game of SOCIAL_GAMES) {
-    if (items.some((item) => item.title === game.title)) keys.push(game.id);
+    const picked = items.some((item) => item.title === game.title || (game.id === "runaway-story" && isStoryStarterTitle(item.title)));
+    if (picked) keys.push(game.id);
   }
   return keys;
 }
