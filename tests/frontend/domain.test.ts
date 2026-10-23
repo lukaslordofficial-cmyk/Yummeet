@@ -182,8 +182,12 @@ test("meeting plan has the question pool and social games", () => {
   assert.equal(homemadeBlocks[0]?.body, "Siadamy przy jednym stole.");
   assert.equal(removeCustomActivity(homemadeItems, homemadeBlocks[0].keys).some((item) => item.body === "Przywitanie"), false);
   assert.equal((homemade.note?.body ?? "").includes("Przywitanie"), false);
-  assert.match(RUNAWAY_STORY_INSTRUCTION, /podpowiedzi na żądanie/);
+  assert.match(RUNAWAY_STORY_INSTRUCTION, /intrygujące zdanie startowe/);
   assert.match(gameInstruction("Historia, która wymknęła się spod kontroli"), /notuje kto jakie zdanie dopisał/);
+  const findBlocks = planActivityBlocks(syncPlanNote(togglePrompt([], FIND_PACKS[0].prompts[0])));
+  assert.equal(findBlocks.some((block) => block.id === "find-someone" && (block.bullets ?? []).length > 0), true);
+  const storyBlocks = planActivityBlocks(syncPlanNote(toggleStoryStarter([], STORY_STARTERS[0])));
+  assert.equal(storyBlocks.find((block) => block.id === "runaway-story")?.stories?.[0]?.title, STORY_STARTERS[0].title);
   const prompted = splitPlan(togglePrompt([], FIND_PACKS[0].prompts[0]));
   assert.equal(prompted.prompts.length, 1);
   assert.equal(prompted.games.some((game) => game.title === "Znajdź kogoś, kto…"), true);

@@ -24,7 +24,8 @@ const MESSAGES: Record<string, string> = {
   invalid_specialization: "Nieznana specjalizacja.",
   not_allowed: "Brak uprawnień.",
   too_early: "Kod QR jest dostępny od 4 godzin przed startem do 4 godzin po starcie.",
-  event_closed: "Okno kodu minęło (4 godziny po starcie).",
+  event_closed: "Kod QR jest dostępny od 4 godzin przed startem do 4 godzin po starcie.",
+  booking_closed: "Rezerwacja tego spotkania jest już zamknięta.",
   find_incomplete: "Zaznacz tak albo nie przy każdym zdaniu, zanim zapiszesz.",
   truth_incomplete: "Wpisz trzy zdania i oznacz, które jest kłamstwem.",
   play_not_live: "Ta zabawa jeszcze nie jest uruchomiona.",
@@ -88,7 +89,10 @@ export function errorMessage(e: unknown): string {
     return "Oceny dań wymagają migracji 040_meeting_categories_dishes.sql w SQL Editorze Supabase.";
   }
   if (raw.includes("schema cache") || raw.includes("does not exist") || raw.includes("public.events")) {
-    return "Baza niegotowa: w SQL Editor uruchom migracje z docs/SETUP.md (w tym 012_repair_specs_duels.sql, potem 011).";
+    if (/event_play|event_find|event_truth|event_story/.test(raw)) {
+      return "Panel zabaw wymaga migracji 046–054. W SQL Editor wgraj sql/053.sql i sql/054.sql.";
+    }
+    return "Baza niegotowa: w SQL Editor uruchom brakujące migracje z docs/SETUP.md, na końcu sql/053.sql i sql/054.sql.";
   }
   if (raw === "timeout" || /network request failed|failed to fetch|error fetch|fetch failed|typeerror: fetch|aborted|network error/i.test(raw)) {
     return "Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.";

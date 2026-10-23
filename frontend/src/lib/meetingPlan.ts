@@ -37,12 +37,13 @@ export const FIND_SOMEONE_INSTRUCTION =
   "Każdy uczestnik odpowiada „tak” lub „nie” na pytania, wybrane przez organizatora. W kolejnej turze, przy tych samych pytaniach, zaznacza kto jego zdaniem odpowiedział na te pytania twierdząco. Poprawna odpowiedź daje 1 pkt. Negatywna odejmuje 1 pkt. Można wstrzymać się od odpowiedzi, by nie ryzykować utraty punktów. Aplikacja podlicza punkty i ogłasza zwycięzcę.";
 
 export const RUNAWAY_STORY_INSTRUCTION =
-  "Organizator wybiera zdanie/a startowe, lub ustawia dobór losowy spośród wybranych propozycji. Każdy dopisuje dokładnie jedno zdanie i zostawia haczyk dla kolejnej osoby. Aplikacja pilnuje kolejki, notuje kto jakie zdanie dopisał, pokazuje wszystkim aktualną treść historii, i daje podpowiedzi na żądanie.";
+  "Organizator wybiera i ustawia intrygujące zdanie startowe dla historii. Każdy uczestnik dopisuje jedno zdanie i urywa je w taki sposób, by kolejna osoba mogła naturalnie je zakończyć. Aplikacja pilnuje kolejki, notuje kto jakie zdanie dopisał, pokazuje wszystkim aktualną treść historii i daje podpowiedzi na żądanie.";
 
 export const QUESTION_PLAY_INSTRUCTION =
   "Przeczytaj wylosowane pytanie na głos. Możesz udzielić na nie odpowiedzi, ale możesz też powiedzieć Pas, jeśli nie chcesz tego robić.";
 
 export const QUESTION_POOL_GUEST_HEADER = "Pula pytań";
+export const STORY_PROPOSALS_HEADER = "Proponowane historie";
 
 export const FIND_SOMEONE_PLAY_INSTRUCTION =
   "Odpowiedz tak przy zdaniach, które są prawdziwe w stosunku do Ciebie. W kolejnej turze, zaznacz przy tych samych pytaniach, imiona osób, które twoim zdaniem, odpowiedziały na te pytania twierdząco. Poprawna odpowiedź daje 1 pkt, negatywna -1 pkt. Można wstrzymać się od odpowiedzi, by nie ryzykować utraty punktów. Aplikacja podlicza punkty i ogłasza zwycięzcę.";
@@ -484,7 +485,13 @@ function isManagedNoteLine(line: string) {
   return !text || isActivityParagraph(text) || text.startsWith("Instrukcja:") || text.startsWith("• ") || text.startsWith("Pytań na osobę") || text.startsWith("Zdań na osobę") || isStoryStarterTitle(text);
 }
 
-export type PlanActivityBlock = { id?: string; title: string; instruction: string; bullets?: string[] };
+export type PlanActivityBlock = {
+  id?: string;
+  title: string;
+  instruction: string;
+  bullets?: string[];
+  stories?: { title: string; text: string }[];
+};
 
 /** Pary tytuł–instrukcja w kolejności planu, niezależnie od starej notatki. */
 export function planActivityBlocks(items: PlanItem[]): PlanActivityBlock[] {
@@ -523,13 +530,19 @@ export function planActivityBlocks(items: PlanItem[]): PlanActivityBlock[] {
     const catalog = catalogGame(game.title);
     const title = catalog?.title ?? game.title;
     const bullets: string[] = [];
+    const stories: { title: string; text: string }[] = [];
     if (catalog?.id === "find-someone") bullets.push(...plan.prompts.map((prompt) => prompt.body || prompt.title));
-    if (catalog?.id === "runaway-story") bullets.push(...plan.starters.map((starter) => storyStarterLabel(starter.title)));
+    if (catalog?.id === "runaway-story") {
+      for (const starter of plan.starters) {
+        stories.push({ title: storyStarterLabel(starter.title), text: (starter.body || "").trim() });
+      }
+    }
     blocks.push({
       id: catalog?.id,
       title: gameActivityLine(title),
       instruction: gameInstruction(title) || catalog?.blurb || game.body,
       bullets,
+      stories: stories.length ? stories : undefined,
     });
   }
   return blocks;

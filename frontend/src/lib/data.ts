@@ -298,7 +298,15 @@ export const eventCreate = (a: {
     p_description: a.description || null, p_theme: a.theme || null, p_rules: a.rules || null,
     p_place_lat: a.placeLat ?? null, p_place_lng: a.placeLng ?? null, p_pin: a.pinId ?? null,
   });
-export const eventJoin = (id: string) => rpc<any>("event_join", { p_event: id });
+export async function eventJoin(id: string) {
+  try {
+    return await rpc<any>("event_join", { p_event: id });
+  } catch (error) {
+    const raw = error instanceof Error ? error.message : String(error);
+    if (raw.includes("event_closed")) throw new Error("booking_closed");
+    throw error;
+  }
+}
 export const eventLeave = (id: string) => rpc("event_leave", { p_event: id });
 export const eventCheckin = (id: string, code: string, lat: number, lng: number) =>
   rpc("event_checkin", { p_event: id, p_code: code, p_lat: lat, p_lng: lng });

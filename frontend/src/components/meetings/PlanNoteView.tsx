@@ -43,9 +43,9 @@ export function PlanNoteView({ body, hideQuestions, headings = [], testID }: { b
     .filter((part) => !hideQuestions || !part.startsWith("• "));
   const groups = groupPlanParts(parts, headings);
   return (
-    <View testID={testID} style={{ gap: spacing.xl, width: "100%", marginTop: spacing.md }}>
+    <View testID={testID} style={{ gap: spacing.xxxl, width: "100%", marginTop: spacing.md }}>
       {groups.map((group, index) => (
-        <View key={`${index}-${(group.title ?? group.rest[0] ?? "").slice(0, 24)}`} style={{ gap: spacing.md, width: "100%" }}>
+        <View key={`${index}-${(group.title ?? group.rest[0] ?? "").slice(0, 24)}`} style={{ gap: spacing.xxl, width: "100%" }}>
           {group.title ? <ActivityName>{group.title}</ActivityName> : null}
           {group.rest.map((part) => (
             <Body key={part.slice(0, 48)} style={{ textAlign: "center", color: colors.onSurface, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>{part}</Body>
