@@ -76,6 +76,14 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 45. **`supabase/migrations/046_play_qr_window.sql`** — kod QR od 4 godzin przed startem do 4 godzin po starcie (GPS do 400 m) oraz panel zabaw: start organizatora, kolejka pytań i „znajdź kogoś”. Bez tego pliku kod się nie pojawi w szerszym oknie, a zabawy po skanie nie wystartują.
 46. **`supabase/migrations/047_find_rounds_presence.sql`** — organizator przełącza zabawy ręcznie. „Znajdź kogoś” ma turę tak/nie, potem turę imion i punkty. Wpisany albo zeskanowany kod dolicza uczestnikowi odwiedzone spotkanie, a organizatorowi zorganizowane. Uruchom po 046.
 47. **`supabase/migrations/048_two_truths_play.sql`** — „Dwie prawdy i jedno kłamstwo” na wielu telefonach: trzy zdania, typowanie prawda/fałsz, punkty +1/−1 i zgoda na nagrodę. Pula pytań losuje też zdania, od których zaczynają się historie. Uruchom po 047.
+48. **`supabase/migrations/049_unique_draws_saved_lines.sql`**
+49. **`supabase/migrations/050_saved_line_kinds.sql`**
+50. **`supabase/migrations/051_play_flow_journal.sql`**
+51. **`supabase/migrations/052_truth_ranking_plan_order.sql`**
+52. **`sql/053.sql`** albo **`supabase/migrations/053_plan_pairs_truth_find_score.sql`** — ranking Prawda czy kłamstwo i punktacja Znajdź kogoś (wstrzymanie = 0).
+53. **`sql/054.sql`** albo **`supabase/migrations/054_play_journal_photos.sql`** — kolejna zabawa dla wszystkich, rezygnacja z historii, trwałe zdjęcia spotkania, recap w dzienniku.
+
+Te dwa ostatnie pliki są też w katalogu `sql/` (krótkie nazwy `053.sql` i `054.sql`), żeby dało się je pobrać z gita bez szukania wśród plików `038_poland_osm_website_pins_053.sql`.
 
 ### Szybka naprawa edycji pinu
 1. **`029_fix_pin_updated_xp_cards.sql`**

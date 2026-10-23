@@ -23,7 +23,7 @@ export const TWO_TRUTHS_TITLE = "Prawda czy kłamstwo";
 export const TWO_TRUTHS_TITLE_LEGACY = "Dwie prawdy i jedno kłamstwo";
 export const TRUTH_LIMIT_TITLE = "Zdania prawda czy kłamstwo";
 export const TWO_TRUTHS_INSTRUCTION =
-  "Wpisz dwie prawdziwe rzeczy na swój temat i jedną, która jest kłamstwem. Po zapisaniu odpowiedzi przez wszystkich uczestników, spróbujecie odgadnąć co było prawdą a co kłamstwem. Aplikacja podliczy punkty i pokaże uczestnikom wyniki.";
+  "Wpisz prawdziwe lub fałszywe zdania na swój temat. Inni uczestnicy zrobią to samo. Gdy zapiszesz swoje odpowiedzi, spróbujesz ustalić co jest prawdą a co kłamstwem, w przypadku innych uczestników. Trafienie daje +1 pkt, pudło odejmuje 1 pkt. Można wstrzymać się od odpowiedzi. Aplikacja podliczy punkty i pokaże wyniki.";
 export const TWO_TRUTHS_GUESS_INSTRUCTION =
   "Spróbuj odgadnąć co jest kłamstwem w przypadku pozostałych uczestników.";
 export const TWO_TRUTHS_NO_PRIZE =
@@ -34,7 +34,7 @@ export const FIND_SOMEONE_GUESS_INSTRUCTION =
   "Dodaj znakiem + tych uczestników, którzy twoim zdaniem, odpowiedzieli na poniższe zdania twierdząco.";
 
 export const FIND_SOMEONE_INSTRUCTION =
-  "Każdy uczestnik odpowiada „Tak” lub „Nie” na pytania które stworzysz, lub wybierzesz z poniższej listy i zapisuje odpowiedzi. W kolejnej turze, przy tych samych pytaniach, zaznacza kto jego zdaniem odpowiedział na nie twierdząco. Poprawna odpowiedź daje 1pkt, negatywna -1pkt. Można wstrzymać się od odpowiedzi, by nie ryzykować utraty punktów. Aplikacja podlicza punkty i ogłasza zwycięzcę.";
+  "Każdy uczestnik odpowiada „tak” lub „nie” na pytania, wybrane przez organizatora. W kolejnej turze, przy tych samych pytaniach, zaznacza kto jego zdaniem odpowiedział na te pytania twierdząco. Poprawna odpowiedź daje 1 pkt. Negatywna odejmuje 1 pkt. Można wstrzymać się od odpowiedzi, by nie ryzykować utraty punktów. Aplikacja podlicza punkty i ogłasza zwycięzcę.";
 
 export const RUNAWAY_STORY_INSTRUCTION =
   "Organizator wybiera zdanie/a startowe, lub ustawia dobór losowy spośród wybranych propozycji. Każdy dopisuje dokładnie jedno zdanie i zostawia haczyk dla kolejnej osoby. Aplikacja pilnuje kolejki, notuje kto jakie zdanie dopisał, pokazuje wszystkim aktualną treść historii, i daje podpowiedzi na żądanie.";
@@ -42,8 +42,7 @@ export const RUNAWAY_STORY_INSTRUCTION =
 export const QUESTION_PLAY_INSTRUCTION =
   "Przeczytaj wylosowane pytanie na głos. Możesz udzielić na nie odpowiedzi, ale możesz też powiedzieć Pas, jeśli nie chcesz tego robić.";
 
-export const QUESTION_POOL_GUEST_HEADER =
-  "Lista pytań z puli, na które być może będziesz musiał odpowiedzieć.";
+export const QUESTION_POOL_GUEST_HEADER = "Pula pytań";
 
 export const FIND_SOMEONE_PLAY_INSTRUCTION =
   "Odpowiedz tak przy zdaniach, które są prawdziwe w stosunku do Ciebie. W kolejnej turze, zaznacz przy tych samych pytaniach, imiona osób, które twoim zdaniem, odpowiedziały na te pytania twierdząco. Poprawna odpowiedź daje 1 pkt, negatywna -1 pkt. Można wstrzymać się od odpowiedzi, by nie ryzykować utraty punktów. Aplikacja podlicza punkty i ogłasza zwycięzcę.";
@@ -391,6 +390,38 @@ export function addCustomBody(items: PlanItem[], text: string): PlanItem[] {
   return [...items, { key: `body:${clean.slice(0, 40)}:${items.length}`, category: "questions", title: `${CUSTOM_BODY_PREFIX}${clean}`.slice(0, 200), body: clean }];
 }
 
+export function addCustomActivity(items: PlanItem[], title: string, body: string): PlanItem[] {
+  const next = addCustomHeading(items, title);
+  if (next === items) return items;
+  const desc = body.trim();
+  return desc ? addCustomBody(next, desc) : next;
+}
+
+export type CustomActivity = { key: string; title: string; body: string; keys: string[] };
+
+export function customActivities(items: { key?: string; category: string; title: string; body?: string | null }[]): CustomActivity[] {
+  const out: CustomActivity[] = [];
+  for (const item of splitPlan(items).custom) {
+    const text = (item.body ?? "").trim();
+    const id = ("key" in item && item.key) ? String(item.key) : item.title;
+    if (isCustomHeadingTitle(item.title)) {
+      out.push({ key: id, title: text, body: "", keys: [id] });
+    } else if (out.length) {
+      const last = out[out.length - 1];
+      last.body = [last.body, text].filter(Boolean).join("\n\n");
+      last.keys.push(id);
+    } else {
+      out.push({ key: id, title: "", body: text, keys: [id] });
+    }
+  }
+  return out;
+}
+
+export function removeCustomActivity(items: PlanItem[], keys: string[]): PlanItem[] {
+  const drop = new Set(keys);
+  return items.filter((item) => !drop.has(item.key));
+}
+
 export function addCustomQuestion(items: PlanItem[], title: string): PlanItem[] {
   const clean = title.trim().slice(0, 200);
   if (clean.length < 5) return items;
@@ -531,7 +562,6 @@ export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   const customBodies = new Set(plan.custom.map((item) => item.body.trim()).filter(Boolean));
   const extra = freeNoteText(plan.note?.body ?? "").split(/\n\n+/).map((part) => part.trim()).filter((part) => part && !customBodies.has(part)).join("\n\n");
   const blocks: string[] = [];
-  if (plan.custom.length) blocks.push(plan.custom.map((item) => item.body.trim()).filter(Boolean).join("\n\n"));
   if (plan.questions.length) {
     blocks.push([
       ACTIVITY_LINE,
