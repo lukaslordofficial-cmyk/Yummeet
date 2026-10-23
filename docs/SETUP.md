@@ -82,6 +82,7 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 51. **`supabase/migrations/052_truth_ranking_plan_order.sql`**
 52. **`sql/053.sql`** albo **`supabase/migrations/053_plan_pairs_truth_find_score.sql`** — ranking Prawda czy kłamstwo i punktacja Znajdź kogoś (wstrzymanie = 0).
 53. **`sql/054.sql`** albo **`supabase/migrations/054_play_journal_photos.sql`** — kolejna zabawa dla wszystkich, rezygnacja z historii, trwałe zdjęcia spotkania, recap w dzienniku.
+54. **`sql/055.sql`** albo **`supabase/migrations/055_event_join_open.sql`** — rezerwacja miejsca działa do zakończenia spotkania i nie jest blokowana oknem kodu QR.
 
 Te dwa ostatnie pliki są też w katalogu `sql/` (krótkie nazwy `053.sql` i `054.sql`), żeby dało się je pobrać z gita bez szukania wśród plików `038_poland_osm_website_pins_053.sql`.
 

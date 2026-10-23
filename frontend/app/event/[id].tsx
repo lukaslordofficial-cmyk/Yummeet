@@ -18,7 +18,7 @@ import {
 import { getCurrentPosition } from "@/src/lib/location";
 import { openMeetingCode } from "@/src/lib/meetingEntry";
 import { subcategoryLabel } from "@/src/lib/meetingCatalog";
-import { QUESTION_POOL_GUEST_HEADER, customActivities, freeNoteText, planActivityBlocks, splitPlan, type PlanItem } from "@/src/lib/meetingPlan";
+import { QUESTION_POOL_GUEST_HEADER, STORY_PROPOSALS_HEADER, customActivities, freeNoteText, planActivityBlocks, splitPlan, type PlanItem } from "@/src/lib/meetingPlan";
 import { ActivityBody, ActivityName } from "@/src/components/meetings/PlanNoteView";
 import { QrMark } from "@/src/components/meetings/QrMark";
 import { eventQrValue } from "@/src/lib/eventQr";
@@ -54,22 +54,33 @@ function PlanPreview({ rows, organizer }: { rows: Array<{ id: string; category: 
   const extra = freeNoteText(plan.note?.body ?? "").split(/\n\n+/).map((part) => part.trim()).filter((part) => part && !known.has(part));
   const empty = blocks.length === 0 && homemade.length === 0 && extra.length === 0;
   return (
-    <Card testID="event-plan" style={{ gap: spacing.xl, paddingTop: spacing.xl }}>
+    <Card testID="event-plan" style={{ gap: spacing.xxxl, paddingTop: spacing.xl }}>
       <Title size={18} style={{ textAlign: "center", width: "100%", marginBottom: spacing.sm }}>Plan spotkania</Title>
       {homemade.map((activity) => (
-        <View key={activity.key} style={{ gap: spacing.md, width: "100%" }}>
+        <View key={activity.key} style={{ gap: spacing.xxl, width: "100%" }}>
           {activity.title ? <ActivityName>{activity.title}</ActivityName> : null}
           {activity.body ? <ActivityBody>{activity.body}</ActivityBody> : null}
         </View>
       ))}
       {blocks.filter((block) => block.id !== "custom").map((block, index) => (
-        <View key={`${block.id ?? "block"}-${index}`} testID={index === 0 ? "event-plan-note" : undefined} style={{ gap: spacing.md, width: "100%" }}>
+        <View key={`${block.id ?? "block"}-${index}`} testID={index === 0 ? "event-plan-note" : undefined} style={{ gap: spacing.xxl, width: "100%" }}>
           <ActivityName>{block.title}</ActivityName>
           {block.instruction ? <Body style={{ textAlign: "center", color: colors.onSurface }}>{block.instruction}</Body> : null}
-          {block.id === "questions" ? <Title size={16} style={{ textAlign: "center", width: "100%" }}>{QUESTION_POOL_GUEST_HEADER}</Title> : null}
-          {(organizer || block.id === "questions") && block.bullets?.length ? block.bullets.map((line) => (
+          {block.id === "questions" || block.id === "find-someone" ? <ActivityName>{QUESTION_POOL_GUEST_HEADER}</ActivityName> : null}
+          {(organizer || block.id === "questions" || block.id === "find-someone") && block.bullets?.length ? block.bullets.map((line) => (
             <Body key={line} style={{ textAlign: "center", color: colors.onSurface }}>• {line}</Body>
           )) : null}
+          {block.id === "runaway-story" && block.stories?.length ? (
+            <View style={{ gap: spacing.xxl, width: "100%" }}>
+              <ActivityName>{STORY_PROPOSALS_HEADER}</ActivityName>
+              {block.stories.map((story) => (
+                <View key={story.title} style={{ gap: spacing.xxl, width: "100%" }}>
+                  <ActivityName>{story.title}</ActivityName>
+                  {story.text ? <ActivityBody>{story.text}</ActivityBody> : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       ))}
       {extra.map((part) => (
