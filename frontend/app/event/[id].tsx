@@ -18,8 +18,8 @@ import {
 import { getCurrentPosition } from "@/src/lib/location";
 import { openMeetingCode } from "@/src/lib/meetingEntry";
 import { subcategoryLabel } from "@/src/lib/meetingCatalog";
-import { ACTIVITY_LINE, QUESTION_POOL_GUEST_HEADER, catalogGame, gameActivityLine, gameInstruction, questionInstruction, splitPlan } from "@/src/lib/meetingPlan";
-import { ActivityName, PlanNoteView } from "@/src/components/meetings/PlanNoteView";
+import { QUESTION_POOL_GUEST_HEADER, freeNoteText, planActivityBlocks, splitPlan, type PlanItem } from "@/src/lib/meetingPlan";
+import { ActivityName } from "@/src/components/meetings/PlanNoteView";
 import { QrMark } from "@/src/components/meetings/QrMark";
 import { eventQrValue } from "@/src/lib/eventQr";
 import { subscribePostgres } from "@/src/lib/realtime";
@@ -42,34 +42,26 @@ function withinRevealWindow(startsAt: string) {
 }
 
 function PlanPreview({ rows, organizer }: { rows: Array<{ id: string; category: string; title: string; body: string }>; organizer: boolean }) {
+  const { colors } = useTheme();
   const plan = splitPlan(rows);
-  const headings = plan.custom.filter((item) => item.title.startsWith("Nagłówek: ")).map((item) => item.body.trim());
-  const empty = !plan.note?.body && plan.questions.length === 0 && plan.games.length === 0 && plan.custom.length === 0;
+  const blocks = planActivityBlocks(rows.map((row) => ({ key: row.id, category: row.category as PlanItem["category"], title: row.title, body: row.body })));
+  const extra = freeNoteText(plan.note?.body ?? "");
+  const empty = blocks.length === 0 && !extra;
   return (
-    <Card testID="event-plan" style={{ gap: spacing.lg, paddingTop: spacing.xl }}>
+    <Card testID="event-plan" style={{ gap: spacing.xl, paddingTop: spacing.xl }}>
       <Title size={18} style={{ textAlign: "center", width: "100%", marginBottom: spacing.sm }}>Plan spotkania</Title>
-      {plan.note?.body ? <PlanNoteView testID="event-plan-note" body={plan.note.body} headings={headings} hideQuestions={!organizer && plan.questions.length > 0} /> : null}
-      {organizer ? plan.questions.filter((question) => {
-        const line = question.body && question.body !== "własne" ? question.body : question.title;
-        return !plan.note?.body?.includes(line);
-      }).map((question) => (
-        <Body key={question.id} style={{ textAlign: "center" }}>• {question.body && question.body !== "własne" ? question.body : question.title}</Body>
-      )) : null}
-      {!organizer && plan.questions.length ? (
-        <View style={{ gap: spacing.md }}>
-          {plan.note?.body?.includes(ACTIVITY_LINE) ? null : <ActivityName>{ACTIVITY_LINE}</ActivityName>}
-          <Body style={{ textAlign: "center" }}>{questionInstruction(plan.limit)}</Body>
-          <Title size={16} style={{ textAlign: "center", width: "100%" }}>{QUESTION_POOL_GUEST_HEADER}</Title>
-          {plan.questions.map((question) => (
-            <Body key={question.id ?? question.title} style={{ textAlign: "center" }}>• {question.body && question.body !== "własne" ? question.body : question.title}</Body>
-          ))}
+      {blocks.map((block, index) => (
+        <View key={`${block.id ?? "block"}-${index}`} testID={index === 0 ? "event-plan-note" : undefined} style={{ gap: spacing.md, width: "100%" }}>
+          <ActivityName>{block.title}</ActivityName>
+          {block.instruction ? <Body style={{ textAlign: "center", color: colors.onSurface }}>{block.instruction}</Body> : null}
+          {block.id === "questions" && !organizer ? <Title size={16} style={{ textAlign: "center", width: "100%" }}>{QUESTION_POOL_GUEST_HEADER}</Title> : null}
+          {(organizer || block.id === "questions") && block.bullets?.length ? block.bullets.map((line) => (
+            <Body key={line} style={{ textAlign: "center", color: colors.onSurface }}>• {line}</Body>
+          )) : null}
         </View>
-      ) : null}
-      {!organizer ? plan.games.map((game) => (
-        <View key={game.title} style={{ gap: spacing.sm }}>
-          {plan.note?.body?.includes(gameActivityLine(game.title)) ? null : <ActivityName>{gameActivityLine(game.title)}</ActivityName>}
-          <Body style={{ textAlign: "center" }}>{gameInstruction(game.title) || catalogGame(game.title)?.blurb || game.body}</Body>
-        </View>
+      ))}
+      {extra ? extra.split(/\n\n+/).map((part) => (
+        <Body key={part.slice(0, 40)} style={{ textAlign: "center", color: colors.onSurface }}>{part}</Body>
       )) : null}
       {empty ? <Body muted style={{ textAlign: "center" }}>Organizator jeszcze nie ustawił planu.</Body> : null}
     </Card>

@@ -69,7 +69,7 @@ export function errorMessage(e: unknown): string {
   const key = Object.keys(MESSAGES).find((k) => raw.includes(k));
   if (key) return MESSAGES[key];
   if (raw.includes("event_truth")) {
-    return "Dwie prawdy na kilku telefonach wymagają migracji 048_two_truths_play.sql w SQL Editorze Supabase.";
+    return "Prawda czy kłamstwo na kilku telefonach wymaga migracji 048 i 053 w SQL Editorze Supabase.";
   }
   if (raw.includes("event_find_submit") || raw.includes("event_claim_code") || raw.includes("event_presence") || raw.includes("event_find_answers")) {
     return "Dwie tury zabawy i licznik spotkań wymagają migracji 047_find_rounds_presence.sql w SQL Editorze Supabase.";

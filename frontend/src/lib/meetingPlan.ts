@@ -19,8 +19,19 @@ export function questionInstruction(limit: number) {
   return `Instrukcja: Organizator dodaje pytania do puli. Każdy uczestnik losuje pytania, na które może udzielić odpowiedzi, ale nie musi. Pytań na osobę ${limit}.`;
 }
 
+export const TWO_TRUTHS_TITLE = "Prawda czy kłamstwo";
+export const TWO_TRUTHS_TITLE_LEGACY = "Dwie prawdy i jedno kłamstwo";
+export const TRUTH_LIMIT_TITLE = "Zdania prawda czy kłamstwo";
 export const TWO_TRUTHS_INSTRUCTION =
-  "Każdy uczestnik wpisuje dwie prawdziwe rzeczy na swój temat i jedną, która jest kłamstwem. Po zapisaniu odpowiedzi, uczestnicy próbują rozszyfrować pozostałych i odgadnąć co było kłamstwem. Aplikacja podlicza punkty i pokazuje uczestnikom wyniki.";
+  "Wpisz dwie prawdziwe rzeczy na swój temat i jedną, która jest kłamstwem. Po zapisaniu odpowiedzi przez wszystkich uczestników, spróbujecie odgadnąć co było prawdą a co kłamstwem. Aplikacja podliczy punkty i pokaże uczestnikom wyniki.";
+export const TWO_TRUTHS_GUESS_INSTRUCTION =
+  "Spróbuj odgadnąć co jest kłamstwem w przypadku pozostałych uczestników.";
+export const TWO_TRUTHS_NO_PRIZE =
+  "Nie wszyscy uczestnicy zgodzili się na kupno nagrody dla zwycięzcy, więc gracie tylko dla zabawy.";
+export const TWO_TRUTHS_TIE =
+  "W przypadku remisu na pierwszym miejscu zwycięzcę wyłoni pojedynek w papier nożyce kamień.";
+export const FIND_SOMEONE_GUESS_INSTRUCTION =
+  "Dodaj znakiem + tych uczestników, którzy twoim zdaniem, odpowiedzieli na poniższe zdania twierdząco.";
 
 export const FIND_SOMEONE_INSTRUCTION =
   "Każdy uczestnik odpowiada „Tak” lub „Nie” na pytania które stworzysz, lub wybierzesz z poniższej listy i zapisuje odpowiedzi. W kolejnej turze, przy tych samych pytaniach, zaznacza kto jego zdaniem odpowiedział na nie twierdząco. Poprawna odpowiedź daje 1pkt, negatywna -1pkt. Można wstrzymać się od odpowiedzi, by nie ryzykować utraty punktów. Aplikacja podlicza punkty i ogłasza zwycięzcę.";
@@ -50,7 +61,7 @@ const GAME_INSTRUCTIONS: Record<string, string> = {
 };
 
 export function gameInstruction(title: string) {
-  const game = SOCIAL_GAMES.find((entry) => entry.title === title);
+  const game = catalogGame(title);
   return (game && GAME_INSTRUCTIONS[game.id]) || "";
 }
 
@@ -77,7 +88,7 @@ export function storyStarterLabel(title: string) {
 }
 
 export function isQuestionPoolItem(item: { category: string; title: string }) {
-  return item.category === "questions" && item.title !== PLAN_NOTE_TITLE && item.title !== PLAN_LIMIT_TITLE && !isStoryStarterTitle(item.title) && !isCustomHeadingTitle(item.title) && !isCustomBodyTitle(item.title);
+  return item.category === "questions" && item.title !== PLAN_NOTE_TITLE && item.title !== PLAN_LIMIT_TITLE && item.title !== TRUTH_LIMIT_TITLE && !isStoryStarterTitle(item.title) && !isCustomHeadingTitle(item.title) && !isCustomBodyTitle(item.title);
 }
 
 export const BUILTIN_QUESTIONS = [
@@ -108,8 +119,8 @@ export type SocialGame = { id: string; title: string; blurb: string; rules: stri
 export const SOCIAL_GAMES: SocialGame[] = [
   {
     id: "two-truths",
-    title: "Dwie prawdy i jedno kłamstwo",
-    blurb: "Każdy podaje trzy rzeczy o sobie. Reszta wskazuje kłamstwo.",
+    title: TWO_TRUTHS_TITLE,
+    blurb: "Każdy podaje prawdziwe rzeczy o sobie i jedno kłamstwo. Reszta zgaduje.",
     rules: "Każdy uczestnik mówi o sobie trzy rzeczy. Dwie są prawdziwe, jedna zmyślona. Zapisuje, co jest prawdą, a co kłamstwem. Pozostali typują, które zdanie jest kłamstwem. Jeśli nikt nie zgadnie, grupa zrzuca się na napój albo przekąskę wybraną przez autora rundy — bez obowiązku alkoholu. Kolejność ustala organizator: losowo, alfabetycznie albo od najstarszej osoby.\n\nNa jednym telefonie: autor wpisuje trzy zdania i zaznacza kłamstwo. Grupa typuje, zanim aplikacja odkryje odpowiedź. Trafiony typ daje punkt. Tryb bez punktów też jest dostępny. Tajne głosy z kilku telefonów naraz będą w kolejnym etapie.",
   },
   {
@@ -133,63 +144,98 @@ export const FIND_PACKS: PromptPack[] = [
     id: "weird",
     title: "Podejrzani o dziwne akcje",
     prompts: [
-      "…najprawdopodobniej ma na koncie historię, której nie opowiedziałby przy własnej rodzinie.",
-      "…kiedyś zrobił coś tak głupiego, że do dziś zastanawia się, jakim cudem uszło mu to na sucho.",
-      "…najprawdopodobniej ma w telefonie zdjęcie, którego pochodzenia sam nie potrafi już wyjaśnić.",
-      "…mógłby napisać autobiografię, ale połowę historii trzeba by ocenzurować.",
-      "…ma jakąś absurdalną umiejętność, o której nie wspomniałby podczas rozmowy o pracę.",
+      "Masz na koncie historię, której nie opowiedziałbyś/łabyś przy własnej rodzinie?",
+      "Zrobiłeś/aś kiedyś coś tak głupiego, że do dziś zastanawiasz się jakim cudem uszło ci to na sucho?",
+      "Masz w telefonie zdjęcie, którego pochodzenia sam/sama nie potrafisz już wyjaśnić?",
+      "Mógłbyś/mogłabyś napisać autobiografię, ale połowę historii trzeba by ocenzurować?",
+      "Masz jakąś absurdalną umiejętność, o której nie wspomniałbyś/łabyś podczas rozmowy o pracę?",
     ],
   },
   {
     id: "flirt",
     title: "Miłość, flirt i romantyczne katastrofy",
     prompts: [
-      "…potrafiłby wrócić do byłego partnera, mimo że wcześniej przysięgał wszystkim, że nigdy więcej.",
-      "…najprawdopodobniej ma za sobą randkę, którą można by przerobić na komedię romantyczną z kategorią wiekową 18+.",
-      "…najłatwiej dałby się namówić na spontaniczną randkę z nieznajomym.",
-      "…mógłby mieć najbardziej zaskakującą historię o tym, jak poznał swojego byłego partnera lub byłą partnerkę.",
+      "Potrafiłbyś/łabyś wrócić do byłego partnera albo byłej partnerki, mimo że wcześniej przysięgałeś/aś wszystkim, że nigdy więcej?",
+      "Masz za sobą randkę, którą można by przerobić na komedię romantyczną z kategorią wiekową 18+?",
+      "Dałbyś/dałabyś się namówić na spontaniczną randkę z nieznajomym albo nieznajomą?",
+      "Masz najbardziej zaskakującą historię o tym, jak poznałeś/aś swojego byłego partnera albo byłą partnerkę?",
     ],
   },
   {
     id: "secrets",
     title: "Kto tu coś ukrywa?",
     prompts: [
-      "…ma największą szansę prowadzić jakieś hobby, zainteresowanie lub fascynację, o których mało kto tutaj by pomyślał.",
-      "…potrafiłby zachować pokerową twarz, nawet gdyby wszyscy wokół wiedzieli, że kłamie.",
-      "…najlepiej poradziłby sobie w podwójnym życiu, gdyby nagle musiał prowadzić dwie zupełnie różne tożsamości.",
+      "Masz hobby, zainteresowanie albo fascynację, o których mało kto tutaj by pomyślał?",
+      "Potrafisz zachować pokerową twarz, nawet gdy wszyscy wokół wiedzą, że kłamiesz?",
+      "Poradziłbyś/łabyś sobie w podwójnym życiu, gdybyś nagle musiał/a prowadzić dwie zupełnie różne tożsamości?",
     ],
   },
   {
     id: "ego",
     title: "Ego, ambicja i podejrzane decyzje",
     prompts: [
-      "…najprawdopodobniej wydał kiedyś pieniądze na coś tak bezsensownego, że do dziś nie potrafi tego racjonalnie uzasadnić.",
-      "…potrafiłby rzucić wszystko i wyjechać, gdyby wpadł na wystarczająco szalony pomysł.",
-      "…najłatwiej przekonałby innych, że ma wszystko pod kontrolą, chociaż improwizowałby na bieżąco.",
-      "…potrafiłby dla realizacji marzenia zaryzykować coś, czego większość ludzi nie odważyłaby się poświęcić.",
-      "…najprędzej kupiłby bilet w jedną stronę, zanim jeszcze sprawdziłby, gdzie dokładnie leci.",
+      "Wydałeś/aś kiedyś pieniądze na coś tak bezsensownego, że do dziś nie potrafisz tego racjonalnie uzasadnić?",
+      "Potrafiłbyś/łabyś rzucić wszystko i wyjechać, gdybyś wpadł/a na wystarczająco szalony pomysł?",
+      "Przekonałbyś/łabyś innych, że masz wszystko pod kontrolą, chociaż improwizowałbyś/łabyś na bieżąco?",
+      "Dla realizacji marzenia zaryzykowałbyś/łabyś coś, czego większość ludzi nie odważyłaby się poświęcić?",
+      "Kupiłbyś/kupiłabyś bilet w jedną stronę, zanim jeszcze sprawdziłbyś/łabyś, gdzie dokładnie lecisz?",
     ],
   },
   {
     id: "most",
     title: "Kto jest najbardziej…?",
     prompts: [
-      "…najprędzej zostałby wyrzucony z reality show za powiedzenie na głos tego, co wszyscy myślą.",
-      "…najprędzej przypadkiem stałby się lokalną legendą po jednej imprezie.",
-      "…najbardziej prawdopodobnie miałby własną sektę, gdyby przez przypadek zyskał zbyt wielu obserwujących.",
+      "Zostałbyś/łabyś wyrzucony/a z reality show za powiedzenie na głos tego, co wszyscy myślą?",
+      "Stałbyś/stałabyś się przypadkiem lokalną legendą po jednej imprezie?",
+      "Miałbyś/miałabyś własną sektę, gdybyś przez przypadek zyskał/a zbyt wielu obserwujących?",
     ],
   },
   {
     id: "psych",
     title: "Psychologiczne strzały w ciemno",
     prompts: [
-      "…najprędzej zerwałby kontakt bez wyjaśnienia, gdyby ktoś przekroczył jego granice.",
-      "…najtrudniej przyznałby się do tego, że czegoś nie potrafi.",
-      "…najprawdopodobniej ma marzenie, które odkłada tak długo, że zaczyna się przyzwyczajać do myśli, że go nie spełni.",
-      "…najłatwiej wybacza innym błędy, ale sobie przypomina je przez następne dziesięć lat.",
+      "Zerwałbyś/łabyś kontakt bez wyjaśnienia, gdyby ktoś przekroczył twoje granice?",
+      "Trudno ci przyznać się do tego, że czegoś nie potrafisz?",
+      "Masz marzenie, które odkładasz tak długo, że zaczynasz przyzwyczajać się do myśli, że go nie spełnisz?",
+      "Łatwo wybaczasz innym błędy, ale sobie przypominasz je przez następne dziesięć lat?",
     ],
   },
 ];
+
+const FIND_PROMPT_SUMMARIES: Record<string, string> = {
+  "Masz na koncie historię, której nie opowiedziałbyś/łabyś przy własnej rodzinie?": "…ma na koncie historię, której nie opowiedziałby/łaby przy własnej rodzinie.",
+  "Zrobiłeś/aś kiedyś coś tak głupiego, że do dziś zastanawiasz się jakim cudem uszło ci to na sucho?": "…zrobił/a kiedyś coś tak głupiego, że do dziś zastanawia się, jakim cudem uszło mu/jej to na sucho.",
+  "Masz w telefonie zdjęcie, którego pochodzenia sam/sama nie potrafisz już wyjaśnić?": "…ma w telefonie zdjęcie, którego pochodzenia sam/sama nie potrafi już wyjaśnić.",
+  "Mógłbyś/mogłabyś napisać autobiografię, ale połowę historii trzeba by ocenzurować?": "…mógłby/mogłaby napisać autobiografię, ale połowę historii trzeba by ocenzurować.",
+  "Masz jakąś absurdalną umiejętność, o której nie wspomniałbyś/łabyś podczas rozmowy o pracę?": "…ma jakąś absurdalną umiejętność, o której nie wspomniałby/łaby podczas rozmowy o pracę.",
+  "Potrafiłbyś/łabyś wrócić do byłego partnera albo byłej partnerki, mimo że wcześniej przysięgałeś/aś wszystkim, że nigdy więcej?": "…potrafiłby/łaby wrócić do byłego partnera albo byłej partnerki, mimo że wcześniej przysięgał/a wszystkim, że nigdy więcej.",
+  "Masz za sobą randkę, którą można by przerobić na komedię romantyczną z kategorią wiekową 18+?": "…ma za sobą randkę, którą można by przerobić na komedię romantyczną z kategorią wiekową 18+.",
+  "Dałbyś/dałabyś się namówić na spontaniczną randkę z nieznajomym albo nieznajomą?": "…dałby/dałaby się namówić na spontaniczną randkę z nieznajomym albo nieznajomą.",
+  "Masz najbardziej zaskakującą historię o tym, jak poznałeś/aś swojego byłego partnera albo byłą partnerkę?": "…ma najbardziej zaskakującą historię o tym, jak poznał/a swojego byłego partnera albo byłą partnerkę.",
+  "Masz hobby, zainteresowanie albo fascynację, o których mało kto tutaj by pomyślał?": "…ma hobby, zainteresowanie albo fascynację, o których mało kto tutaj by pomyślał.",
+  "Potrafisz zachować pokerową twarz, nawet gdy wszyscy wokół wiedzą, że kłamiesz?": "…potrafi zachować pokerową twarz, nawet gdy wszyscy wokół wiedzą, że kłamie.",
+  "Poradziłbyś/łabyś sobie w podwójnym życiu, gdybyś nagle musiał/a prowadzić dwie zupełnie różne tożsamości?": "…poradziłby/łaby sobie w podwójnym życiu, gdyby nagle musiał/a prowadzić dwie zupełnie różne tożsamości.",
+  "Wydałeś/aś kiedyś pieniądze na coś tak bezsensownego, że do dziś nie potrafisz tego racjonalnie uzasadnić?": "…wydał/a kiedyś pieniądze na coś tak bezsensownego, że do dziś nie potrafi tego racjonalnie uzasadnić.",
+  "Potrafiłbyś/łabyś rzucić wszystko i wyjechać, gdybyś wpadł/a na wystarczająco szalony pomysł?": "…potrafiłby/łaby rzucić wszystko i wyjechać, gdyby wpadł/a na wystarczająco szalony pomysł.",
+  "Przekonałbyś/łabyś innych, że masz wszystko pod kontrolą, chociaż improwizowałbyś/łabyś na bieżąco?": "…przekonałby/łaby innych, że ma wszystko pod kontrolą, chociaż improwizowałby/łaby na bieżąco.",
+  "Dla realizacji marzenia zaryzykowałbyś/łabyś coś, czego większość ludzi nie odważyłaby się poświęcić?": "…dla realizacji marzenia zaryzykowałby/łaby coś, czego większość ludzi nie odważyłaby się poświęcić.",
+  "Kupiłbyś/kupiłabyś bilet w jedną stronę, zanim jeszcze sprawdziłbyś/łabyś, gdzie dokładnie lecisz?": "…kupiłby/kupiłaby bilet w jedną stronę, zanim jeszcze sprawdziłby/łaby, gdzie dokładnie leci.",
+  "Zostałbyś/łabyś wyrzucony/a z reality show za powiedzenie na głos tego, co wszyscy myślą?": "…zostałby/łaby wyrzucony/a z reality show za powiedzenie na głos tego, co wszyscy myślą.",
+  "Stałbyś/stałabyś się przypadkiem lokalną legendą po jednej imprezie?": "…stałby/stałaby się przypadkiem lokalną legendą po jednej imprezie.",
+  "Miałbyś/miałabyś własną sektę, gdybyś przez przypadek zyskał/a zbyt wielu obserwujących?": "…miałby/miałaby własną sektę, gdyby przez przypadek zyskał/a zbyt wielu obserwujących.",
+  "Zerwałbyś/łabyś kontakt bez wyjaśnienia, gdyby ktoś przekroczył twoje granice?": "…zerwałby/łaby kontakt bez wyjaśnienia, gdyby ktoś przekroczył jego/jej granice.",
+  "Trudno ci przyznać się do tego, że czegoś nie potrafisz?": "…trudno mu/jej przyznać się do tego, że czegoś nie potrafi.",
+  "Masz marzenie, które odkładasz tak długo, że zaczynasz przyzwyczajać się do myśli, że go nie spełnisz?": "…ma marzenie, które odkłada tak długo, że zaczyna się przyzwyczajać do myśli, że go nie spełni.",
+  "Łatwo wybaczasz innym błędy, ale sobie przypominasz je przez następne dziesięć lat?": "…łatwo wybacza innym błędy, ale sobie przypomina je przez następne dziesięć lat.",
+};
+
+/** W podsumowaniu „Znajdź kogoś” zdania wracają do formy „…ma…” */
+export function findPromptSummary(prompt: string) {
+  const text = prompt.trim();
+  if (FIND_PROMPT_SUMMARIES[text]) return FIND_PROMPT_SUMMARIES[text];
+  if (text.startsWith("…") || text.startsWith("...")) return text;
+  return text;
+}
 
 export const TRUTH_HINTS = [
   "najdziwniejsza praca",
@@ -250,6 +296,9 @@ export function storyTurnIndex(lineCount: number, seats: number) {
 }
 
 export function catalogGame(title: string) {
+  if (title === TWO_TRUTHS_TITLE || title === TWO_TRUTHS_TITLE_LEGACY) {
+    return SOCIAL_GAMES.find((g) => g.id === "two-truths") ?? null;
+  }
   return SOCIAL_GAMES.find((g) => g.title === title) ?? null;
 }
 
@@ -264,13 +313,14 @@ export function clampLimit(raw: string | undefined) {
 export function splitPlan<T extends { category: string; title: string; body?: string | null }>(items: T[]) {
   const note = items.find((i) => i.title === PLAN_NOTE_TITLE) ?? null;
   const limitRow = items.find((i) => i.title === PLAN_LIMIT_TITLE) ?? null;
+  const truthRow = items.find((i) => i.title === TRUTH_LIMIT_TITLE) ?? null;
   const custom = items.filter((i) => isCustomHeadingTitle(i.title) || isCustomBodyTitle(i.title));
   const questions = items.filter((i) => isQuestionPoolItem(i));
   const starters = items.filter((i) => (i.category === "questions" || i.category === "games") && isStoryStarterTitle(i.title));
   const prompts = items.filter((i) => i.category === "games" && i.title.startsWith(CUSTOM_PROMPT_PREFIX));
   const games = items.filter((i) => i.category === "games" && !i.title.startsWith(CUSTOM_PROMPT_PREFIX) && !isStoryStarterTitle(i.title));
   const legacy = items.filter((i) => i.category === "challenges");
-  return { note, limit: clampLimit(limitRow?.body ?? undefined), questions, prompts, starters, games, legacy, custom };
+  return { note, limit: clampLimit(limitRow?.body ?? undefined), truthLimit: clampTruthLimit(truthRow?.body ?? undefined), questions, prompts, starters, games, legacy, custom };
 }
 
 function withoutTitle(items: PlanItem[], title: string) {
@@ -289,6 +339,20 @@ export function setPlanLimit(items: PlanItem[], value: number): PlanItem[] {
   const rest = withoutTitle(items, PLAN_LIMIT_TITLE);
   const prev = items.find((i) => i.title === PLAN_LIMIT_TITLE);
   return [...rest, { key: prev?.key ?? "plan-limit", category: "questions", title: PLAN_LIMIT_TITLE, body: String(clampLimit(String(value))) }];
+}
+
+export function clampTruthLimit(raw: string | undefined) {
+  const n = Number(String(raw ?? "").trim());
+  if (!Number.isFinite(n)) return 3;
+  return Math.min(9, Math.max(3, Math.round(n)));
+}
+
+export function setTruthLimit(items: PlanItem[], value: number): PlanItem[] {
+  const rest = withoutTitle(items, TRUTH_LIMIT_TITLE);
+  const prev = items.find((i) => i.title === TRUTH_LIMIT_TITLE);
+  const game = SOCIAL_GAMES.find((entry) => entry.id === "two-truths");
+  const withGame = game && !rest.some((item) => catalogGame(item.title)?.id === "two-truths") ? toggleGame(rest, game) : rest;
+  return [...withGame, { key: prev?.key ?? "truth-limit", category: "questions", title: TRUTH_LIMIT_TITLE, body: String(clampTruthLimit(String(value))) }];
 }
 
 export function toggleQuestion(items: PlanItem[], title: string): PlanItem[] {
@@ -351,14 +415,16 @@ export function setStoryMode(items: PlanItem[], mode: StoryPickMode): PlanItem[]
 }
 
 export function toggleGame(items: PlanItem[], game: SocialGame): PlanItem[] {
-  const hit = items.find((i) => i.category === "games" && i.title === game.title);
+  const hit = items.find((i) => i.category === "games" && (i.title === game.title || catalogGame(i.title)?.id === game.id));
   if (hit) {
     const rest = items.filter((i) => i.key !== hit.key);
     if (game.id === "runaway-story") return rest.filter((i) => !isStoryStarterTitle(i.title));
     if (game.id === "find-someone") return rest.filter((i) => !i.title.startsWith(CUSTOM_PROMPT_PREFIX));
+    if (game.id === "two-truths") return rest.filter((i) => i.title !== TRUTH_LIMIT_TITLE);
     return rest;
   }
-  return [...items, { key: `game:${game.id}`, category: "games", title: game.title, body: game.blurb }];
+  const next = [...items, { key: `game:${game.id}`, category: "games", title: game.title, body: game.blurb }];
+  return game.id === "two-truths" ? setTruthLimit(next, 3) : next;
 }
 
 function withFindSomeone(items: PlanItem[]) {
@@ -384,12 +450,79 @@ export function togglePrompt(items: PlanItem[], prompt: string): PlanItem[] {
 
 function isManagedNoteLine(line: string) {
   const text = line.trim();
-  return !text || isActivityParagraph(text) || text.startsWith("Instrukcja:") || text.startsWith("• ") || text.startsWith("Pytań na osobę") || isStoryStarterTitle(text);
+  return !text || isActivityParagraph(text) || text.startsWith("Instrukcja:") || text.startsWith("• ") || text.startsWith("Pytań na osobę") || text.startsWith("Zdań na osobę") || isStoryStarterTitle(text);
+}
+
+export type PlanActivityBlock = { id?: string; title: string; instruction: string; bullets?: string[] };
+
+/** Pary tytuł–instrukcja w kolejności planu, niezależnie od starej notatki. */
+export function planActivityBlocks(items: PlanItem[]): PlanActivityBlock[] {
+  const plan = splitPlan(items);
+  const blocks: PlanActivityBlock[] = [];
+  for (const item of plan.custom) {
+    const text = item.body.trim();
+    if (!text) continue;
+    if (isCustomHeadingTitle(item.title)) {
+      blocks.push({ id: "custom", title: text, instruction: "" });
+    } else if (blocks.length && blocks[blocks.length - 1].id === "custom") {
+      const last = blocks[blocks.length - 1];
+      last.instruction = [last.instruction, text].filter(Boolean).join("\n\n");
+    } else {
+      blocks.push({ id: "custom", title: text, instruction: "" });
+    }
+  }
+  if (plan.questions.length) {
+    blocks.push({
+      id: "questions",
+      title: ACTIVITY_LINE,
+      instruction: questionInstruction(plan.limit),
+      bullets: plan.questions.map((question) => questionNoteLine(question)),
+    });
+  }
+  const findSomeone = SOCIAL_GAMES.find((game) => game.id === "find-someone");
+  const runaway = SOCIAL_GAMES.find((game) => game.id === "runaway-story");
+  const games = [...plan.games];
+  if (plan.prompts.length && findSomeone && !games.some((game) => catalogGame(game.title)?.id === "find-someone")) {
+    games.push({ key: "find-note", category: "games", title: findSomeone.title, body: "" });
+  }
+  if (plan.starters.length && runaway && !games.some((game) => catalogGame(game.title)?.id === "runaway-story")) {
+    games.push({ key: "story-note", category: "games", title: runaway.title, body: "" });
+  }
+  for (const game of games) {
+    const catalog = catalogGame(game.title);
+    const title = catalog?.title ?? game.title;
+    const bullets: string[] = [];
+    if (catalog?.id === "find-someone") bullets.push(...plan.prompts.map((prompt) => prompt.body || prompt.title));
+    if (catalog?.id === "runaway-story") bullets.push(...plan.starters.map((starter) => storyStarterLabel(starter.title)));
+    blocks.push({
+      id: catalog?.id,
+      title: gameActivityLine(title),
+      instruction: gameInstruction(title) || catalog?.blurb || game.body,
+      bullets,
+    });
+  }
+  return blocks;
 }
 
 /** Własny tekst organizatora, bez akapitów dokładanych przez plan. */
 export function freeNoteText(body: string) {
   return body.split("\n").map((line) => line.trim()).filter((line) => line && !isManagedNoteLine(line)).join("\n\n");
+}
+
+/** Zabawy w kolejności dodania do planu, nie w kolejności katalogu. */
+export function plannedGameKeys(items: PlanItem[]): string[] {
+  const keys: string[] = [];
+  const add = (key: string) => {
+    if (!keys.includes(key)) keys.push(key);
+  };
+  for (const item of items) {
+    if (isQuestionPoolItem(item)) add("questions");
+    const game = catalogGame(item.title);
+    if (game) add(game.id);
+    if (item.title.startsWith(CUSTOM_PROMPT_PREFIX)) add("find-someone");
+    if (isStoryStarterTitle(item.title)) add("runaway-story");
+  }
+  return keys;
 }
 
 /** Wybrane pytania i zabawy trafiają do planu spotkania. */
@@ -402,6 +535,7 @@ export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   if (plan.questions.length) {
     blocks.push([
       ACTIVITY_LINE,
+      questionInstruction(plan.limit),
       ...plan.questions.map((question) => `• ${questionNoteLine(question)}`),
     ].join("\n\n"));
   }
@@ -416,6 +550,8 @@ export function syncPlanNote(items: PlanItem[]): PlanItem[] {
   }
   for (const game of games) {
     const lines = [gameActivityLine(game.title)];
+    const instruction = gameInstruction(game.title);
+    if (instruction) lines.push(instruction);
     if (game.title === findSomeone) lines.push(...plan.prompts.map((prompt) => `• ${prompt.body || prompt.title}`));
     if (game.title === runaway) lines.push(...plan.starters.map((starter) => `• ${storyStarterLabel(starter.title)}`));
     blocks.push(lines.join("\n\n"));
