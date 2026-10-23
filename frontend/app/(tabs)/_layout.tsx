@@ -30,7 +30,7 @@ function AppTabBar({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  // Android already ends the window above the system buttons. Extra inset padding paints a black band under the icons.
+  // Na Androidzie czarny pas pod ikonami zabiera KeyboardProvider. Drugi inset tutaj znowu odsunąłby ikony od przycisków systemu.
   const bottomPad = Platform.OS === "ios" ? insets.bottom : 0;
   const focusedKey = state.routes[state.index]?.key;
   const routes = state.routes.filter((route) => {

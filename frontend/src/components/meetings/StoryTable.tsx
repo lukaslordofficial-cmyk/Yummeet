@@ -1,22 +1,33 @@
 import { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
+import { Icon } from "@/src/components/Icon";
 import { Body, Button, Card, Chip, ChipRow, Field, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
-  STORY_HOOKS, STORY_STARTERS, STORY_WORDS, drawIndex, storyColorKey,
+  STORY_HOOKS, STORY_STARTERS, STORY_WORDS, drawIndex, drawStoryStarter, storyColorKey, type StoryPickMode,
 } from "@/src/lib/meetingPlan";
-import { eventStoryAdd, eventStoryBoard, eventStoryClose, type StoryBoard } from "@/src/lib/story";
+import { eventStoryAdd, eventStoryBoard, eventStoryClose, eventStoryDrawLine, type StoryBoard } from "@/src/lib/story";
 import { useTheme, fonts, radius, spacing } from "@/src/theme";
 
-export function StoryTable({ eventId, canClose }: { eventId: string; canClose: boolean }) {
+export function StoryTable({
+  eventId,
+  canClose,
+  planned = [],
+  mode = "wybierz",
+}: {
+  eventId: string;
+  canClose: boolean;
+  planned?: { title: string; text: string }[];
+  mode?: StoryPickMode;
+}) {
   const { colors } = useTheme();
   const [board, setBoard] = useState<StoryBoard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [word, setWord] = useState("");
   const [hooks, setHooks] = useState(false);
-  const [starters, setStarters] = useState(true);
+  const [openStarter, setOpenStarter] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -56,7 +67,31 @@ export function StoryTable({ eventId, canClose }: { eventId: string; canClose: b
 
   const yourTurn = !!board?.your_turn && !board.closed;
   const waiting = board && !board.closed;
-  const storyOpen = canClose && (board?.lines.length ?? 0) === 0 && !board?.closed;
+  const storyOpen = canClose && !board?.closed;
+  const usedLines = (board?.lines ?? []).map((line) => line.body);
+  const proposals = planned.length ? planned : STORY_STARTERS;
+  const drawNext = () => {
+    const pick = drawStoryStarter(usedLines, planned);
+    if (!pick) {
+      setError("Nie ma już kolejnego zdania w puli.");
+      return;
+    }
+    void sendDrawn(pick.text);
+  };
+  const sendDrawn = async (line: string) => {
+    const clean = line.trim();
+    if (clean.length < 1) return;
+    setBusy(true);
+    try {
+      await eventStoryDrawLine(eventId, clean);
+      setError(null);
+      await load();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <View style={{ gap: spacing.md }} testID="story-table">
@@ -77,11 +112,9 @@ export function StoryTable({ eventId, canClose }: { eventId: string; canClose: b
       {storyOpen ? (
         <Button
           testID="story-draw-starter"
-          title="Wylosuj pierwsze zdanie"
-          onPress={() => {
-            const pick = STORY_STARTERS[drawIndex(STORY_STARTERS.length)];
-            if (pick) void send(pick.text);
-          }}
+          title={(board?.lines.length ?? 0) === 0 ? "Wylosuj pierwsze zdanie" : "Wylosuj kolejne zdanie"}
+          disabled={busy}
+          onPress={drawNext}
         />
       ) : null}
       <ChipRow testID="story-word-kinds">
@@ -94,15 +127,33 @@ export function StoryTable({ eventId, canClose }: { eventId: string; canClose: b
       <Button testID="story-hooks" title={hooks ? "Ukryj podpowiedzi" : "Jak zakończyć?"} variant="ghost" onPress={() => setHooks((v) => !v)} />
       {hooks ? STORY_HOOKS.map((h) => <Body key={h}>{h}</Body>) : null}
       {storyOpen ? (
-        <Button testID="story-starters" title={starters ? "Ukryj początki" : "Początki historii"} variant="ghost" onPress={() => setStarters((v) => !v)} />
+        <Body muted style={{ textAlign: "center" }}>{mode === "losowo" ? "Losowo bierze zdanie spośród zaznaczonych propozycji. Gdy zaznaczone się skończą, dobiera kolejne z całej listy." : "Wybierz zdanie startowe albo wylosuj kolejne, gdy grupa chce więcej."}</Body>
       ) : null}
-      {storyOpen && starters ? STORY_STARTERS.map((s) => (
-        <Card key={s.title} testID={`story-starter-${s.title}`}>
-          <Title size={16}>{s.title}</Title>
-          <Body>{s.text}</Body>
-          <Button testID={`story-use-${s.title}`} title="Użyj tego początku" variant="secondary" disabled={!yourTurn || busy} onPress={() => void send(s.text)} />
-        </Card>
-      )) : null}
+      {storyOpen ? proposals.map((s) => {
+        const open = openStarter === s.title;
+        return (
+          <Card key={s.title} testID={`story-starter-${s.title}`}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+              <Title size={16} style={{ flex: 1 }}>{s.title}</Title>
+              <Pressable
+                testID={`story-starter-expand-${s.title}`}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: open }}
+                onPress={() => setOpenStarter(open ? null : s.title)}
+                hitSlop={8}
+              >
+                <Icon name={open ? "chevron-up" : "chevron-down"} size={22} color={colors.brandPrimary} />
+              </Pressable>
+            </View>
+            {open ? (
+              <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+                <Body>{s.text}</Body>
+                <Button testID={`story-use-${s.title}`} title="Użyj tego początku" variant="secondary" disabled={busy} onPress={() => void sendDrawn(s.text)} />
+              </View>
+            ) : null}
+          </Card>
+        );
+      }) : null}
       <Field testID="story-input" label="Twoje zdanie" value={text} onChangeText={setText} multiline style={{ minHeight: 160 }} editable={yourTurn && !busy} placeholder="Rozwiń sytuację i zostaw haczyk" />
       <Button testID="story-send" title="Dopisz zdanie" disabled={!yourTurn || busy || text.trim().length < 1} loading={busy} onPress={() => void send(text)} />
       {canClose && board && !board.closed ? (

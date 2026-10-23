@@ -6,7 +6,7 @@ import { buildLeafletHtml } from "../../frontend/src/components/map/leafletHtml.
 import { CUISINES, cuisineLabel, cuisinePinStyle } from "../../frontend/src/lib/cuisines.ts";
 import { cardScore, summarizeDishes } from "../../frontend/src/lib/dishMath.ts";
 import { MEETING_CATEGORIES, categoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
-import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, SOCIAL_GAMES, STORY_STARTERS, addCustomQuestion, gameActivityLine, setPlanLimit, splitPlan, storyTurnIndex, syncPlanNote, toggleGame, toggleQuestion, toggleStoryStarter } from "../../frontend/src/lib/meetingPlan.ts";
+import { ACTIVITY_LINE, BUILTIN_QUESTIONS, FALLBACK_ATTRACTIONS, FIND_PACKS, FIND_SOMEONE_INSTRUCTION, RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, addCustomQuestion, drawStoryStarter, gameActivityLine, gameInstruction, questionPoolWarning, setPlanLimit, setStoryMode, splitPlan, storyPickMode, storyTurnIndex, syncPlanNote, toggleGame, toggleQuestion, toggleStoryStarter } from "../../frontend/src/lib/meetingPlan.ts";
 import { placeQueryVariants, placeSuggestionTitle } from "../../frontend/src/lib/routing.ts";
 import { subcategoryByKey } from "../../frontend/src/lib/meetingCatalog.ts";
 import { clampRouteBuffer, filterPinsByPrice, haversineM, withinRadiusM, withinRouteReach } from "../../frontend/src/lib/geo.ts";
@@ -158,6 +158,19 @@ test("meeting plan has the question pool and social games", () => {
   assert.equal(storyTurnIndex(0, 4), 0);
   assert.equal(storyTurnIndex(4, 4), 0);
   assert.equal(storyTurnIndex(5, 4), 1);
+  assert.equal(FIND_SOMEONE_INSTRUCTION.includes("drinka"), false);
+  assert.equal(FIND_SOMEONE_INSTRUCTION.includes("Zwycięzca"), false);
+  assert.match(gameInstruction("Znajdź kogoś, kto…"), /wstrzymać się od głosu/);
+  assert.match(RUNAWAY_STORY_INSTRUCTION, /dobór losowy spośród wybranych propozycji/);
+  assert.match(gameInstruction("Historia, która wymknęła się spod kontroli"), /Aplikacja pilnuje kolejki/);
+  assert.match(questionPoolWarning(8, 3, 2) ?? "", /minimum 24 pytania/);
+  assert.equal(questionPoolWarning(8, 3, 24), null);
+  assert.equal(questionPoolWarning(4, 1, 4), null);
+  const randomMode = setStoryMode([], "losowo");
+  assert.equal(storyPickMode(randomMode), "losowo");
+  assert.equal(splitPlan(randomMode).games.some((game) => game.title === "Historia, która wymknęła się spod kontroli"), true);
+  assert.equal(drawStoryStarter(["used"], [{ title: "A", text: "used" }, { title: "B", text: "next" }], () => 0)?.text, "next");
+  assert.equal(drawStoryStarter([STORY_STARTERS[0].text], [STORY_STARTERS[0]], () => 0)?.title, STORY_STARTERS[1].title);
 });
 
 test("meeting catalog keeps the tasting, game and hobby shelves", () => {

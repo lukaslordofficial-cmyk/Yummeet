@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { Body, Button, Card, Title } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { SOCIAL_GAMES, isQuestionPoolItem, isStoryStarterTitle, type PlanItem } from "@/src/lib/meetingPlan";
+import { RUNAWAY_STORY_INSTRUCTION, SOCIAL_GAMES, STORY_STARTERS, isQuestionPoolItem, isStoryStarterTitle, splitPlan, storyPickMode, storyStarterLabel, type PlanItem } from "@/src/lib/meetingPlan";
 import { eventPlayAnswered, eventPlayBoard, eventPlayDraw, eventPlayStart, type PlayBoard } from "@/src/lib/play";
 import { spacing } from "@/src/theme";
 
@@ -87,6 +87,13 @@ export function MeetingPlay({
   }
 
   const live = board?.status === "live" ? board.game_key : null;
+  const storyPlan = splitPlan(items);
+  const plannedStarters = storyPlan.starters.map((row) => {
+    const title = storyStarterLabel(row.title);
+    const known = STORY_STARTERS.find((starter) => starter.title === title);
+    const text = (row.body || known?.text || "").trim();
+    return { title, text };
+  }).filter((starter) => starter.text.length > 0);
 
   return (
     <View style={{ gap: spacing.lg }} testID="meeting-play">
@@ -162,8 +169,8 @@ export function MeetingPlay({
       {live === "runaway-story" ? (
         <View style={{ gap: spacing.md }} testID="meeting-play-story">
           <Title size={22} style={{ textAlign: "center" }}>Historia, która wymknęła się spod kontroli</Title>
-          <Body style={{ textAlign: "center" }}>Organizator wybiera albo losuje pierwsze zdanie. Potem każdy dopisuje swoje, w swoim kolorze.</Body>
-          <StoryTable eventId={eventId} canClose={isOrganizer} />
+          <Body style={{ textAlign: "center" }}>{RUNAWAY_STORY_INSTRUCTION}</Body>
+          <StoryTable eventId={eventId} canClose={isOrganizer} planned={plannedStarters} mode={storyPickMode(items)} />
         </View>
       ) : null}
     </View>

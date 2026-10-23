@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { ScrollView, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -14,6 +14,7 @@ import { addEventAttraction, eventCreate, findNearbyPin } from "@/src/lib/data";
 import { EVENT_DAYS, resolveEventStart, todayIso } from "@/src/lib/eventKinds";
 import { eventAddDish, eventSetMeeting } from "@/src/lib/meetingData";
 import { MEETING_CATEGORIES, categoryByKey, isTastingFormat, subcategoryByKey, type MeetingTemplate } from "@/src/lib/meetingCatalog";
+import { isQuestionPlanActive, questionPoolWarning, splitPlan } from "@/src/lib/meetingPlan";
 import type { GeocodeResult } from "@/src/lib/routing";
 import { spacing, useTheme } from "@/src/theme";
 
@@ -44,6 +45,8 @@ export default function NewEvent() {
   const [dishes, setDishes] = useState<DishDraft[]>([]);
   const [picked, setPicked] = useState<DraftAttraction[]>([]);
   const [busy, setBusy] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollAnchor = useRef({ y: 0, target: null as number | null, until: 0 });
 
   const cat = categoryByKey(category);
   const sub = subcategoryByKey(category, subKey);
@@ -81,6 +84,11 @@ export default function NewEvent() {
     if (d.getTime() < Date.now() - 60_000) return toast("Termin musi być w przyszłości", "error");
     const budgetN = budget.trim() ? Number(budget) : null;
     if (budgetN != null && (!Number.isFinite(budgetN) || budgetN < 0)) return toast("Budżet na osobę podaj liczbą", "error");
+    if (isQuestionPlanActive(picked)) {
+      const pool = splitPlan(picked);
+      const warning = questionPoolWarning(capacity, pool.limit, pool.questions.length);
+      if (warning) return toast(warning, "error");
+    }
     setBusy(true);
     try {
       const pin = tasting ? await findNearbyPin(venue.lat, venue.lng, 80) : null;
@@ -120,12 +128,43 @@ export default function NewEvent() {
     }
   };
 
+  const pinScroll = (y: number) => {
+    scrollAnchor.current.target = y;
+    scrollAnchor.current.until = Date.now() + 900;
+    const apply = () => {
+      if (Date.now() > scrollAnchor.current.until) return;
+      scrollRef.current?.scrollTo({ y: scrollAnchor.current.target ?? y, animated: false });
+    };
+    apply();
+    setTimeout(apply, 60);
+    setTimeout(apply, 220);
+    setTimeout(apply, 480);
+  };
+  const holdScroll = () => pinScroll(scrollAnchor.current.target ?? scrollAnchor.current.y);
+  const shiftScroll = (delta: number) => pinScroll(Math.max(0, (scrollAnchor.current.target ?? scrollAnchor.current.y) + delta));
+
   const header = step === "category" ? "Nowe spotkanie" : step === "sub" ? cat?.label ?? "Kategoria" : step === "idea" ? sub?.label ?? "Pomysł" : "Ustawienia spotkania";
 
   return (
     <View testID="new-event-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title={header} centerTitle={step === "form"} />
-      <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
+      <KeyboardAwareScrollView
+        ref={scrollRef}
+        bottomOffset={24}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          const y = event.nativeEvent.contentOffset.y;
+          const anchor = scrollAnchor.current;
+          if (anchor.target != null && Date.now() < anchor.until && Math.abs(y - anchor.target) > 2) {
+            scrollRef.current?.scrollTo({ y: anchor.target, animated: false });
+            return;
+          }
+          anchor.y = y;
+          if (Date.now() >= anchor.until) anchor.target = null;
+        }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}
+      >
         {step === "category" ? (
           <MeetingPickList testID="meeting-category" items={MEETING_CATEGORIES.map((c) => ({ key: c.key, title: c.label, text: c.blurb }))} onPick={(key) => { setCategory(key); setSubKey(null); setStep("sub"); }} />
         ) : null}
@@ -182,7 +221,7 @@ export default function NewEvent() {
                   hint={sub.format === "one_dish" ? "Wszyscy oceniacie to samo danie. Opis zobaczą później ludzie na pinie." : "Różne dania, porcje do dzielenia. Każdy ocenia to, czego spróbował."}
                 />
               ) : null}
-              <AttractionPicker picked={picked} onChange={setPicked} />
+              <AttractionPicker picked={picked} onChange={setPicked} seats={capacity} onScrollHold={holdScroll} onScrollShift={shiftScroll} />
               <Button testID="new-event-save-button" title="Utwórz spotkanie" variant="ink" loading={busy} onPress={() => void save()} style={{ marginTop: spacing.xxl, minHeight: 76 }} />
             </View>
           </>

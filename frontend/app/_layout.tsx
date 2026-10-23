@@ -149,7 +149,7 @@ export default function RootLayout() {
       <ThemeProvider value={navigationTheme}>
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
-            <KeyboardProvider>
+            <KeyboardProvider navigationBarTranslucent={Platform.OS === "android"}>
               <AuthProvider>
                 <ToastProvider>
                   <StatusBar style="light" />
