@@ -538,6 +538,26 @@ export async function listMyNotifications(limit = 50): Promise<AppNotification[]
       .limit(limit),
   ) as Promise<AppNotification[]>;
 }
+export async function markConversationRead(id: string) {
+  return must(
+    supabase.from("conversation_members").update({ last_read_at: new Date().toISOString() }).eq("conversation_id", id).eq("user_id", await uid()),
+  );
+}
+export async function unreadChatCount(): Promise<number> {
+  const me = await uid();
+  const members = await must(
+    supabase.from("conversation_members").select("conversation_id,last_read_at").eq("user_id", me),
+  ) as { conversation_id: string; last_read_at: string | null }[];
+  if (!members?.length) return 0;
+  const counts = await Promise.all(members.map(async (member) => {
+    let query = supabase.from("messages").select("id", { count: "exact", head: true }).eq("conversation_id", member.conversation_id).neq("sender_id", me);
+    if (member.last_read_at) query = query.gt("created_at", member.last_read_at);
+    const { count, error } = await query;
+    if (error) return 0;
+    return count ?? 0;
+  }));
+  return counts.reduce((sum, n) => sum + n, 0);
+}
 export async function unreadNotificationsCount(): Promise<number> {
   const { count, error } = await supabase
     .from("notifications")
@@ -551,6 +571,9 @@ export async function markNotificationRead(id: string) {
   return must(
     supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id).eq("user_id", await uid()),
   );
+}
+export async function deleteNotification(id: string) {
+  return must(supabase.from("notifications").delete().eq("id", id).eq("user_id", await uid()));
 }
 export async function markAllNotificationsRead() {
   return must(

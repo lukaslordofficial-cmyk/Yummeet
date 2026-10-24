@@ -64,35 +64,39 @@ const MESSAGES: Record<string, string> = {
   invalid_duration: "Czas spotkania: od 15 minut do 12 godzin.",
   invalid_budget: "Budżet na osobę jest poza zakresem.",
   invalid_photo: "Wybierz zdjęcie jeszcze raz.",
+  dating_profile_required: "Najpierw uzupełnij profil randkowy.",
+  dating_underage: "Randki są tylko dla osób, które ukończyły 18 lat.",
+  dating_active_exists: "Masz już jedno aktywne ogłoszenie. Wstrzymaj je, zanim dodasz kolejne.",
+  dating_contact_limit: "W darmowej wersji możesz mieć naraz 3 otwarte kontakty.",
+  dating_already_closed: "To zgłoszenie zostało już wysłane albo zakończone.",
+  dating_questions_count: "Wybierz od 3 do 5 pytań z listy.",
+  dating_not_ready: "Ta część randki nie jest jeszcze otwarta.",
+  invalid_choice: "Wybierz jedną z dostępnych decyzji.",
+  invalid_name: "Podaj imię lub pseudonim (2–40 znaków).",
+  invalid_profile: "Uzupełnij wymagane pola profilu randkowego.",
 };
 
 export function errorMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as any).message) : String(e);
   const key = Object.keys(MESSAGES).find((k) => raw.includes(k));
   if (key) return MESSAGES[key];
-  if (raw.includes("event_truth")) {
-    return "Prawda czy kłamstwo na kilku telefonach wymaga migracji 048 i 053 w SQL Editorze Supabase.";
-  }
-  if (raw.includes("event_find_submit") || raw.includes("event_claim_code") || raw.includes("event_presence") || raw.includes("event_find_answers")) {
-    return "Dwie tury zabawy i licznik spotkań wymagają migracji 047_find_rounds_presence.sql w SQL Editorze Supabase.";
-  }
-  if (raw.includes("event_play") || raw.includes("event_find_save") || raw.includes("event_find_picks")) {
-    return "Panel zabaw wymaga migracji 046_play_qr_window.sql w SQL Editorze Supabase.";
-  }
-  if (raw.includes("add_event_photo") || raw.includes("event_photos")) {
-    return "Zdjęcia spotkania zapisują się na stałe po migracji 054_play_journal_photos.sql w SQL Editorze Supabase.";
-  }
-  if (raw.includes("event_story")) {
-    return "Wspólna historia wymaga migracji 043_meeting_plan_story.sql i 054_play_journal_photos.sql w SQL Editorze Supabase.";
-  }
-  if (raw.includes("event_set_meeting") || raw.includes("event_add_dish") || raw.includes("dish_ratings") || raw.includes("pin_dish_summary") || raw.includes("event_dish_board")) {
-    return "Oceny dań wymagają migracji 040_meeting_categories_dishes.sql w SQL Editorze Supabase.";
-  }
-  if (raw.includes("schema cache") || raw.includes("does not exist") || raw.includes("public.events")) {
-    if (/event_play|event_find|event_truth|event_story/.test(raw)) {
-      return "Panel zabaw wymaga migracji 046–054. W SQL Editor wgraj sql/053.sql i sql/054.sql.";
-    }
-    return "Baza niegotowa: w SQL Editor uruchom brakujące migracje z docs/SETUP.md, na końcu sql/053.sql i sql/054.sql.";
+  if (
+    raw.includes("schema cache")
+    || raw.includes("does not exist")
+    || raw.includes("public.events")
+    || raw.includes("event_truth")
+    || raw.includes("event_find")
+    || raw.includes("event_play")
+    || raw.includes("event_presence")
+    || raw.includes("event_story")
+    || raw.includes("event_set_meeting")
+    || raw.includes("event_add_dish")
+    || raw.includes("dish_ratings")
+    || raw.includes("event_photos")
+    || raw.includes("add_event_photo")
+    || raw.includes("dating_")
+  ) {
+    return "Nie udało się wczytać. Spróbuj ponownie.";
   }
   if (raw === "timeout" || /network request failed|failed to fetch|error fetch|fetch failed|typeerror: fetch|aborted|network error/i.test(raw)) {
     return "Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.";

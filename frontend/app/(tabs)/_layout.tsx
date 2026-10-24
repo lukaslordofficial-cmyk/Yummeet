@@ -13,10 +13,10 @@ import { fonts, useTheme } from "@/src/theme";
 const VISIBLE_TABS = [
   { name: "index", label: "Odkrywaj", icon: "map-search", sf: "map.fill" },
   { name: "tables", label: "Spotkania", icon: "account-group", sf: "person.3.fill" },
-  { name: "route", label: "Gastro-Trasa", icon: "map-marker-path", sf: "point.topleft.down.to.point.bottomright.curvepath" },
+  { name: "dates", label: "Randki", icon: "heart-outline", sf: "heart.fill" },
 ] as const;
 
-const HIDDEN_TABS = ["food", "challenges"] as const;
+const HIDDEN_TABS = ["food", "challenges", "route"] as const;
 const HIDDEN_TAB_NAMES = new Set<string>(HIDDEN_TABS);
 
 function AppTabBar({

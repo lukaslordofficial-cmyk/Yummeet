@@ -20,7 +20,7 @@ async function compressForUpload(uri: string): Promise<string> {
     const out = await ImageManipulator.manipulateAsync(
       uri,
       [{ resize: { width: 1280 } }],
-      { compress: 0.55, format: ImageManipulator.SaveFormat.JPEG },
+      { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG },
     );
     return out.uri;
   } catch {
@@ -135,10 +135,9 @@ export async function pickPinPhoto(
     if (!perm.granted) throw new Error("Brak zgody na galerię.");
   }
   const pickerOpts: ImagePicker.ImagePickerOptions = {
-    quality: 0.85,
-    allowsEditing: true,
-    aspect: [4, 3],
-    base64: true,
+    quality: 0.7,
+    allowsEditing: false,
+    base64: false,
     exif: false,
   };
   const result =

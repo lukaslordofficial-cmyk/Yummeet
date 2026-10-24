@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Body, Button, EmptyState, Header, Loading, Title, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
 import {
-  listMyNotifications, markAllNotificationsRead, markNotificationRead,
+  deleteNotification, listMyNotifications, markAllNotificationsRead, markNotificationRead,
   type AppNotification,
 } from "@/src/lib/data";
 import { emitNotificationsChanged } from "@/src/lib/notifyBus";
@@ -15,6 +15,8 @@ import { fonts, radius, spacing, useTheme } from "@/src/theme";
 function routeForNotification(n: AppNotification): string | null {
   const d = n.data ?? {};
   // Wiadomość / pojedynek z czatem — najpierw czat
+  const interest = d.interest_id;
+  if (typeof interest === "string" && interest) return `/dates/contact/${interest}`;
   const conv = d.conversation_id;
   if (typeof conv === "string" && conv) return `/chat/${conv}`;
   if (typeof d.duel_id === "string" && d.duel_id) return `/duel/${d.duel_id}`;
@@ -90,6 +92,19 @@ export default function NotificationsScreen() {
     }
   };
 
+  const removeItem = async (id: string) => {
+    setBusyId(id);
+    try {
+      await deleteNotification(id);
+      setItems((prev) => prev?.filter((x) => x.id !== id) ?? null);
+      emitNotificationsChanged();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const markAll = async () => {
     try {
       await markAllNotificationsRead();
@@ -146,7 +161,10 @@ export default function NotificationsScreen() {
                   <Title size={15} style={{ flex: 1, fontFamily: fonts.display }} numberOfLines={2}>{item.title}</Title>
                 </View>
                 {item.body ? <Body numberOfLines={3}>{item.body}</Body> : null}
-                <Body muted style={{ fontSize: 12 }}>{timeLabel(item.created_at)}</Body>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <Body muted style={{ fontSize: 12 }}>{timeLabel(item.created_at)}</Body>
+                  <Button testID={`notif-delete-${item.id}`} title="Usuń" variant="ghost" onPress={() => void removeItem(item.id)} />
+                </View>
               </Pressable>
             );
           }}

@@ -83,6 +83,9 @@ W SQL Editor uruchamiaj **po kolei**, nie od razu `006`:
 52. **`sql/053.sql`** albo **`supabase/migrations/053_plan_pairs_truth_find_score.sql`** — ranking Prawda czy kłamstwo i punktacja Znajdź kogoś (wstrzymanie = 0).
 53. **`sql/054.sql`** albo **`supabase/migrations/054_play_journal_photos.sql`** — kolejna zabawa dla wszystkich, rezygnacja z historii, trwałe zdjęcia spotkania, recap w dzienniku.
 54. **`sql/055.sql`** albo **`supabase/migrations/055_event_join_open.sql`** — rezerwacja miejsca działa do zakończenia spotkania i nie jest blokowana oknem kodu QR.
+55. **`sql/056.sql`** albo **`supabase/migrations/056_dating.sql`** — zakładka Randki: profil 18+, ogłoszenia do 50 km, pytania, obustronna zgoda i plan spotkania przy jedzeniu.
+56. **`sql/057.sql`** albo **`supabase/migrations/057_dating_formats_prefs.sql`** — typ spotkania Spacer zamiast wymiany porcji, bez wspólnego gotowania; na ogłoszeniu widać preferencje z profilu.
+57. **`sql/058.sql`** albo **`supabase/migrations/058_dating_accept_chat.sql`** — przyjęcie zgłoszenia otwiera czat i wysyła wiadomość, że od teraz można rozmawiać.
 
 Te dwa ostatnie pliki są też w katalogu `sql/` (krótkie nazwy `053.sql` i `054.sql`), żeby dało się je pobrać z gita bez szukania wśród plików `038_poland_osm_website_pins_053.sql`.
 

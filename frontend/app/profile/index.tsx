@@ -93,6 +93,7 @@ export default function ProfileTab() {
           <Button testID="profile-spec-button" title="Specjalizacje" icon="shield-star" variant="secondary" onPress={() => router.push("/specializations")} />
         </View>
         <Button testID="profile-culinary-button" title="Profil kulinarny" icon="chef-hat" variant="ghost" onPress={() => router.push("/profile/culinary")} />
+        <Button testID="profile-scan-button" title="Skaner spotkania" icon="qrcode-scan" variant="secondary" onPress={() => router.push("/scan")} />
 
         {culinary || profile?.signature_dish ? (
           <Card testID="profile-culinary-summary">

@@ -102,6 +102,10 @@ function Gate() {
           <Stack.Screen name="profile/culinary" />
           <Stack.Screen name="event/[id]" />
           <Stack.Screen name="event/new" />
+          <Stack.Screen name="dates/profile" />
+          <Stack.Screen name="dates/new" />
+          <Stack.Screen name="dates/[id]" />
+          <Stack.Screen name="dates/contact/[id]" />
           <Stack.Screen name="meetings" />
           <Stack.Screen name="chats" />
           <Stack.Screen name="profile" />

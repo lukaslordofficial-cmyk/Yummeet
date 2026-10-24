@@ -4,7 +4,7 @@ import { Animated, AppState, PanResponder, Pressable, Text, useWindowDimensions,
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/src/components/Icon";
-import { onNotificationsChanged } from "@/src/lib/notifyBus";
+import { emitNotificationsChanged, onNotificationsChanged } from "@/src/lib/notifyBus";
 import { ensureNotifyPermission, notifyNearPin } from "@/src/lib/routeNotify";
 import { subscribePostgres } from "@/src/lib/realtime";
 import { supabase } from "@/src/lib/supabase";
@@ -65,6 +65,7 @@ export function FloatingNotifyBubble() {
       { event: "INSERT", table: "notifications", filter: `user_id=eq.${uid}` },
       (payload) => {
         setUnread((n) => n + 1);
+        emitNotificationsChanged();
         const row = payload.new as { title?: string; body?: string; kind?: string } | undefined;
         ping(row?.title ?? "Powiadomienie", row?.body ?? "Masz nowe powiadomienie w Yummeet");
       },

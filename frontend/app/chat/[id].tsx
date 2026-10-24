@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState, Field, Header, IconButton, useToast } from "@/src/components/ui";
 import { errorMessage } from "@/src/lib/api";
-import { listMessages, sendMessage } from "@/src/lib/data";
+import { listMessages, markConversationRead, sendMessage } from "@/src/lib/data";
+import { emitChatsChanged } from "@/src/lib/notifyBus";
 import { subscribePostgres } from "@/src/lib/realtime";
 import { useAuth } from "@/src/providers/AuthProvider";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
@@ -21,7 +22,15 @@ export default function ChatScreen() {
   const [msgs, setMsgs] = useState<any[]>([]);
   const [text, setText] = useState("");
 
-  const load = useCallback(async () => { try { setMsgs(await listMessages(id)); } catch (e) { toast(errorMessage(e), "error"); } }, [id, toast]);
+  const load = useCallback(async () => {
+    try {
+      setMsgs(await listMessages(id));
+    } catch (e) { toast(errorMessage(e), "error"); return; }
+    try {
+      await markConversationRead(id);
+      emitChatsChanged();
+    } catch { /* odczyt nie blokuje rozmowy */ }
+  }, [id, toast]);
   useEffect(() => {
     load();
     return subscribePostgres(`chat-${id}`, { event: "INSERT", table: "messages", filter: `conversation_id=eq.${id}` }, (p) => {

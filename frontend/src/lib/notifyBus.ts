@@ -11,3 +11,16 @@ export function emitNotificationsChanged(): void {
     try { fn(); } catch { /* ignore */ }
   });
 }
+
+const chatListeners = new Set<Listener>();
+
+export function onChatsChanged(fn: Listener): () => void {
+  chatListeners.add(fn);
+  return () => chatListeners.delete(fn);
+}
+
+export function emitChatsChanged(): void {
+  chatListeners.forEach((fn) => {
+    try { fn(); } catch { /* ignore */ }
+  });
+}

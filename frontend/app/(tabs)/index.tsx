@@ -169,7 +169,6 @@ export default function Discover() {
           </View>
           <View style={{ paddingRight: spacing.lg, gap: spacing.sm }}>
             <IconButton testID="discover-locate-button" icon="crosshairs-gps" tone="sheet" onPress={() => { setSelectedId(null); void locate(); }} />
-            <IconButton testID="discover-route-button" icon="map-marker-path" tone="sheet" onPress={() => router.push("/route")} />
           </View>
         </View>
       </View>
@@ -180,11 +179,11 @@ export default function Discover() {
           left: spacing.lg,
           right: spacing.lg,
           bottom: bottomChrome + spacing.md,
-          flexDirection: "row",
-          alignItems: "flex-end",
           gap: spacing.md,
         }}
       >
+        <Button testID="discover-route-button" title="Gastro Trasa" onPress={() => router.push("/route")} />
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.md }}>
         {selected ? (
           <View style={{ flex: 1 }}>
             <DiscoverPlaceCard
@@ -201,6 +200,7 @@ export default function Discover() {
           <View style={{ flex: 1 }} />
         )}
         <IconButton testID="discover-add-pin-button" icon="plus" tone="brand" onPress={() => router.push("/pin/new")} />
+        </View>
       </View>
 
       <Modal visible={priceOpen} transparent animationType="fade" onRequestClose={() => setPriceOpen(false)}>

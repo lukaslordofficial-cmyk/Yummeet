@@ -1,21 +1,34 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { usePathname, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { PanResponder, Pressable, useWindowDimensions, View } from "react-native";
+import { PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { haptic } from "@/src/components/ui";
-import { radius, spacing, useTheme } from "@/src/theme";
+import { unreadChatCount, unreadNotificationsCount } from "@/src/lib/data";
+import { onChatsChanged, onNotificationsChanged } from "@/src/lib/notifyBus";
+import { subscribePostgres } from "@/src/lib/realtime";
+import { fonts, radius, spacing, useTheme } from "@/src/theme";
 import { Icon } from "./Icon";
 
 const ITEMS = [
-  { href: "/scan", icon: "qrcode-scan", testID: "tab-scan", match: "/scan", label: "Skaner" },
-  { href: "/chats", icon: "chat-processing", testID: "tab-chats", match: "/chats", label: "Czat" },
-  { href: "/profile", icon: "account-circle", testID: "tab-profile", match: "/profile", label: "Profil" },
+  { href: "/notifications", icon: "bell-outline", testID: "tab-notifications", match: "/notifications", label: "Powiadomienia", badge: "bell" as const },
+  { href: "/chats", icon: "chat-processing", testID: "tab-chats", match: "/chats", label: "Czat", badge: "chats" as const },
+  { href: "/profile", icon: "account-circle", testID: "tab-profile", match: "/profile", label: "Profil", badge: false as const },
 ] as const;
 
 const STORE_KEY = "yummeet.floatingNav.v1";
 const BUTTON = 52;
+
+function CountBadge({ count }: { count: number }) {
+  const { colors } = useTheme();
+  if (count <= 0) return null;
+  return (
+    <View style={{ position: "absolute", top: 4, right: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.error, alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ color: colors.onError, fontFamily: fonts.display, fontSize: 11 }}>{count > 9 ? "9+" : String(count)}</Text>
+    </View>
+  );
+}
 
 type Spot = { x: number; y: number };
 
@@ -29,6 +42,8 @@ export function FloatingNav() {
   const frame = useRef({ width, height, top: insets.top });
   frame.current = { width, height, top: insets.top };
   const [spot, setSpot] = useState<Spot | null>(null);
+  const [unread, setUnread] = useState(0);
+  const [chatUnread, setChatUnread] = useState(0);
   const spotRef = useRef<Spot>({ x: 0, y: 0 });
   const moved = useRef(false);
 
@@ -39,6 +54,23 @@ export function FloatingNav() {
       y: Math.min(Math.max(top + 4, y), Math.max(top + 4, h - BUTTON * 3 - 48)),
     };
   };
+
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      void unreadNotificationsCount().then((n) => { if (alive) setUnread(n); }).catch(() => {});
+    };
+    const refreshChats = () => {
+      void unreadChatCount().then((n) => { if (alive) setChatUnread(n); }).catch(() => {});
+    };
+    refresh();
+    refreshChats();
+    const off = onNotificationsChanged(refresh);
+    const offChats = onChatsChanged(refreshChats);
+    const offMessages = subscribePostgres("floating-chats", { event: "INSERT", table: "messages" }, () => { refresh(); refreshChats(); });
+    const timer = setInterval(() => { refresh(); refreshChats(); }, 20000);
+    return () => { alive = false; off(); offChats(); offMessages(); clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     const fallback = clamp(width - Math.max(insets.right, spacing.sm) - BUTTON, height * 0.36);
@@ -133,6 +165,9 @@ export function FloatingNav() {
             })}
           >
             <Icon name={item.icon} size={26} color={active ? colors.onBrandPrimary : colors.onSurface} />
+            {item.badge ? (
+              <CountBadge count={item.badge === "bell" ? unread : chatUnread} />
+            ) : null}
           </Pressable>
         );
       })}
