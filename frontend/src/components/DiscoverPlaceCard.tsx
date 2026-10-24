@@ -11,10 +11,12 @@ export function DiscoverPlaceCard({
   pin,
   onOpen,
   onFocus,
+  onClose,
 }: {
   pin: PinMarker;
   onOpen: () => void;
   onFocus: () => void;
+  onClose: () => void;
 }) {
   const { colors } = useTheme();
   const cuisine = cuisineLabel(pin.cuisine);
@@ -43,23 +45,33 @@ export function DiscoverPlaceCard({
             {cuisine} · {score}{pin.review_count ? ` · ${pin.review_count} ocen` : ""}
           </Text>
         </View>
+        <Pressable
+          testID="discover-place-close"
+          accessibilityRole="button"
+          accessibilityLabel="Zamknij"
+          onPress={onClose}
+          hitSlop={8}
+          style={{ width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface }}
+        >
+          <Icon name="close" size={20} color={colors.onSurface} />
+        </Pressable>
       </View>
       <View style={{ flexDirection: "row", gap: spacing.sm }}>
         <Pressable
           testID="discover-place-focus"
           accessibilityRole="button"
           onPress={onFocus}
-          style={{ flex: 1, minHeight: 44, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.sheetMuted, alignItems: "center", justifyContent: "center" }}
+          style={{ flex: 1, minHeight: 44, paddingHorizontal: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.sheetMuted, alignItems: "center", justifyContent: "center" }}
         >
-          <Text style={{ fontFamily: fonts.display, fontSize: 14, color: colors.onSheet }}>Pokaż na mapie</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.display, fontSize: 14, color: colors.onSheet }}>Pokaż na mapie</Text>
         </Pressable>
         <Pressable
           testID="discover-place-open"
           accessibilityRole="button"
           onPress={onOpen}
-          style={{ flex: 1, minHeight: 44, borderRadius: radius.pill, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}
+          style={{ flex: 1, minHeight: 44, paddingHorizontal: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}
         >
-          <Text style={{ fontFamily: fonts.display, fontSize: 14, color: colors.onSurface }}>Menu i opinie</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.display, fontSize: 14, color: colors.onSurface }}>Menu i opinie</Text>
         </Pressable>
       </View>
     </View>

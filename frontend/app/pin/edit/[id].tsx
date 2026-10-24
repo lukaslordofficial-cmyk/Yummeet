@@ -14,7 +14,6 @@ import { setActivePinForm } from "@/src/lib/activePinForm";
 import { PIN_TAGS } from "@/src/lib/cuisines";
 import { invalidatePins, pinDetails, updatePin } from "@/src/lib/data";
 import {
-  DELIVERY_SHARE_HINT,
   firstDeliveryValidationError,
   validateDeliveryUrl,
 } from "@/src/lib/deliveryLinks";
@@ -192,14 +191,7 @@ export default function EditPin() {
           <Field testID="edit-pin-website" label="Adres www" value={website} onChangeText={setWebsite} placeholder="https://…" autoCapitalize="none" />
           <Button testID="edit-pin-open-website" title="Otwórz stronę z menu" icon="open-in-new" variant="secondary" onPress={openWebsite} disabled={!previewSite} />
 
-          <Title size={16}>Zamówienie</Title>
-          <Body muted>Puste pola nie pokażą przycisku na pinie.</Body>
-          <Body muted>{DELIVERY_SHARE_HINT}</Body>
           <Field testID="edit-pin-phone" label="Telefon (zadzwoń i zamów)" value={phone} onChangeText={setPhone} placeholder="+48 …" keyboardType="phone-pad" autoCapitalize="none" />
-          <DeliveryLinkField platform="wolt" testID="edit-pin-wolt" value={orderWolt} onChangeText={setOrderWolt} placeholder="https://wolt.com/…" error={woltError} />
-          <DeliveryLinkField platform="pyszne" testID="edit-pin-pyszne" value={orderPyszne} onChangeText={setOrderPyszne} placeholder="https://www.pyszne.pl/…" error={pyszneError} />
-          <DeliveryLinkField platform="glovo" testID="edit-pin-glovo" value={orderGlovo} onChangeText={setOrderGlovo} placeholder="https://glovoapp.com/…" error={glovoError} />
-          <DeliveryLinkField platform="uber" testID="edit-pin-uber" value={orderUber} onChangeText={setOrderUber} placeholder="https://www.ubereats.com/…" error={uberError} />
 
           <Field testID="edit-pin-description" label="Opis" value={description} onChangeText={setDescription} multiline />
           <Field testID="edit-pin-city" label="Miasto" value={city} onChangeText={setCity} />
@@ -229,6 +221,11 @@ export default function EditPin() {
               <Button testID="edit-pin-cover-gallery" title="Wgraj" variant="ghost" loading={photoBusy} style={{ flex: 1 }} onPress={() => void addCover("gallery")} />
             </View>
           )}
+
+          <DeliveryLinkField platform="wolt" testID="edit-pin-wolt" value={orderWolt} onChangeText={setOrderWolt} placeholder="https://wolt.com/…" error={woltError} />
+          <DeliveryLinkField platform="pyszne" testID="edit-pin-pyszne" value={orderPyszne} onChangeText={setOrderPyszne} placeholder="https://www.pyszne.pl/…" error={pyszneError} />
+          <DeliveryLinkField platform="glovo" testID="edit-pin-glovo" value={orderGlovo} onChangeText={setOrderGlovo} placeholder="https://glovoapp.com/…" error={glovoError} />
+          <DeliveryLinkField platform="uber" testID="edit-pin-uber" value={orderUber} onChangeText={setOrderUber} placeholder="https://www.ubereats.com/…" error={uberError} />
 
           <Button testID="edit-pin-save" title="Zapisz zmiany" loading={busy} disabled={deliveryBlocked} onPress={() => void save()} />
         </KeyboardAwareScrollView>

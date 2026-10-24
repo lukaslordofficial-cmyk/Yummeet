@@ -49,8 +49,8 @@ export function PlanEditor({
   const [ownQuestions, setOwnQuestions] = useState<string[]>([]);
   const [savedPrompts, setSavedPrompts] = useState<string[]>([]);
   const [ownStarters, setOwnStarters] = useState<{ title: string; text: string }[]>([]);
-  const [questionsOpen, setQuestionsOpen] = useState(false);
   const [gamesOpen, setGamesOpen] = useState(false);
+  const [proposalsOpen, setProposalsOpen] = useState(true);
   const [openGame, setOpenGame] = useState<string | null>(null);
   const [headingDraft, setHeadingDraft] = useState("");
   const [bodyDraft, setBodyDraft] = useState("");
@@ -59,7 +59,6 @@ export function PlanEditor({
   const titleNodes = useRef<Record<string, View | null>>({});
   const planAnchor = useRef<View | null>(null);
   const center = { textAlign: "center" as const, width: "100%" as const };
-  const picked = (on: boolean) => (on ? colors.brandPrimary : undefined);
   const generated = plan.note?.body ?? "";
   const packPrompts = FIND_PACKS.flatMap((pack) => pack.prompts);
   const poolOn = isQuestionPlanActive(items);
@@ -100,6 +99,21 @@ export function PlanEditor({
       if (Math.abs(delta) < 4) return;
       const current = scrollOffsetRef?.current ?? 0;
       scrollRef.current?.scrollTo({ y: Math.max(0, current + delta), animated: false });
+    });
+  };
+
+  const selectInPlace = (id: string, apply: () => void) => {
+    const card = titleNodes.current[id];
+    if (!card || !scrollRef?.current) {
+      apply();
+      return;
+    }
+    card.measureInWindow((_cx, yBefore) => {
+      apply();
+      const keep = () => keepTileInPlace(id, yBefore);
+      requestAnimationFrame(keep);
+      setTimeout(keep, 50);
+      setTimeout(keep, 200);
     });
   };
 
@@ -188,7 +202,9 @@ export function PlanEditor({
         {homemade.map((activity) => (
           <View key={activity.key} testID={`${testID}-custom-${activity.key}`} style={{ gap: spacing.xxl }}>
             {activity.title ? <ActivityName>{activity.title}</ActivityName> : null}
-            {activity.body ? <ActivityBody>{activity.body}</ActivityBody> : null}
+            {activity.body ? (
+              <Body style={{ textAlign: "center", color: colors.onSurface, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>{activity.body}</Body>
+            ) : null}
             {canEdit ? (
               <Button
                 testID={`${testID}-custom-remove-${activity.key}`}
@@ -229,55 +245,78 @@ export function PlanEditor({
       ) : null}
 
       <Title size={18} style={{ ...center, marginTop: spacing.md }}>Proponowane aktywności</Title>
-      <ExpandTile testID={`${testID}-questions-toggle`} title="Zabawa w pytania" open={questionsOpen} onPress={() => setQuestionsOpen((open) => !open)} style={{ marginTop: spacing.xl }} />
-      {questionsOpen ? (
-        <View style={{ gap: spacing.xl, marginTop: spacing.md }}>
-          <Body muted testID={`${testID}-question-rules`}>{QUESTION_RULES}</Body>
-          {browse ? <Body muted>Przy konkretnym spotkaniu organizator ustala, ile pytań losuje każda osoba.</Body> : (
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.lg }}>
-              <Body style={{ textAlign: "center" }}>Pytań na osobę: {plan.limit}</Body>
-              {canEdit ? (
-                <>
-                  <Button testID={`${testID}-limit-minus`} title="−" onPress={() => applySelection(setPlanLimit(items, plan.limit - 1))} />
-                  <Button testID={`${testID}-limit-plus`} title="+" onPress={() => applySelection(setPlanLimit(items, plan.limit + 1))} />
-                </>
-              ) : null}
-            </View>
-          )}
-          {poolWarning ? (
-            <Text testID={`${testID}-pool-warning`} style={{ color: colors.error, fontFamily: fonts.text, fontSize: 15, lineHeight: 22, textAlign: "center" }}>{poolWarning}</Text>
-          ) : null}
-          {canEdit ? (
-            <View style={{ gap: spacing.lg }}>
-              <Field testID={`${testID}-custom-question`} label="Własne pytanie" value={customQ} onChangeText={setCustomQ} placeholder="Wpisz swoje pytanie" />
-              <Button testID={`${testID}-custom-question-add`} title="Dodaj własne pytanie" onPress={addOwnQuestion} />
-            </View>
-          ) : null}
-          <View style={{ gap: spacing.md }}>
-          {visibleOwnQuestions.map((q) => (
-            <OwnLine
-              key={`own-q-${q}`}
-              testID={`${testID}-local-${q}`}
-              text={q}
-              chosen={plan.questions.some((row) => row.title === q)}
-              onPress={canEdit ? () => applySelection(plan.questions.some((row) => row.title === q) ? toggleQuestion(items, q) : addCustomQuestion(items, q)) : undefined}
-              onRemove={canEdit ? () => removeOwnQuestion(q) : undefined}
-            />
-          ))}
-          {questionList.map((q) => {
-            const on = plan.questions.some((row) => row.title === q);
-            return (
-              <Card key={q} testID={`${testID}-q-${BUILTIN_QUESTIONS.indexOf(q)}`} accent={picked(on)} onPress={canEdit ? () => applySelection(toggleQuestion(items, q)) : undefined}>
-                <Title size={16} style={center}>{q}</Title>
-              </Card>
-            );
-          })}
+      <ExpandTile testID={`${testID}-games-toggle`} title="Gry i zabawy towarzyskie" open={gamesOpen} onPress={() => setGamesOpen((open) => !open)} style={{ marginTop: spacing.xl }} />
+      {gamesOpen ? <Body muted style={center}>Gry towarzyskie, które można rozegrać podczas speed friendingu.</Body> : null}
+      {gamesOpen ? (
+        <View style={{ gap: spacing.lg }}>
+          <View ref={(node) => { titleNodes.current.questions = node; }} collapsable={false}>
+            <Card
+              testID={`${testID}-questions-toggle`}
+              onPress={() => openGameTile("questions")}
+              style={{ backgroundColor: colors.onBrandPrimary, borderColor: poolOn ? colors.brandPrimary : colors.onBrandPrimary, borderWidth: 2 }}
+            >
+              <Title size={16} style={{ ...center, color: colors.onBrandSecondary }}>Zabawa w pytania</Title>
+            </Card>
           </View>
+          {openGame === "questions" ? (
+            <View style={{ gap: spacing.xl, paddingHorizontal: spacing.sm }}>
+              <Body muted testID={`${testID}-question-rules`}>{QUESTION_RULES}</Body>
+              {browse ? <Body muted>Przy konkretnym spotkaniu organizator ustala, ile pytań losuje każda osoba.</Body> : (
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.lg }}>
+                  <Body style={{ textAlign: "center" }}>Pytań na osobę: {plan.limit}</Body>
+                  {canEdit ? (
+                    <>
+                      <Button testID={`${testID}-limit-minus`} title="−" onPress={() => applySelection(setPlanLimit(items, plan.limit - 1))} />
+                      <Button testID={`${testID}-limit-plus`} title="+" onPress={() => applySelection(setPlanLimit(items, plan.limit + 1))} />
+                    </>
+                  ) : null}
+                </View>
+              )}
+              {poolWarning ? (
+                <Text testID={`${testID}-pool-warning`} style={{ color: colors.error, fontFamily: fonts.text, fontSize: 15, lineHeight: 22, textAlign: "center" }}>{poolWarning}</Text>
+              ) : null}
+              {canEdit ? (
+                <View style={{ gap: spacing.lg }}>
+                  <Field testID={`${testID}-custom-question`} label="Własne pytanie" value={customQ} onChangeText={setCustomQ} placeholder="Wpisz swoje pytanie" />
+                  <Button testID={`${testID}-custom-question-add`} title="Dodaj własne pytanie" onPress={addOwnQuestion} />
+                </View>
+              ) : null}
+              <View style={{ gap: spacing.md }}>
+                {visibleOwnQuestions.map((q) => {
+                  const id = `own-q-${q}`;
+                  const chosen = plan.questions.some((row) => row.title === q);
+                  return (
+                    <View key={id} ref={(node) => { titleNodes.current[id] = node; }} collapsable={false}>
+                      <OwnLine
+                        testID={`${testID}-local-${q}`}
+                        text={q}
+                        chosen={chosen}
+                        onPress={canEdit ? () => selectInPlace(id, () => applySelection(chosen ? toggleQuestion(items, q) : addCustomQuestion(items, q))) : undefined}
+                        onRemove={canEdit ? () => removeOwnQuestion(q) : undefined}
+                      />
+                    </View>
+                  );
+                })}
+                {questionList.map((q) => {
+                  const on = plan.questions.some((row) => row.title === q);
+                  const id = `q-${BUILTIN_QUESTIONS.indexOf(q)}`;
+                  return (
+                    <View key={q} ref={(node) => { titleNodes.current[id] = node; }} collapsable={false}>
+                      <Card
+                        testID={`${testID}-${id}`}
+                        onPress={canEdit ? () => selectInPlace(id, () => applySelection(toggleQuestion(items, q))) : undefined}
+                        style={{ borderWidth: 2, borderColor: on ? colors.brandPrimary : colors.border }}
+                      >
+                        <Title size={16} style={center}>{q}</Title>
+                      </Card>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
         </View>
       ) : null}
-
-      <ExpandTile testID={`${testID}-games-toggle`} title="Gry i zabawy towarzyskie" open={gamesOpen} onPress={() => setGamesOpen((open) => !open)} />
-      {gamesOpen ? <Body muted style={center}>Gry towarzyskie, które można rozegrać podczas speed friendingu.</Body> : null}
       {gamesOpen ? gameList.map((g) => {
         const on = selectedGame(g.id);
         const open = openGame === g.id;
@@ -321,23 +360,32 @@ export function PlanEditor({
                     <View style={{ gap: spacing.md }}>
                       {customPrompts.map((prompt) => {
                         const chosen = plan.prompts.some((row) => row.body === prompt);
+                        const id = `saved-${prompt}`;
                         return (
-                          <OwnLine
-                            key={`saved-${prompt}`}
-                            testID={`${testID}-saved-prompt-${prompt.slice(0, 24)}`}
-                            text={prompt}
-                            chosen={chosen}
-                            onPress={canEdit ? () => applySelection(togglePrompt(items, prompt)) : undefined}
-                            onRemove={canEdit ? () => removeOwnPrompt(prompt) : undefined}
-                          />
+                          <View key={id} ref={(node) => { titleNodes.current[id] = node; }} collapsable={false}>
+                            <OwnLine
+                              testID={`${testID}-saved-prompt-${prompt.slice(0, 24)}`}
+                              text={prompt}
+                              chosen={chosen}
+                              onPress={canEdit ? () => selectInPlace(id, () => applySelection(togglePrompt(items, prompt))) : undefined}
+                              onRemove={canEdit ? () => removeOwnPrompt(prompt) : undefined}
+                            />
+                          </View>
                         );
                       })}
                       {packPrompts.map((prompt) => {
                         const chosen = plan.prompts.some((row) => row.body === prompt);
+                        const id = `prompt-${prompt}`;
                         return (
-                          <Card key={prompt} testID={`${testID}-prompt-${prompt.slice(0, 24)}`} accent={picked(chosen)} onPress={canEdit ? () => applySelection(togglePrompt(items, prompt)) : undefined}>
-                            <Title size={16} style={center}>{prompt}</Title>
-                          </Card>
+                          <View key={prompt} ref={(node) => { titleNodes.current[id] = node; }} collapsable={false}>
+                            <Card
+                              testID={`${testID}-prompt-${prompt.slice(0, 24)}`}
+                              onPress={canEdit ? () => selectInPlace(id, () => applySelection(togglePrompt(items, prompt))) : undefined}
+                              style={{ borderWidth: 2, borderColor: chosen ? colors.brandPrimary : colors.border }}
+                            >
+                              <Title size={16} style={center}>{prompt}</Title>
+                            </Card>
+                          </View>
                         );
                       })}
                     </View>
@@ -345,31 +393,47 @@ export function PlanEditor({
                 ) : null}
                 {g.id === "runaway-story" ? (
                   <View style={{ gap: spacing.xxl }}>
-                    <ActivityName>{STORY_PROPOSALS_HEADER}</ActivityName>
+                    <Card
+                      testID={`${testID}-story-proposals`}
+                      onPress={() => setProposalsOpen((open) => !open)}
+                      style={{ backgroundColor: colors.onBrandPrimary, borderColor: colors.onBrandPrimary }}
+                    >
+                      <Title size={16} style={{ ...center, color: colors.onBrandSecondary }}>{STORY_PROPOSALS_HEADER}</Title>
+                    </Card>
+                    {proposalsOpen ? (
                     <View style={{ gap: spacing.xxl }}>
-                      {STORY_STARTERS.map((starter) => (
-                        <StoryProposal
-                          key={starter.title}
-                          testID={`${testID}-story-${starter.title}`}
-                          title={starter.title}
-                          text={starter.text}
-                          chosen={plan.starters.some((row) => storyStarterLabel(row.title) === starter.title)}
-                          onPress={canEdit ? () => applySelection(toggleStoryStarter(items, starter)) : undefined}
-                        />
-                      ))}
-                      {customStarters.map((starter) => (
-                        <StoryProposal
-                          key={`own-${starter.title}`}
-                          testID={`${testID}-story-own-${starter.title}`}
-                          title={starter.title}
-                          text={starter.text}
-                          own
-                          chosen={plan.starters.some((row) => storyStarterLabel(row.title) === starter.title)}
-                          onPress={canEdit ? () => applySelection(toggleStoryStarter(items, starter)) : undefined}
-                          onRemove={canEdit ? () => removeOwnStarter(starter.title, starter.text) : undefined}
-                        />
-                      ))}
+                      {STORY_STARTERS.map((starter) => {
+                        const id = `story-${starter.title}`;
+                        return (
+                          <View key={starter.title} ref={(node) => { titleNodes.current[id] = node; }} collapsable={false}>
+                            <StoryProposal
+                              testID={`${testID}-story-${starter.title}`}
+                              title={starter.title}
+                              text={starter.text}
+                              chosen={plan.starters.some((row) => storyStarterLabel(row.title) === starter.title)}
+                              onPress={canEdit ? () => selectInPlace(id, () => applySelection(toggleStoryStarter(items, starter))) : undefined}
+                            />
+                          </View>
+                        );
+                      })}
+                      {customStarters.map((starter) => {
+                        const id = `story-own-${starter.title}`;
+                        return (
+                          <View key={`own-${starter.title}`} ref={(node) => { titleNodes.current[id] = node; }} collapsable={false}>
+                            <StoryProposal
+                              testID={`${testID}-story-own-${starter.title}`}
+                              title={starter.title}
+                              text={starter.text}
+                              own
+                              chosen={plan.starters.some((row) => storyStarterLabel(row.title) === starter.title)}
+                              onPress={canEdit ? () => selectInPlace(id, () => applySelection(toggleStoryStarter(items, starter))) : undefined}
+                              onRemove={canEdit ? () => removeOwnStarter(starter.title, starter.text) : undefined}
+                            />
+                          </View>
+                        );
+                      })}
                     </View>
+                    ) : null}
                     {canEdit ? (
                       <View style={{ gap: spacing.lg }}>
                         <Field testID={`${testID}-custom-story-title`} label="Tytuł własnego początku" value={storyTitle} onChangeText={setStoryTitle} placeholder="Krótki tytuł" />
@@ -395,7 +459,7 @@ function OwnLine({ text, chosen, onPress, onRemove, testID }: { text: string; ch
   const { colors } = useTheme();
   const center = { textAlign: "center" as const, width: "100%" as const };
   return (
-    <Card testID={testID} accent={chosen ? colors.brandPrimary : undefined}>
+    <Card testID={testID} style={{ borderWidth: 2, borderColor: chosen ? colors.brandPrimary : colors.border }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
         <Pressable accessibilityRole="button" disabled={!onPress} onPress={onPress} style={{ flex: 1, gap: spacing.sm }}>
           <Title size={16} style={center}>{text}</Title>
@@ -413,22 +477,38 @@ function OwnLine({ text, chosen, onPress, onRemove, testID }: { text: string; ch
 
 function StoryProposal({ title, text, chosen, own, onPress, onRemove, testID }: { title: string; text: string; chosen: boolean; own?: boolean; onPress?: () => void; onRemove?: () => void; testID: string }) {
   const { colors } = useTheme();
+  const [open, setOpen] = useState(false);
   const center = { textAlign: "center" as const, width: "100%" as const };
   return (
-    <Pressable testID={testID} accessibilityRole="button" onPress={onPress} style={{ gap: spacing.xxl, borderWidth: chosen ? 2 : 0, borderColor: colors.brandPrimary, borderRadius: radius.md, padding: chosen ? spacing.sm : 0 }}>
-      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.sm }}>
-        <View style={{ flex: 1, gap: spacing.xxl }}>
+    <View testID={testID} style={{ gap: spacing.md, borderWidth: 2, borderColor: chosen ? colors.brandPrimary : "transparent", borderRadius: radius.md, padding: spacing.sm }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+        <Pressable accessibilityRole="button" onPress={onPress} style={{ flex: 1 }}>
           <ActivityName>{title}</ActivityName>
-          {text ? <ActivityBody>{text}</ActivityBody> : null}
-          {own ? <Body muted style={center}>{ACCOUNT_LINE}</Body> : null}
-        </View>
+        </Pressable>
+        <Pressable
+          testID={`${testID}-expand`}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={open ? "Zwiń historię" : "Rozwiń historię"}
+          hitSlop={8}
+          onPress={() => setOpen((value) => !value)}
+          style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}
+        >
+          <Icon name={open ? "chevron-up" : "chevron-down"} size={22} color={colors.onSurface} />
+        </Pressable>
         {onRemove ? (
           <Pressable testID={`${testID}-remove`} accessibilityRole="button" accessibilityLabel="Usuń to pytanie" hitSlop={8} onPress={onRemove} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ color: colors.error, fontFamily: fonts.display, fontSize: 28, lineHeight: 32 }}>−</Text>
           </Pressable>
         ) : null}
       </View>
-    </Pressable>
+      {open ? (
+        <View style={{ gap: spacing.md }}>
+          {text ? <ActivityBody>{text}</ActivityBody> : null}
+          {own ? <Body muted style={center}>{ACCOUNT_LINE}</Body> : null}
+        </View>
+      ) : null}
+    </View>
   );
 }
 

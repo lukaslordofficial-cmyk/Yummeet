@@ -106,7 +106,26 @@ export async function pinsAlongRoute(
     return cuisine ? all.filter((p) => p.cuisine === cuisine) : all;
   }
 }
-export const pinDetails = (id: string) => rpc<any>("pin_details", { p_id: id });
+export async function pinDetails(id: string) {
+  const row = await rpc<any>("pin_details", { p_id: id });
+  if (!row) return row;
+  const hasMenu = typeof row.website === "string" && row.website.trim().length > 0;
+  if (hasMenu) return row;
+  const extra = await must(
+    supabase.from("pins").select("website,description,phone,order_wolt_url,order_pyszne_url,order_glovo_url,order_uber_url").eq("id", id).maybeSingle(),
+  ) as Record<string, string | null> | null;
+  if (!extra) return row;
+  return {
+    ...row,
+    website: extra.website || row.website || null,
+    description: row.description || extra.description || null,
+    phone: row.phone || extra.phone || null,
+    order_wolt_url: row.order_wolt_url || extra.order_wolt_url || null,
+    order_pyszne_url: row.order_pyszne_url || extra.order_pyszne_url || null,
+    order_glovo_url: row.order_glovo_url || extra.order_glovo_url || null,
+    order_uber_url: row.order_uber_url || extra.order_uber_url || null,
+  };
+}
 export type NearbyPin = { id: string; title: string; lat: number; lng: number; cuisine: string | null; city: string | null; address: string | null };
 
 export async function findNearbyPin(lat: number, lng: number, radiusM = 40): Promise<NearbyPin | null> {

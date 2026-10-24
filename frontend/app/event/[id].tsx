@@ -59,7 +59,7 @@ function PlanPreview({ rows, organizer }: { rows: Array<{ id: string; category: 
       {homemade.map((activity) => (
         <View key={activity.key} style={{ gap: spacing.xxl, width: "100%" }}>
           {activity.title ? <ActivityName>{activity.title}</ActivityName> : null}
-          {activity.body ? <ActivityBody>{activity.body}</ActivityBody> : null}
+          {activity.body ? <Body style={{ textAlign: "center", color: colors.onSurface }}>{activity.body}</Body> : null}
         </View>
       ))}
       {blocks.filter((block) => block.id !== "custom").map((block, index) => (

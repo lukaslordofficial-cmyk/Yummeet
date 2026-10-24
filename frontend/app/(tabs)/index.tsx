@@ -1,7 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Modal, PanResponder, Pressable, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DiscoverPlaceCard } from "@/src/components/DiscoverPlaceCard";
@@ -14,6 +15,101 @@ import { pinsInBBox } from "@/src/lib/data";
 import { usesNativeTabs } from "@/src/navigation";
 import { radius, spacing, useTheme } from "@/src/theme";
 import type { PinMarker } from "@/src/types";
+
+const LOCATE_SIZE = 48;
+const LOCATE_STORE = "yummeet.discoverLocate.v1";
+type Spot = { x: number; y: number };
+
+function DraggableLocate({ onPress }: { onPress: () => void }) {
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const frame = useRef({ width, height, top: insets.top, bottom: insets.bottom });
+  frame.current = { width, height, top: insets.top, bottom: insets.bottom };
+  const [spot, setSpot] = useState<Spot | null>(null);
+  const spotRef = useRef<Spot>({ x: 0, y: 0 });
+  const moved = useRef(false);
+  const origin = useRef<Spot>({ x: 0, y: 0 });
+
+  const clamp = (x: number, y: number): Spot => {
+    const { width: w, height: h, top, bottom } = frame.current;
+    return {
+      x: Math.min(Math.max(spacing.sm, x), Math.max(spacing.sm, w - LOCATE_SIZE - spacing.sm)),
+      y: Math.min(Math.max(top + spacing.sm, y), Math.max(top + spacing.sm, h - bottom - LOCATE_SIZE - spacing.sm)),
+    };
+  };
+
+  useEffect(() => {
+    const home = clamp(width - spacing.lg - LOCATE_SIZE, insets.top + spacing.sm + 60 + spacing.sm);
+    let alive = true;
+    AsyncStorage.getItem(LOCATE_STORE)
+      .then((raw) => {
+        if (!alive) return;
+        if (!raw) {
+          spotRef.current = home;
+          setSpot(home);
+          return;
+        }
+        const saved = JSON.parse(raw) as { fx?: number; fy?: number };
+        const next = clamp((saved.fx ?? 0.85) * width, (saved.fy ?? 0.2) * height);
+        spotRef.current = next;
+        setSpot(next);
+      })
+      .catch(() => {
+        if (!alive) return;
+        spotRef.current = home;
+        setSpot(home);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [width, height, insets.top, insets.bottom]);
+
+  const drag = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.hypot(g.dx, g.dy) > 8,
+      onPanResponderGrant: () => {
+        moved.current = false;
+        origin.current = spotRef.current;
+      },
+      onPanResponderMove: (_, g) => {
+        if (Math.hypot(g.dx, g.dy) <= 8) return;
+        moved.current = true;
+        const next = clamp(origin.current.x + g.dx, origin.current.y + g.dy);
+        spotRef.current = next;
+        setSpot(next);
+      },
+      onPanResponderRelease: () => {
+        const { width: w, height: h } = frame.current;
+        if (w > 0 && h > 0) {
+          void AsyncStorage.setItem(LOCATE_STORE, JSON.stringify({ fx: spotRef.current.x / w, fy: spotRef.current.y / h }));
+        }
+      },
+    }),
+  ).current;
+
+  if (!spot) return null;
+
+  return (
+    <View
+      pointerEvents="box-none"
+      {...drag.panHandlers}
+      style={{ position: "absolute", left: spot.x, top: spot.y, zIndex: 30 }}
+    >
+      <IconButton
+        testID="discover-locate-button"
+        icon="crosshairs-gps"
+        tone="sheet"
+        onPress={() => {
+          if (moved.current) {
+            moved.current = false;
+            return;
+          }
+          onPress();
+        }}
+      />
+    </View>
+  );
+}
 
 export default function Discover() {
   const { colors } = useTheme();
@@ -149,29 +245,23 @@ export default function Discover() {
         onViewChange={onViewChange}
       />
       <View style={{ pointerEvents: "box-none", position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm }}>
-        <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-          <View style={{ flex: 1 }}>
-            <ChipRow testID="discover-cuisine-chips">
-              <Chip testID="price-chip" label={priceChipLabel} selected={priceActive} onPress={openPrice} />
-              {CUISINES.map((c) => (
-                <Chip
-                  key={c.key ?? c.label}
-                  testID={`cuisine-chip-${c.key ?? "all"}`}
-                  label={`${cuisinePinStyle(c.key).glyph} ${c.label}`}
-                  selected={cuisine === c.key}
-                  onPress={() => setCuisine((cur) => (cur === c.key ? null : c.key))}
-                />
-              ))}
-            </ChipRow>
-            <View style={{ alignSelf: "flex-start", marginLeft: spacing.lg, backgroundColor: colors.sheet, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
-              <Body testID="discover-pin-count" style={{ color: colors.onSheet }}>{error ? error : `${pins.length} w tym kadrze`}</Body>
-            </View>
-          </View>
-          <View style={{ paddingRight: spacing.lg, gap: spacing.sm }}>
-            <IconButton testID="discover-locate-button" icon="crosshairs-gps" tone="sheet" onPress={() => { setSelectedId(null); void locate(); }} />
-          </View>
+        <ChipRow testID="discover-cuisine-chips">
+          <Chip testID="price-chip" label={priceChipLabel} selected={priceActive} onPress={openPrice} />
+          {CUISINES.map((c) => (
+            <Chip
+              key={c.key ?? c.label}
+              testID={`cuisine-chip-${c.key ?? "all"}`}
+              label={`${cuisinePinStyle(c.key).glyph} ${c.label}`}
+              selected={cuisine === c.key}
+              onPress={() => setCuisine((cur) => (cur === c.key ? null : c.key))}
+            />
+          ))}
+        </ChipRow>
+        <View style={{ alignSelf: "flex-start", marginLeft: spacing.lg, backgroundColor: colors.sheet, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
+          <Body testID="discover-pin-count" style={{ color: colors.onSheet }}>{error ? error : `${pins.length} w tym kadrze`}</Body>
         </View>
       </View>
+      <DraggableLocate onPress={() => { setSelectedId(null); void locate(); }} />
       <View
         style={{
           pointerEvents: "box-none",
@@ -182,24 +272,26 @@ export default function Discover() {
           gap: spacing.md,
         }}
       >
-        <Button testID="discover-route-button" title="Gastro Trasa" onPress={() => router.push("/route")} />
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.md }}>
         {selected ? (
-          <View style={{ flex: 1 }}>
-            <DiscoverPlaceCard
-              pin={selected}
-              onFocus={() => {
-                view.current = { lat: selected.lat, lng: selected.lng, zoom: 16 };
-                setCenter(view.current);
-                setFollowToken(Date.now());
-              }}
-              onOpen={() => router.push(`/pin/${selected.id}`)}
-            />
-          </View>
-        ) : (
-          <View style={{ flex: 1 }} />
-        )}
-        <IconButton testID="discover-add-pin-button" icon="plus" tone="brand" onPress={() => router.push("/pin/new")} />
+          <DiscoverPlaceCard
+            pin={selected}
+            onClose={() => setSelectedId(null)}
+            onFocus={() => {
+              view.current = { lat: selected.lat, lng: selected.lng, zoom: 16 };
+              setCenter(view.current);
+              setFollowToken(Date.now());
+            }}
+            onOpen={() => router.push(`/pin/${selected.id}`)}
+          />
+        ) : null}
+        <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "flex-end", gap: spacing.md }}>
+          <Button
+            testID="discover-route-button"
+            title="Gastro Trasa"
+            onPress={() => router.push("/route")}
+            style={{ flexGrow: 0, flexShrink: 0, alignSelf: "flex-end", paddingHorizontal: spacing.md }}
+          />
+          <IconButton testID="discover-add-pin-button" icon="plus" tone="brand" onPress={() => router.push("/pin/new")} />
         </View>
       </View>
 
